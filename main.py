@@ -40,11 +40,20 @@ class SignalBridge(QObject):
 # ── Worker threads ─────────────────────────────────────────────────────────────
 
 def ai_worker(bus: EventBus, config: Config, bridge: SignalBridge, stop_event: threading.Event, tray: TrayIcon):
+    retry_after = 0.0  # seconds to wait before next request (rate-limit backoff)
     while not stop_event.is_set():
         try:
             image_bytes = bus.get_capture(timeout=1.0)
         except queue.Empty:
             continue
+        # honour rate-limit backoff
+        if retry_after > 0:
+            import time
+            print(f"[AI worker] rate limited, waiting {retry_after:.0f}s...")
+            stop_event.wait(timeout=retry_after)
+            retry_after = 0.0
+            if stop_event.is_set():
+                break
         try:
             tray.set_state(TrayIcon.STATE_BUSY)
             provider = get_provider(config.ai_provider, config.ai_config(config.ai_provider))
@@ -54,8 +63,14 @@ def ai_worker(bus: EventBus, config: Config, bridge: SignalBridge, stop_event: t
             bridge.advice_ready.emit(text)
             tray.set_state(TrayIcon.STATE_RUNNING)
         except Exception as e:
-            print(f"[AI worker error] {e}")
+            msg = str(e)
+            print(f"[AI worker error] {msg}")
             tray.set_state(TrayIcon.STATE_RUNNING)
+            # back off on 429 rate-limit errors
+            if "429" in msg or "RESOURCE_EXHAUSTED" in msg:
+                import re
+                match = re.search(r"retryDelay.*?(\d+)s", msg)
+                retry_after = int(match.group(1)) + 5 if match else 60
 
 
 def tts_worker(bus: EventBus, config: Config, stop_event: threading.Event):
