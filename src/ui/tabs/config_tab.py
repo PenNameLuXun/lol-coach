@@ -5,6 +5,14 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import pyqtSignal
 from src.config import Config
 
+PROMPT_PRESETS = {
+    "LOL 5V5 对战": "你是一个英雄联盟教练，根据当前游戏截图，用简短的中文（不超过50字）给出最重要的一条对局建议。",
+    "云顶之弈": "你是一个云顶之弈教练，根据当前游戏截图，用简短的中文（不超过50字）给出最重要的一条建议，例如该买什么英雄、阵容方向、经济决策等。",
+    "王者荣耀": "你是一个王者荣耀教练，根据当前游戏截图，用简短的中文（不超过50字）给出最重要的一条对局建议。",
+    "Dota2": "You are a Dota2 coach. Based on the current screenshot, give the single most important advice in concise Chinese (under 50 characters).",
+    "自定义": "",
+}
+
 
 class ConfigTab(QWidget):
     """Form for editing all config.yaml settings.
@@ -38,6 +46,11 @@ class ConfigTab(QWidget):
 
         self._model_edit = QLineEdit()
         ai_form.addRow("模型名称:", self._model_edit)
+
+        self._preset_combo = QComboBox()
+        self._preset_combo.addItems(list(PROMPT_PRESETS.keys()))
+        self._preset_combo.currentTextChanged.connect(self._apply_preset)
+        ai_form.addRow("游戏模式:", self._preset_combo)
 
         self._prompt_edit = QTextEdit()
         self._prompt_edit.setMaximumHeight(80)
@@ -106,12 +119,22 @@ class ConfigTab(QWidget):
         save_btn.clicked.connect(self._save)
         root.addWidget(save_btn)
 
+    def _apply_preset(self, name: str):
+        if name != "自定义" and PROMPT_PRESETS[name]:
+            self._prompt_edit.setPlainText(PROMPT_PRESETS[name])
+
     def _load_values(self):
         self._provider_combo.setCurrentText(self._cfg.ai_provider)
         provider = self._cfg.ai_provider
         self._api_key_edit.setText(self._cfg.ai_config(provider).get("api_key", ""))
         self._model_edit.setText(self._cfg.ai_config(provider).get("model", ""))
-        self._prompt_edit.setPlainText(self._cfg.system_prompt)
+        current_prompt = self._cfg.system_prompt
+        # match existing prompt to a preset, fallback to 自定义
+        matched = next((k for k, v in PROMPT_PRESETS.items() if v == current_prompt), "自定义")
+        self._preset_combo.blockSignals(True)
+        self._preset_combo.setCurrentText(matched)
+        self._preset_combo.blockSignals(False)
+        self._prompt_edit.setPlainText(current_prompt)
         self._tts_combo.setCurrentText(self._cfg.tts_backend)
         self._tts_rate_edit.setText(self._cfg.tts_config("edge").get("rate", "+0%"))
         self._interval_spin.setValue(self._cfg.capture_interval)
