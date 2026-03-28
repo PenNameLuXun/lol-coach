@@ -62,8 +62,11 @@ def ai_worker(bus: EventBus, config: Config, bridge: SignalBridge, stop_event: t
             provider = get_provider(config.ai_provider, config.ai_config(config.ai_provider))
             prompt = config.system_prompt
             game_data = lol.get_game_summary(detail=config.lol_client_detail)
-            if game_data is None and lol.last_seen_in_game:
-                print("[AI worker] game over, skipping analysis")
+            if game_data is None and config.lol_client_require_game:
+                if lol.last_seen_in_game:
+                    print("[AI worker] game over, skipping analysis")
+                else:
+                    print("[AI worker] not in game, skipping analysis")
                 tray.set_state(TrayIcon.STATE_RUNNING)
                 continue
             address = lol.get_player_address(config.lol_client_address_by)

@@ -117,3 +117,6 @@ lol_client:
   #   summoner  — use summoner name, e.g. "PlayerName"
   #   none      — no address
   address_by: champion
+  # Only send AI analysis when an active game is detected (default: true)
+  # Set to false to analyze screenshots even outside of a game
+  require_game: true
