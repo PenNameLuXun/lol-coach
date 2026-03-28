@@ -86,7 +86,7 @@ def tts_worker(bus: EventBus, config: Config, stop_event: threading.Event):
 
     while not stop_event.is_set():
         try:
-            text = bus.get_advice(timeout=1.0)
+            text = bus.get_latest_advice(timeout=1.0)
         except queue.Empty:
             continue
         try:

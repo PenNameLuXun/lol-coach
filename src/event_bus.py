@@ -42,6 +42,16 @@ class EventBus:
     def get_advice(self, timeout: float = 1.0) -> str:
         return self._advice_q.get(timeout=timeout)
 
+    def get_latest_advice(self, timeout: float = 1.0) -> str:
+        """Block until advice is available, then drain the queue and return only the latest item."""
+        text = self._advice_q.get(timeout=timeout)
+        try:
+            while True:
+                text = self._advice_q.get_nowait()
+        except queue.Empty:
+            pass
+        return text
+
     # ── listener pattern (for non-Qt consumers) ───────────────────────────────
 
     def add_advice_listener(self, callback: Callable[[str], None]):
