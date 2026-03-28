@@ -75,11 +75,13 @@ class Config:
 
     @property
     def capture_use_screenshot(self) -> bool:
-        """Per-provider setting, falls back to capture.use_screenshot, then True."""
+        """Global switch first: if capture.use_screenshot is false, always text-only.
+        Otherwise falls back to per-provider setting, then True."""
+        global_val = self._data.get("capture", {}).get("use_screenshot", True)
+        if not global_val:
+            return False  # global override: screenshots disabled for all providers
         provider_cfg = self._data.get("ai", {}).get(self.ai_provider, {})
-        if "use_screenshot" in provider_cfg:
-            return bool(provider_cfg["use_screenshot"])
-        return self._data.get("capture", {}).get("use_screenshot", True)
+        return bool(provider_cfg.get("use_screenshot", True))
 
     @property
     def capture_monitor(self) -> int:
