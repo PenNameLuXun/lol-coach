@@ -28,8 +28,9 @@ class WindowsTTS(BaseTTS):
 
 
 class EdgeTTS(BaseTTS):
-    def __init__(self, voice: str):
+    def __init__(self, voice: str, rate: str = "+0%"):
         self._voice = voice
+        self._rate = rate
 
     def speak(self, text: str):
         asyncio.run(self._async_speak(text))
@@ -39,7 +40,7 @@ class EdgeTTS(BaseTTS):
         import pygame
         with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as f:
             tmp_path = f.name
-        communicate = edge_tts.Communicate(text, self._voice)
+        communicate = edge_tts.Communicate(text, self._voice, rate=self._rate)
         await communicate.save(tmp_path)
         pygame.mixer.init()
         pygame.mixer.music.load(tmp_path)
@@ -75,7 +76,7 @@ def get_tts_engine(backend: str, cfg: dict) -> BaseTTS:
     if backend == "windows":
         return WindowsTTS(rate=cfg.get("rate", 180), volume=cfg.get("volume", 1.0))
     if backend == "edge":
-        return EdgeTTS(voice=cfg.get("voice", "zh-CN-XiaoxiaoNeural"))
+        return EdgeTTS(voice=cfg.get("voice", "zh-CN-XiaoxiaoNeural"), rate=cfg.get("rate", "+0%"))
     if backend == "openai":
         return OpenAITTS(api_key=cfg["api_key"], voice=cfg.get("voice", "alloy"), model=cfg.get("model", "tts-1"))
     raise ValueError(f"Unknown TTS backend: {backend}")

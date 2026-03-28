@@ -53,6 +53,10 @@ class ConfigTab(QWidget):
         self._tts_combo.addItems(["windows", "edge", "openai"])
         tts_form.addRow("TTS 后端:", self._tts_combo)
 
+        self._tts_rate_edit = QLineEdit()
+        self._tts_rate_edit.setPlaceholderText("+0%  (如 +30% 加速，-20% 减速，仅 edge 生效)")
+        tts_form.addRow("语速:", self._tts_rate_edit)
+
         root.addWidget(tts_box)
 
         # ── Capture ───────────────────────────────────────────────────────────
@@ -109,6 +113,7 @@ class ConfigTab(QWidget):
         self._model_edit.setText(self._cfg.ai_config(provider).get("model", ""))
         self._prompt_edit.setPlainText(self._cfg.system_prompt)
         self._tts_combo.setCurrentText(self._cfg.tts_backend)
+        self._tts_rate_edit.setText(self._cfg.tts_config("edge").get("rate", "+0%"))
         self._interval_spin.setValue(self._cfg.capture_interval)
         self._hotkey_edit.setText(self._cfg.capture_hotkey)
         self._region_combo.setCurrentText(self._cfg.capture_region)
@@ -131,6 +136,7 @@ class ConfigTab(QWidget):
         self._cfg.set(f"ai.{provider}.model", self._model_edit.text())
         self._cfg.set("ai.system_prompt", self._prompt_edit.toPlainText())
         self._cfg.set("tts.backend", self._tts_combo.currentText())
+        self._cfg.set("tts.edge.rate", self._tts_rate_edit.text())
         self._cfg.set("capture.interval", self._interval_spin.value())
         self._cfg.set("capture.hotkey", self._hotkey_edit.text())
         self._cfg.set("capture.region", self._region_combo.currentText())

@@ -66,6 +66,7 @@ tts:
 
   edge:
     voice: "zh-CN-XiaoxiaoNeural"
+    rate: "+30%"    # 语速：+50% 快很多，+0% 正常，-20% 慢一些
 
   openai:
     api_key: "your-openai-api-key-here"
