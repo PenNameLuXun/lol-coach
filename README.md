@@ -4,7 +4,7 @@
 
 ## 功能
 
-- **多 AI 提供商**：支持 Claude、OpenAI GPT-4o、Gemini，可随时切换
+- **多 AI 提供商**：支持 Claude、OpenAI GPT-4o、Gemini、DeepSeek、Qwen（通义千问）、Zhipu（智谱）、Ollama，可随时切换
 - **多 TTS 后端**：Windows 系统语音（免费）、Edge TTS 微软云端（免费，中文效果好）、OpenAI TTS（付费，质量最高）
 - **灵活触发**：定时自动截图 + 全局热键手动触发，均可配置
 - **游戏内悬浮窗**：半透明字幕叠加，自动淡出，可拖动位置
@@ -37,7 +37,7 @@ copy config.example.yaml config.yaml
 
 ```yaml
 ai:
-  provider: gemini        # 选择：claude | openai | gemini
+  provider: gemini        # 选择：claude | openai | gemini | deepseek | qwen | zhipu | ollama
 
   claude:
     api_key: "sk-ant-..."         # 使用 Claude 时填写
@@ -59,6 +59,10 @@ capture:
 | Claude | `Anthropic Console API key` |
 | OpenAI | `OpenAI Platform API key` |
 | Gemini | `Google AI Studio API key`（有免费额度） |
+| DeepSeek | `DeepSeek Platform API key` |
+| Qwen（通义千问） | `阿里云 DashScope API key` |
+| Zhipu（智谱） | `智谱开放平台 API key` |
+| Ollama | 本地运行，无需 Key，安装后直接使用 |
 
 > TTS 默认使用 `edge`（微软 Edge TTS），**无需任何 Key，开箱即用**。
 
@@ -93,7 +97,7 @@ lol-coach/
     ├── config.py            # 配置管理，支持热重载
     ├── event_bus.py         # 线程间通信队列
     ├── history.py           # SQLite 历史记录
-    ├── ai_provider.py       # AI 多提供商抽象（Claude/OpenAI/Gemini）
+    ├── ai_provider.py       # AI 多提供商抽象（Claude/OpenAI/Gemini/DeepSeek/Qwen/Zhipu/Ollama）
     ├── capturer.py          # 截图模块
     ├── tts_engine.py        # TTS 多后端抽象
     └── ui/

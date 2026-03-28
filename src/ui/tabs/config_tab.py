@@ -28,7 +28,7 @@ class ConfigTab(QWidget):
         ai_form = QFormLayout(ai_box)
 
         self._provider_combo = QComboBox()
-        self._provider_combo.addItems(["claude", "openai", "gemini"])
+        self._provider_combo.addItems(["claude", "openai", "gemini", "deepseek", "qwen", "zhipu", "ollama"])
         self._provider_combo.currentTextChanged.connect(self._update_api_key_label)
         ai_form.addRow("AI 提供商:", self._provider_combo)
 
