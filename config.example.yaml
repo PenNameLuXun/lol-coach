@@ -1,0 +1,67 @@
+# LOL Coach Configuration
+# Copy this file to config.yaml and fill in your API keys.
+
+ai:
+  # Active provider: claude | openai | gemini
+  provider: claude
+
+  system_prompt: "你是一个英雄联盟教练，根据当前游戏截图，用简短的中文（不超过50字）给出最重要的一条对局建议。"
+
+  claude:
+    api_key: "your-anthropic-api-key-here"
+    model: "claude-opus-4-6"
+    max_tokens: 200
+    temperature: 0.7
+
+  openai:
+    api_key: "your-openai-api-key-here"
+    model: "gpt-4o"
+    max_tokens: 200
+    temperature: 0.7
+
+  gemini:
+    api_key: "your-google-api-key-here"
+    model: "gemini-1.5-pro"
+    max_tokens: 200
+    temperature: 0.7
+
+tts:
+  # Active backend: windows | edge | openai
+  backend: edge
+
+  # Interrupt current speech when new advice arrives
+  interrupt: true
+
+  windows:
+    rate: 180       # Words per minute
+    volume: 1.0
+
+  edge:
+    voice: "zh-CN-XiaoxiaoNeural"
+
+  openai:
+    api_key: "your-openai-api-key-here"
+    voice: "alloy"
+    model: "tts-1"
+
+capture:
+  # Interval in seconds for automatic capture. 0 = disabled.
+  interval: 5
+  # Global hotkey for manual capture. Empty string = disabled.
+  hotkey: "ctrl+shift+a"
+  # Screenshot region: fullscreen | lol_window
+  region: "fullscreen"
+  # JPEG compression quality (1-95)
+  jpeg_quality: 85
+
+overlay:
+  enabled: true
+  x: 100
+  y: 100
+  # Seconds to display advice before fading. 0 = stay forever.
+  fade_after: 8
+  # Hotkey to toggle overlay visibility
+  toggle_hotkey: "ctrl+shift+h"
+
+app:
+  start_minimized: true
