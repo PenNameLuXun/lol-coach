@@ -9,8 +9,9 @@ from google.genai import types
 
 class BaseProvider(ABC):
     @abstractmethod
-    def analyze(self, image_bytes: bytes, prompt: str) -> str:
-        """Send image + prompt to AI; return advice string."""
+    def analyze(self, image_bytes: bytes | None, prompt: str) -> str:
+        """Send image + prompt to AI; return advice string.
+        Pass image_bytes=None to send text-only (no screenshot)."""
 
 
 class ClaudeProvider(BaseProvider):
@@ -20,19 +21,20 @@ class ClaudeProvider(BaseProvider):
         self._max_tokens = max_tokens
         self._temperature = temperature
 
-    def analyze(self, image_bytes: bytes, prompt: str) -> str:
-        b64 = base64.standard_b64encode(image_bytes).decode("utf-8")
+    def analyze(self, image_bytes: bytes | None, prompt: str) -> str:
+        if image_bytes is None:
+            content = [{"type": "text", "text": prompt}]
+        else:
+            b64 = base64.standard_b64encode(image_bytes).decode("utf-8")
+            content = [
+                {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": b64}},
+                {"type": "text", "text": prompt},
+            ]
         msg = self._client.messages.create(
             model=self._model,
             max_tokens=self._max_tokens,
             temperature=self._temperature,
-            messages=[{
-                "role": "user",
-                "content": [
-                    {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": b64}},
-                    {"type": "text", "text": prompt},
-                ],
-            }],
+            messages=[{"role": "user", "content": content}],
         )
         return msg.content[0].text
 
@@ -44,20 +46,21 @@ class OpenAIProvider(BaseProvider):
         self._max_tokens = max_tokens
         self._temperature = temperature
 
-    def analyze(self, image_bytes: bytes, prompt: str) -> str:
-        b64 = base64.standard_b64encode(image_bytes).decode("utf-8")
-        data_url = f"data:image/jpeg;base64,{b64}"
+    def analyze(self, image_bytes: bytes | None, prompt: str) -> str:
+        if image_bytes is None:
+            content = prompt
+        else:
+            b64 = base64.standard_b64encode(image_bytes).decode("utf-8")
+            data_url = f"data:image/jpeg;base64,{b64}"
+            content = [
+                {"type": "image_url", "image_url": {"url": data_url}},
+                {"type": "text", "text": prompt},
+            ]
         resp = self._client.chat.completions.create(
             model=self._model,
             max_tokens=self._max_tokens,
             temperature=self._temperature,
-            messages=[{
-                "role": "user",
-                "content": [
-                    {"type": "image_url", "image_url": {"url": data_url}},
-                    {"type": "text", "text": prompt},
-                ],
-            }],
+            messages=[{"role": "user", "content": content}],
         )
         return resp.choices[0].message.content
 
@@ -69,13 +72,14 @@ class GeminiProvider(BaseProvider):
         self._max_tokens = max_tokens
         self._temperature = temperature
 
-    def analyze(self, image_bytes: bytes, prompt: str) -> str:
+    def analyze(self, image_bytes: bytes | None, prompt: str) -> str:
+        contents = [prompt] if image_bytes is None else [
+            types.Part.from_bytes(data=image_bytes, mime_type="image/jpeg"),
+            prompt,
+        ]
         resp = self._client.models.generate_content(
             model=self._model,
-            contents=[
-                types.Part.from_bytes(data=image_bytes, mime_type="image/jpeg"),
-                prompt,
-            ],
+            contents=contents,
             config=types.GenerateContentConfig(
                 max_output_tokens=self._max_tokens,
                 temperature=self._temperature,
@@ -95,8 +99,8 @@ class OpenAICompatibleProvider(BaseProvider):
         self._temperature = temperature
         self._vision = vision
 
-    def analyze(self, image_bytes: bytes, prompt: str) -> str:
-        if self._vision:
+    def analyze(self, image_bytes: bytes | None, prompt: str) -> str:
+        if self._vision and image_bytes is not None:
             b64 = base64.standard_b64encode(image_bytes).decode("utf-8")
             data_url = f"data:image/jpeg;base64,{b64}"
             content = [

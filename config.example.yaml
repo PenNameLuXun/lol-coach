@@ -82,6 +82,8 @@ capture:
   region: "fullscreen"
   # JPEG compression quality (1-95)
   jpeg_quality: 85
+  # Send screenshot to AI (true) or use game API data only (false, saves bandwidth/tokens)
+  use_screenshot: true
   # Monitor index: 1 = primary, 2 = second monitor, 3 = third, ...
   monitor: 1
 
@@ -102,4 +104,4 @@ lol_client:
   #   minimal — time, champion, level, HP, gold
   #   normal  — + mana, items, recent events (default)
   #   full    — + KDA, CS, wards, summoner spells, keystone rune, all allies/enemies
-  detail: normal
+  detail: full

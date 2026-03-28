@@ -21,11 +21,18 @@ _BASE = "https://127.0.0.1:2999/liveclientdata"
 
 
 class LolClient:
+    def __init__(self):
+        self.last_seen_in_game = False  # True once a live game was detected
+
     def get_game_summary(self, detail: str = "normal") -> str | None:
-        """Return a compact Chinese game-state string, or None if not in game."""
+        """Return a compact Chinese game-state string, or None if not in game or game is over."""
         try:
             import requests
             data = requests.get(f"{_BASE}/allgamedata", verify=False, timeout=1).json()
+            events = data.get("events", {}).get("Events", [])
+            if any(e.get("EventName") == "GameEnd" for e in events):
+                return None  # game over, stop sending
+            self.last_seen_in_game = True
             if _is_tft(data):
                 return _format_tft(data, detail)
             return _format_lol(data, detail)

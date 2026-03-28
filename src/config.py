@@ -69,6 +69,10 @@ class Config:
         return self._data["capture"].get("jpeg_quality", 85)
 
     @property
+    def capture_use_screenshot(self) -> bool:
+        return self._data["capture"].get("use_screenshot", True)
+
+    @property
     def capture_monitor(self) -> int:
         return self._data["capture"].get("monitor", 1)
 

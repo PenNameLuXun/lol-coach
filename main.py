@@ -62,9 +62,14 @@ def ai_worker(bus: EventBus, config: Config, bridge: SignalBridge, stop_event: t
             provider = get_provider(config.ai_provider, config.ai_config(config.ai_provider))
             prompt = config.system_prompt
             game_data = lol.get_game_summary(detail=config.lol_client_detail)
+            if game_data is None and lol.last_seen_in_game:
+                print("[AI worker] game over, skipping analysis")
+                tray.set_state(TrayIcon.STATE_RUNNING)
+                continue
             if game_data:
                 prompt = f"{prompt}\n\n当前游戏数据：{game_data}"
-            text = provider.analyze(image_bytes, prompt)
+            img = image_bytes if config.capture_use_screenshot else None
+            text = provider.analyze(img, prompt)
             bus.put_advice(text)
             bus.emit_advice(text)
             bridge.advice_ready.emit(text)
