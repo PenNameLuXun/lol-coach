@@ -13,6 +13,8 @@ class OverlayWindow(QWidget):
         super().__init__()
         self._fade_after = fade_after
         self._drag_pos: QPoint | None = None
+        self._pos_x = 100
+        self._pos_y = 100
 
         self.setWindowFlags(
             Qt.WindowType.FramelessWindowHint
@@ -42,12 +44,15 @@ class OverlayWindow(QWidget):
     def show_advice(self, text: str):
         self._label.setText(text)
         self.adjustSize()
+        self.move(self._pos_x, self._pos_y)  # reapply after adjustSize
         self.show()
         self.raise_()
         if self._fade_after > 0:
             self._fade_timer.start(self._fade_after * 1000)
 
     def move_to(self, x: int, y: int):
+        self._pos_x = x
+        self._pos_y = y
         self.move(x, y)
 
     def mousePressEvent(self, event):
@@ -60,3 +65,6 @@ class OverlayWindow(QWidget):
 
     def mouseReleaseEvent(self, event):
         self._drag_pos = None
+        pos = self.pos()
+        self._pos_x = pos.x()
+        self._pos_y = pos.y()
