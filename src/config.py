@@ -70,7 +70,11 @@ class Config:
 
     @property
     def capture_use_screenshot(self) -> bool:
-        return self._data["capture"].get("use_screenshot", True)
+        """Per-provider setting, falls back to capture.use_screenshot, then True."""
+        provider_cfg = self._data.get("ai", {}).get(self.ai_provider, {})
+        if "use_screenshot" in provider_cfg:
+            return bool(provider_cfg["use_screenshot"])
+        return self._data.get("capture", {}).get("use_screenshot", True)
 
     @property
     def capture_monitor(self) -> int:
