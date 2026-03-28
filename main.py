@@ -71,6 +71,10 @@ def ai_worker(bus: EventBus, config: Config, bridge: SignalBridge, stop_event: t
                 import re
                 match = re.search(r"retryDelay.*?(\d+)s", msg)
                 retry_after = int(match.group(1)) + 5 if match else 60
+            # back off on connection errors (e.g. Ollama not running)
+            elif "Connection error" in msg or "connect" in msg.lower():
+                retry_after = 15
+                print("[AI worker] connection failed, retrying in 15s — is Ollama running? (`ollama serve`)")
 
 
 def tts_worker(bus: EventBus, config: Config, stop_event: threading.Event):
