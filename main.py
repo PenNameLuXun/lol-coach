@@ -12,6 +12,7 @@ Wires all components together:
 
 import queue
 import shutil
+import signal
 import sys
 import threading
 import os
@@ -168,6 +169,20 @@ def main():
     tray.toggle_requested.connect(toggle)
     tray.open_window_requested.connect(window.show)
     tray.quit_requested.connect(lambda: (pause_analysis(), config._stop_watcher(), app.quit()))
+
+    # ── Ctrl+C support ────────────────────────────────────────────────────────
+    # PyQt blocks Python signal handling; a periodic QTimer lets the interpreter
+    # check for SIGINT so Ctrl+C works from the terminal.
+    def _handle_sigint(*_):
+        print("\nCtrl+C received, exiting...")
+        pause_analysis()
+        config._stop_watcher()
+        app.quit()
+
+    signal.signal(signal.SIGINT, _handle_sigint)
+    _sigint_timer = QTimer()
+    _sigint_timer.start(500)
+    _sigint_timer.timeout.connect(lambda: None)  # wake Python every 500ms
 
     # Auto-start
     if not config.start_minimized:
