@@ -41,7 +41,7 @@ class SignalBridge(QObject):
 
 # ── Worker threads ─────────────────────────────────────────────────────────────
 
-def ai_worker(bus: EventBus, config: Config, bridge: SignalBridge, stop_event: threading.Event, tray: TrayIcon):
+def ai_worker(bus: EventBus, config: Config, bridge: SignalBridge, stop_event: threading.Event, tray: TrayIcon, debug: bool = False):
     import time
     lol = LolClient()
     latest_image: bytes | None = None
@@ -89,6 +89,15 @@ def ai_worker(bus: EventBus, config: Config, bridge: SignalBridge, stop_event: t
             if game_data:
                 prompt = f"{prompt}\n\n当前游戏数据：{game_data}"
             img = latest_image if config.capture_use_screenshot else None
+            if debug:
+                import datetime
+                ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+                os.makedirs("debug_captures", exist_ok=True)
+                with open(f"debug_captures/{ts}_prompt.txt", "w", encoding="utf-8") as _f:
+                    _f.write(f"[provider] {config.ai_provider}\n")
+                    _f.write(f"[model] {config.ai_config(config.ai_provider).get('model', '')}\n")
+                    _f.write(f"[screenshot] {'yes' if img else 'no'}\n\n")
+                    _f.write(prompt)
             text = provider.analyze(img, prompt)
             bus.put_advice(text)
             bus.emit_advice(text)
@@ -201,7 +210,7 @@ def main():
         running[0] = True
         stop_event.clear()
         capturer.start()
-        ai_thread = threading.Thread(target=ai_worker, args=(bus, config, bridge, stop_event, tray), daemon=True)
+        ai_thread = threading.Thread(target=ai_worker, args=(bus, config, bridge, stop_event, tray), kwargs={"debug": args.debug}, daemon=True)
         tts_thread = threading.Thread(target=tts_worker, args=(bus, config, stop_event), daemon=True)
         ai_thread.start()
         tts_thread.start()
