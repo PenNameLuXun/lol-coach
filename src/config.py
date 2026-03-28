@@ -1,5 +1,5 @@
+import os
 import threading
-import time
 import yaml
 from typing import Any, Callable
 
@@ -20,7 +20,6 @@ class Config:
         self._mtime = self._current_mtime()
 
     def _current_mtime(self) -> float:
-        import os
         try:
             return os.path.getmtime(self._path)
         except OSError:
