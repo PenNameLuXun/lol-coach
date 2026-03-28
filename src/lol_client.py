@@ -39,6 +39,27 @@ class LolClient:
         except Exception:
             return None
 
+    def get_player_address(self, address_by: str = "champion") -> str | None:
+        """Return the name to address the player by, or None if not in game."""
+        if address_by == "none":
+            return None
+        try:
+            import requests
+            data = requests.get(f"{_BASE}/allgamedata", verify=False, timeout=1).json()
+            active = data.get("activePlayer", {})
+            my_name = active.get("summonerName", "")
+            if address_by == "summoner":
+                return my_name or None
+            # champion (default)
+            for player in data.get("allPlayers", []):
+                if player.get("summonerName") == my_name:
+                    champ = player.get("championName", "")
+                    # strip TFT_ prefix
+                    return champ[4:] if champ.startswith("TFT_") else champ or None
+            return my_name or None
+        except Exception:
+            return None
+
 
 # ── Detection ─────────────────────────────────────────────────────────────────
 

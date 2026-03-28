@@ -89,6 +89,10 @@ class Config:
         return self._data.get("lol_client", {}).get("detail", "normal")
 
     @property
+    def lol_client_address_by(self) -> str:
+        return self._data.get("lol_client", {}).get("address_by", "champion")
+
+    @property
     def start_minimized(self) -> bool:
         return self._data.get("app", {}).get("start_minimized", True)
 

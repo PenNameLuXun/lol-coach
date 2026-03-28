@@ -66,6 +66,9 @@ def ai_worker(bus: EventBus, config: Config, bridge: SignalBridge, stop_event: t
                 print("[AI worker] game over, skipping analysis")
                 tray.set_state(TrayIcon.STATE_RUNNING)
                 continue
+            address = lol.get_player_address(config.lol_client_address_by)
+            if address:
+                prompt = f"{prompt}\n请用"{address}"称呼玩家。"
             if game_data:
                 prompt = f"{prompt}\n\n当前游戏数据：{game_data}"
             img = image_bytes if config.capture_use_screenshot else None

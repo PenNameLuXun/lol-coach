@@ -112,3 +112,8 @@ lol_client:
   #   normal  — + mana, items, recent events (default)
   #   full    — + KDA, CS, wards, summoner spells, keystone rune, all allies/enemies
   detail: full
+  # How to address the player in AI responses:
+  #   champion  — use champion name, e.g. "Jinx" (default)
+  #   summoner  — use summoner name, e.g. "PlayerName"
+  #   none      — no address
+  address_by: champion
