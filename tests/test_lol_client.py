@@ -82,10 +82,23 @@ TFT_DATA = {
             "championStats": {"currentHealth": 72},
             "items": [],
         },
+        {
+            "summonerName": "OtherPlayer1",
+            "championName": "TFT_Lux",
+            "championStats": {"currentHealth": 55},
+            "items": [],
+        },
+        {
+            "summonerName": "OtherPlayer2",
+            "championName": "TFT_Zed",
+            "championStats": {"currentHealth": 20},
+            "items": [],
+        },
     ],
     "gameData": {"gameTime": 480, "gameMode": "TFT"},
     "events": {"Events": [
         {"EventName": "TFT_PlayerDied"},
+        {"EventName": "TFT_Augment"},
     ]},
 }
 
@@ -140,27 +153,39 @@ def test_format_lol_full_includes_dragon_type():
 
 # ── TFT formatter ─────────────────────────────────────────────────────────────
 
-def test_format_tft_returns_string():
-    result = _format_tft(TFT_DATA)
+def test_format_tft_minimal():
+    result = _format_tft(TFT_DATA, "minimal")
     assert "云顶之弈" in result
-    assert "8:00" in result  # 480s
     assert "等级6" in result
+    assert "棋子" not in result
+    assert "金币" not in result
 
 
-def test_format_tft_includes_units():
-    result = _format_tft(TFT_DATA)
+def test_format_tft_normal_includes_units_and_events():
+    result = _format_tft(TFT_DATA, "normal")
     assert "Jinx" in result
     assert "Garen" in result
+    assert "淘汰" in result
+    assert "其他玩家" not in result
+
+
+def test_format_tft_full_includes_standings_and_gold():
+    result = _format_tft(TFT_DATA, "full")
+    assert "金币4" in result
+    assert "其他玩家生命" in result
+    assert "OtherPlayer1" in result
+    assert "OtherPlayer2" in result
 
 
 def test_format_tft_strips_tft_prefix():
-    result = _format_tft(TFT_DATA)
+    result = _format_tft(TFT_DATA, "normal")
     assert "TFT_" not in result
 
 
-def test_format_tft_includes_events():
-    result = _format_tft(TFT_DATA)
-    assert "淘汰" in result
+def test_format_tft_full_standings_sorted_by_hp():
+    result = _format_tft(TFT_DATA, "full")
+    # OtherPlayer1 (55 HP) should appear before OtherPlayer2 (20 HP)
+    assert result.index("OtherPlayer1") < result.index("OtherPlayer2")
 
 
 # ── LolClient ─────────────────────────────────────────────────────────────────

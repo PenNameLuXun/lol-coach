@@ -27,7 +27,7 @@ class LolClient:
             import requests
             data = requests.get(f"{_BASE}/allgamedata", verify=False, timeout=1).json()
             if _is_tft(data):
-                return _format_tft(data)
+                return _format_tft(data, detail)
             return _format_lol(data, detail)
         except Exception:
             return None
@@ -159,24 +159,42 @@ def _format_lol(data: dict, detail: str = "normal") -> str:
 
 # ── TFT formatter ─────────────────────────────────────────────────────────────
 
-def _format_tft(data: dict) -> str:
+def _format_tft(data: dict, detail: str = "normal") -> str:
     active = data.get("activePlayer", {})
     level = active.get("level", 1)
+    gold = int(active.get("currentGold", 0))
     game_time = int(data.get("gameData", {}).get("gameTime", 0))
     minutes, seconds = divmod(game_time, 60)
 
     my_name = active.get("summonerName", "")
+
+    # Collect all entries for my summoner (each unit on board is a separate entry)
+    my_entries = [p for p in data.get("allPlayers", []) if p.get("summonerName") == my_name]
     my_hp = None
     board_units: list[str] = []
-    for player in data.get("allPlayers", []):
-        if player.get("summonerName") == my_name:
-            hp = player.get("championStats", {}).get("currentHealth")
-            if hp is not None:
-                my_hp = int(hp)
-            champ = player.get("championName", "")
-            name = champ[4:] if champ.startswith("TFT_") else champ
-            if name:
-                board_units.append(name)
+    for entry in my_entries:
+        hp = entry.get("championStats", {}).get("currentHealth")
+        if hp is not None and my_hp is None:
+            my_hp = int(hp)
+        champ = entry.get("championName", "")
+        name = champ[4:] if champ.startswith("TFT_") else champ
+        if name:
+            board_units.append(name)
+
+    # ── minimal ──────────────────────────────────────────────────────────────
+    parts = [
+        "[云顶之弈]",
+        f"时间{minutes}:{seconds:02d}",
+        f"等级{level}",
+        f"生命{my_hp}" if my_hp is not None else "",
+    ]
+
+    if detail == "minimal":
+        return "，".join(p for p in parts if p)
+
+    # ── normal ────────────────────────────────────────────────────────────────
+    if board_units:
+        parts.append(f"棋子{'|'.join(board_units[:6])}")
 
     events = data.get("events", {}).get("Events", [])
     _tft_notable = {"TFT_PlayerDied", "TFT_ItemPickedUp", "TFT_Augment"}
@@ -187,14 +205,41 @@ def _format_tft(data: dict) -> str:
         _tft_labels.get(e["EventName"], e["EventName"])
         for e in events[-8:] if e.get("EventName") in _tft_notable
     ]
-
-    parts = [
-        "[云顶之弈]",
-        f"时间{minutes}:{seconds:02d}",
-        f"等级{level}",
-        f"生命{my_hp}" if my_hp is not None else "",
-        f"棋子{'|'.join(board_units[:6])}" if board_units else "",
-    ]
     if recent:
         parts.append(f"近期{'|'.join(recent[-3:])}")
+
+    if detail == "normal":
+        return "，".join(p for p in parts if p)
+
+    # ── full ──────────────────────────────────────────────────────────────────
+    parts.append(f"金币{gold}")
+
+    if len(board_units) > 6:
+        parts.append(f"全部棋子{'|'.join(board_units)}")
+
+    # Other players' HP (standings overview), deduplicate by summonerName
+    seen: set[str] = {my_name}
+    others: list[tuple[str, int]] = []  # (name, hp)
+    for p in data.get("allPlayers", []):
+        name = p.get("summonerName", "")
+        if name in seen:
+            continue
+        seen.add(name)
+        hp = p.get("championStats", {}).get("currentHealth")
+        if hp is not None:
+            others.append((name, int(hp)))
+    if others:
+        others.sort(key=lambda x: x[1], reverse=True)
+        standings = "  ".join(f"{n}:{h}" for n, h in others[:7])
+        parts.append(f"其他玩家生命：{standings}")
+
+    # All events
+    if len(recent) < len(events):
+        all_notable = [
+            _tft_labels.get(e["EventName"], e["EventName"])
+            for e in events if e.get("EventName") in _tft_notable
+        ]
+        if all_notable:
+            parts.append(f"全部事件{'|'.join(all_notable[-5:])}")
+
     return "，".join(p for p in parts if p)
