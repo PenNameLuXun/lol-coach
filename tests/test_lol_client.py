@@ -1,6 +1,8 @@
 from unittest.mock import patch, MagicMock
 from src.lol_client import LolClient, _format_lol, _format_tft, _is_tft
 
+# ── shared LOL test data ──────────────────────────────────────────────────────
+
 # ── LOL test data ─────────────────────────────────────────────────────────────
 
 LOL_DATA = {
@@ -14,19 +16,47 @@ LOL_DATA = {
             "resourceValue": 300,
             "resourceMax": 600,
         },
+        "fullRunes": {"keystone": {"displayName": "Conqueror"}},
     },
-    "allPlayers": [{
-        "summonerName": "TestPlayer",
-        "championName": "Jinx",
-        "team": "ORDER",
-        "items": [
-            {"displayName": "Kraken Slayer"},
-            {"displayName": "Runaan's Hurricane"},
-        ],
-    }],
+    "allPlayers": [
+        {
+            "summonerName": "TestPlayer",
+            "championName": "Jinx",
+            "team": "ORDER",
+            "items": [
+                {"displayName": "Kraken Slayer"},
+                {"displayName": "Runaan's Hurricane"},
+            ],
+            "scores": {"kills": 3, "deaths": 1, "assists": 5, "creepScore": 120, "wardScore": 22},
+            "summonerSpells": {
+                "summonerSpellOne": {"displayName": "Flash"},
+                "summonerSpellTwo": {"displayName": "Heal"},
+            },
+            "isDead": False,
+            "respawnTimer": 0.0,
+        },
+        {
+            "summonerName": "Ally1",
+            "championName": "Thresh",
+            "team": "ORDER",
+            "scores": {"kills": 1, "deaths": 2, "assists": 8, "creepScore": 20, "wardScore": 40},
+            "isDead": False,
+            "respawnTimer": 0.0,
+            "items": [],
+        },
+        {
+            "summonerName": "Enemy1",
+            "championName": "Zed",
+            "team": "CHAOS",
+            "scores": {"kills": 5, "deaths": 1, "assists": 2, "creepScore": 150, "wardScore": 15},
+            "isDead": True,
+            "respawnTimer": 12.0,
+            "items": [],
+        },
+    ],
     "gameData": {"gameTime": 725, "gameMode": "CLASSIC"},
     "events": {"Events": [
-        {"EventName": "DragonKill"},
+        {"EventName": "DragonKill", "DragonType": "Fire"},
         {"EventName": "ChampionKill"},
     ]},
 }
@@ -78,20 +108,34 @@ def test_is_tft_returns_false_for_lol():
 
 # ── LOL formatter ─────────────────────────────────────────────────────────────
 
-def test_format_lol_returns_string():
-    result = _format_lol(LOL_DATA)
+def test_format_lol_minimal():
+    result = _format_lol(LOL_DATA, "minimal")
     assert "Jinx" in result
-    assert "12" in result
-    assert "1350" in result
     assert "12:05" in result
+    assert "KDA" not in result
+    assert "装备" not in result
 
 
-def test_format_lol_includes_items():
-    assert "Kraken" in _format_lol(LOL_DATA)
+def test_format_lol_normal_includes_items_and_events():
+    result = _format_lol(LOL_DATA, "normal")
+    assert "Kraken" in result
+    assert "击杀" in result
+    assert "KDA" not in result
 
 
-def test_format_lol_includes_events():
-    assert "击杀" in _format_lol(LOL_DATA)
+def test_format_lol_full_includes_kda_and_teams():
+    result = _format_lol(LOL_DATA, "full")
+    assert "KDA3/1/5" in result
+    assert "补刀120" in result
+    assert "Thresh" in result   # ally
+    assert "Zed" in result      # enemy
+    assert "Conqueror" in result  # keystone
+    assert "Flash" in result
+
+
+def test_format_lol_full_includes_dragon_type():
+    result = _format_lol(LOL_DATA, "full")
+    assert "Fire" in result
 
 
 # ── TFT formatter ─────────────────────────────────────────────────────────────

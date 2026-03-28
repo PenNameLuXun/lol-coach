@@ -61,7 +61,7 @@ def ai_worker(bus: EventBus, config: Config, bridge: SignalBridge, stop_event: t
             tray.set_state(TrayIcon.STATE_BUSY)
             provider = get_provider(config.ai_provider, config.ai_config(config.ai_provider))
             prompt = config.system_prompt
-            game_data = lol.get_game_summary()
+            game_data = lol.get_game_summary(detail=config.lol_client_detail)
             if game_data:
                 prompt = f"{prompt}\n\n当前游戏数据：{game_data}"
             text = provider.analyze(image_bytes, prompt)

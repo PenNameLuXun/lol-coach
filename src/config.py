@@ -77,6 +77,10 @@ class Config:
         return self._data.get("overlay", {})
 
     @property
+    def lol_client_detail(self) -> str:
+        return self._data.get("lol_client", {}).get("detail", "normal")
+
+    @property
     def start_minimized(self) -> bool:
         return self._data.get("app", {}).get("start_minimized", True)
 
