@@ -34,6 +34,16 @@ class EventBus:
     def get_capture(self, timeout: float = 1.0) -> bytes:
         return self._capture_q.get(timeout=timeout)
 
+    def peek_latest_capture(self) -> bytes | None:
+        """Non-blocking: drain queue and return the latest frame, or None if empty."""
+        latest = None
+        try:
+            while True:
+                latest = self._capture_q.get_nowait()
+        except queue.Empty:
+            pass
+        return latest
+
     # ── advice queue ──────────────────────────────────────────────────────────
 
     def put_advice(self, text: str):

@@ -57,6 +57,11 @@ class Config:
         return self._data["capture"]["interval"]
 
     @property
+    def ai_interval(self) -> int:
+        """Seconds between AI analysis requests. Defaults to capture.interval."""
+        return self._data.get("ai", {}).get("interval", self.capture_interval)
+
+    @property
     def capture_hotkey(self) -> str:
         return self._data["capture"].get("hotkey", "")
 

@@ -4,6 +4,9 @@
 ai:
   # Active provider: claude | openai | gemini
   provider: claude
+  # Seconds between AI analysis requests. Defaults to capture.interval if not set.
+  # Set higher than capture.interval to refresh screenshots more often than AI calls.
+  interval: 30
 
   system_prompt: "你是一个英雄联盟教练，根据当前游戏截图，用简短的中文（不超过50字）给出最重要的一条对局建议。"
 

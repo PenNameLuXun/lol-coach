@@ -42,21 +42,35 @@ class SignalBridge(QObject):
 # ── Worker threads ─────────────────────────────────────────────────────────────
 
 def ai_worker(bus: EventBus, config: Config, bridge: SignalBridge, stop_event: threading.Event, tray: TrayIcon):
-    retry_after = 0.0  # seconds to wait before next request (rate-limit backoff)
+    import time
     lol = LolClient()
+    latest_image: bytes | None = None
+    retry_after = 0.0
+
     while not stop_event.is_set():
-        try:
-            image_bytes = bus.get_capture(timeout=1.0)
-        except queue.Empty:
-            continue
-        # honour rate-limit backoff
+        # Always drain capture queue to keep latest screenshot buffered
+        fresh = bus.peek_latest_capture()
+        if fresh is not None:
+            latest_image = fresh
+
+        # Honour backoff
         if retry_after > 0:
-            import time
-            print(f"[AI worker] rate limited, waiting {retry_after:.0f}s...")
+            print(f"[AI worker] waiting {retry_after:.0f}s...")
             stop_event.wait(timeout=retry_after)
             retry_after = 0.0
             if stop_event.is_set():
                 break
+
+        # Wait for next AI analysis slot
+        stop_event.wait(timeout=config.ai_interval)
+        if stop_event.is_set():
+            break
+
+        # Drain again after sleeping
+        fresh = bus.peek_latest_capture()
+        if fresh is not None:
+            latest_image = fresh
+
         try:
             tray.set_state(TrayIcon.STATE_BUSY)
             provider = get_provider(config.ai_provider, config.ai_config(config.ai_provider))
@@ -74,7 +88,7 @@ def ai_worker(bus: EventBus, config: Config, bridge: SignalBridge, stop_event: t
                 prompt = f'{prompt}\n请用"{address}"称呼玩家。'
             if game_data:
                 prompt = f"{prompt}\n\n当前游戏数据：{game_data}"
-            img = image_bytes if config.capture_use_screenshot else None
+            img = latest_image if config.capture_use_screenshot else None
             text = provider.analyze(img, prompt)
             bus.put_advice(text)
             bus.emit_advice(text)
@@ -84,12 +98,10 @@ def ai_worker(bus: EventBus, config: Config, bridge: SignalBridge, stop_event: t
             msg = str(e)
             print(f"[AI worker error] {msg}")
             tray.set_state(TrayIcon.STATE_RUNNING)
-            # back off on 429 rate-limit errors
             if "429" in msg or "RESOURCE_EXHAUSTED" in msg:
                 import re
                 match = re.search(r"retryDelay.*?(\d+)s", msg)
                 retry_after = int(match.group(1)) + 5 if match else 60
-            # back off on connection errors (e.g. Ollama not running)
             elif "Connection error" in msg or "connect" in msg.lower():
                 retry_after = 15
                 print("[AI worker] connection failed, retrying in 15s — is Ollama running? (`ollama serve`)")
