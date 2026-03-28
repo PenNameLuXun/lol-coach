@@ -109,11 +109,11 @@ class Capturer:
 
     @staticmethod
     def _find_lol_window() -> tuple[int, int, int, int] | None:
-        """Return (left, top, right, bottom) of the LOL window in physical screen pixels.
+        """Return (left, top, right, bottom) of the monitor containing the LOL window.
 
-        Uses DwmGetWindowAttribute(DWMWA_EXTENDED_FRAME_BOUNDS) which always returns
-        physical pixel coordinates regardless of the process DPI awareness mode.
-        Falls back to GetWindowRect + DPI scaling when DWM is unavailable.
+        Uses MonitorFromWindow + GetMonitorInfo which always returns coordinates in the
+        same logical space as mss, regardless of DPI scaling. For fullscreen games this
+        is equivalent to capturing the window itself.
         """
         try:
             import win32gui
@@ -140,19 +140,24 @@ class Capturer:
             if hwnd is None:
                 return None
 
-            # Primary method: DwmGetWindowAttribute returns physical pixels always
-            DWMWA_EXTENDED_FRAME_BOUNDS = 9
-            rect = ctypes.wintypes.RECT()
-            hr = ctypes.windll.dwmapi.DwmGetWindowAttribute(
-                hwnd, DWMWA_EXTENDED_FRAME_BOUNDS,
-                ctypes.byref(rect), ctypes.sizeof(rect),
-            )
-            if hr == 0:  # S_OK
-                return (rect.left, rect.top, rect.right, rect.bottom)
+            # Get the monitor that contains the LOL window.
+            # GetMonitorInfo returns logical coordinates matching mss's coordinate space.
+            MONITOR_DEFAULTTONEAREST = 2
 
-            # Fallback: GetWindowRect (logical pixels) — no DPI scaling applied here
-            # because mss on a DPI-unaware process also works in logical space
-            return win32gui.GetWindowRect(hwnd)
+            class MONITORINFO(ctypes.Structure):
+                _fields_ = [
+                    ("cbSize", ctypes.c_ulong),
+                    ("rcMonitor", ctypes.wintypes.RECT),
+                    ("rcWork", ctypes.wintypes.RECT),
+                    ("dwFlags", ctypes.c_ulong),
+                ]
+
+            hmonitor = ctypes.windll.user32.MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST)
+            info = MONITORINFO()
+            info.cbSize = ctypes.sizeof(MONITORINFO)
+            ctypes.windll.user32.GetMonitorInfoW(hmonitor, ctypes.byref(info))
+            r = info.rcMonitor
+            return (r.left, r.top, r.right, r.bottom)
 
         except Exception:
             return None
