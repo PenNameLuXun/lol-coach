@@ -88,26 +88,28 @@ class OpenAICompatibleProvider(BaseProvider):
     """Shared implementation for OpenAI-compatible APIs (DeepSeek, Qwen, Zhipu, Ollama)."""
 
     def __init__(self, api_key: str, model: str, max_tokens: int,
-                 temperature: float, base_url: str):
+                 temperature: float, base_url: str, vision: bool = True):
         self._client = openai.OpenAI(api_key=api_key, base_url=base_url)
         self._model = model
         self._max_tokens = max_tokens
         self._temperature = temperature
+        self._vision = vision
 
     def analyze(self, image_bytes: bytes, prompt: str) -> str:
-        b64 = base64.standard_b64encode(image_bytes).decode("utf-8")
-        data_url = f"data:image/jpeg;base64,{b64}"
+        if self._vision:
+            b64 = base64.standard_b64encode(image_bytes).decode("utf-8")
+            data_url = f"data:image/jpeg;base64,{b64}"
+            content = [
+                {"type": "image_url", "image_url": {"url": data_url}},
+                {"type": "text", "text": prompt},
+            ]
+        else:
+            content = prompt
         resp = self._client.chat.completions.create(
             model=self._model,
             max_tokens=self._max_tokens,
             temperature=self._temperature,
-            messages=[{
-                "role": "user",
-                "content": [
-                    {"type": "image_url", "image_url": {"url": data_url}},
-                    {"type": "text", "text": prompt},
-                ],
-            }],
+            messages=[{"role": "user", "content": content}],
         )
         return resp.choices[0].message.content
 
@@ -119,6 +121,9 @@ _COMPAT_BASE_URLS = {
     "zhipu":    "https://open.bigmodel.cn/api/paas/v4/",
     "ollama":   "http://localhost:11434/v1",
 }
+
+# Providers that do not support image input (text-only)
+_TEXT_ONLY = {"deepseek"}
 
 
 def get_provider(name: str, cfg: dict) -> BaseProvider:
@@ -142,5 +147,6 @@ def get_provider(name: str, cfg: dict) -> BaseProvider:
             max_tokens=cfg["max_tokens"],
             temperature=cfg["temperature"],
             base_url=base_url,
+            vision=name not in _TEXT_ONLY,
         )
     raise ValueError(f"Unknown provider: {name}")
