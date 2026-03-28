@@ -68,7 +68,7 @@ def ai_worker(bus: EventBus, config: Config, bridge: SignalBridge, stop_event: t
                 continue
             address = lol.get_player_address(config.lol_client_address_by)
             if address:
-                prompt = f"{prompt}\n请用"{address}"称呼玩家。"
+                prompt = f'{prompt}\n请用"{address}"称呼玩家。'
             if game_data:
                 prompt = f"{prompt}\n\n当前游戏数据：{game_data}"
             img = image_bytes if config.capture_use_screenshot else None
