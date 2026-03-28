@@ -1,11 +1,10 @@
 import base64
-import io
 from abc import ABC, abstractmethod
 
 import anthropic
 import openai
-import google.generativeai as genai
-from PIL import Image
+from google import genai
+from google.genai import types
 
 
 class BaseProvider(ABC):
@@ -65,16 +64,19 @@ class OpenAIProvider(BaseProvider):
 
 class GeminiProvider(BaseProvider):
     def __init__(self, api_key: str, model: str, max_tokens: int, temperature: float):
-        genai.configure(api_key=api_key)
-        self._model = genai.GenerativeModel(model)
+        self._client = genai.Client(api_key=api_key)
+        self._model = model
         self._max_tokens = max_tokens
         self._temperature = temperature
 
     def analyze(self, image_bytes: bytes, prompt: str) -> str:
-        img = Image.open(io.BytesIO(image_bytes))
-        resp = self._model.generate_content(
-            [prompt, img],
-            generation_config=genai.types.GenerationConfig(
+        resp = self._client.models.generate_content(
+            model=self._model,
+            contents=[
+                types.Part.from_bytes(data=image_bytes, mime_type="image/jpeg"),
+                prompt,
+            ],
+            config=types.GenerateContentConfig(
                 max_output_tokens=self._max_tokens,
                 temperature=self._temperature,
             ),

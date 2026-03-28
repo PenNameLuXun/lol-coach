@@ -50,14 +50,13 @@ def test_openai_analyze_returns_text():
 
 def test_gemini_analyze_returns_text():
     with patch("src.ai_provider.genai") as mock_genai:
-        with patch("src.ai_provider.Image") as mock_image:
-            mock_model = MagicMock()
-            mock_model.generate_content.return_value.text = "recall now"
-            mock_genai.GenerativeModel.return_value = mock_model
+        mock_client = MagicMock()
+        mock_genai.Client.return_value = mock_client
+        mock_client.models.generate_content.return_value.text = "recall now"
 
-            provider = GeminiProvider(api_key="k", model="gemini-1.5-pro", max_tokens=100, temperature=0.7)
-            result = provider.analyze(FAKE_IMAGE, PROMPT)
-            assert result == "recall now"
+        provider = GeminiProvider(api_key="k", model="gemini-2.0-flash", max_tokens=100, temperature=0.7)
+        result = provider.analyze(FAKE_IMAGE, PROMPT)
+        assert result == "recall now"
 
 
 # ── Factory ───────────────────────────────────────────────────────────────────
