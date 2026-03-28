@@ -10,6 +10,7 @@ Wires all components together:
 - UI → MainWindow (hidden), TrayIcon, OverlayWindow
 """
 
+import argparse
 import queue
 import shutil
 import signal
@@ -101,6 +102,10 @@ def tts_worker(bus: EventBus, config: Config, stop_event: threading.Event):
 # ── Main ───────────────────────────────────────────────────────────────────────
 
 def main():
+    parser = argparse.ArgumentParser(description="LOL Coach")
+    parser.add_argument("--debug", action="store_true", help="save each screenshot to debug_captures/")
+    args = parser.parse_args()
+
     # Bootstrap config
     if not os.path.exists("config.yaml"):
         shutil.copy("config.example.yaml", "config.yaml")
@@ -143,6 +148,7 @@ def main():
         hotkey=config.capture_hotkey,
         region=config.capture_region,
         jpeg_quality=config.capture_jpeg_quality,
+        debug=args.debug,
     )
 
     # Register overlay toggle hotkey
