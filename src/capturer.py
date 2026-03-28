@@ -41,6 +41,7 @@ class Capturer:
         self._monitor = monitor
         self._debug = debug
         self._stop_event = threading.Event()
+        self._active = True  # False = paused, no captures taken
         self._thread: threading.Thread | None = None
         self._hotkey_registered = False
         if debug:
@@ -63,8 +64,18 @@ class Capturer:
         if self._thread:
             self._thread.join(timeout=self._interval + 2)
 
+    def pause(self):
+        """Stop taking screenshots until resume() is called."""
+        self._active = False
+
+    def resume(self):
+        """Resume taking screenshots."""
+        self._active = True
+
     def capture_once(self):
         """Take one screenshot and put JPEG bytes into the queue."""
+        if not self._active:
+            return
         jpeg = self._take_screenshot()
         try:
             self._queue.put_nowait(jpeg)

@@ -41,7 +41,7 @@ class SignalBridge(QObject):
 
 # ── Worker threads ─────────────────────────────────────────────────────────────
 
-def ai_worker(bus: EventBus, config: Config, bridge: SignalBridge, stop_event: threading.Event, tray: TrayIcon, debug: bool = False):
+def ai_worker(bus: EventBus, config: Config, bridge: SignalBridge, stop_event: threading.Event, tray: TrayIcon, capturer, debug: bool = False):
     import time
     lol = LolClient()
     latest_image: bytes | None = None
@@ -81,8 +81,10 @@ def ai_worker(bus: EventBus, config: Config, bridge: SignalBridge, stop_event: t
                     print("[AI worker] game over, skipping analysis")
                 else:
                     print("[AI worker] not in game, skipping analysis")
+                capturer.pause()
                 tray.set_state(TrayIcon.STATE_RUNNING)
                 continue
+            capturer.resume()
             address = lol.get_player_address(config.lol_client_address_by)
             if address:
                 prompt = f'{prompt}\n请用"{address}"称呼玩家。'
@@ -228,7 +230,7 @@ def main():
         running[0] = True
         stop_event.clear()
         capturer.start()
-        ai_thread = threading.Thread(target=ai_worker, args=(bus, config, bridge, stop_event, tray), kwargs={"debug": args.debug}, daemon=True)
+        ai_thread = threading.Thread(target=ai_worker, args=(bus, config, bridge, stop_event, tray, capturer), kwargs={"debug": args.debug}, daemon=True)
         tts_thread = threading.Thread(target=tts_worker, args=(bus, config, stop_event), daemon=True)
         ai_thread.start()
         tts_thread.start()
