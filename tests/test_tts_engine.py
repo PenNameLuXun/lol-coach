@@ -24,17 +24,17 @@ def test_windows_tts_stop_called_on_interrupt():
 
 def test_edge_tts_speak_calls_asyncio_run():
     with patch("src.tts_engine.asyncio.run") as mock_run:
-        with patch("src.tts_engine.subprocess.run"):
-            tts = EdgeTTS(voice="zh-CN-XiaoxiaoNeural")
-            tts.speak("ward river")
-            assert mock_run.called
+        tts = EdgeTTS(voice="zh-CN-XiaoxiaoNeural")
+        tts.speak("ward river")
+        assert mock_run.called
 
 
 def test_openai_tts_streams_audio():
     with patch("src.tts_engine.openai.OpenAI") as MockClient:
         mock_response = MagicMock()
         MockClient.return_value.audio.speech.create.return_value = mock_response
-        with patch("src.tts_engine.subprocess.run"):
+        with patch("pygame.mixer") as mock_mixer:
+            mock_mixer.music.get_busy.return_value = False
             tts = OpenAITTS(api_key="k", voice="alloy", model="tts-1")
             tts.speak("recall now")
             MockClient.return_value.audio.speech.create.assert_called_once()

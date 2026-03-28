@@ -1,6 +1,4 @@
 import asyncio
-import io
-import subprocess
 import tempfile
 from abc import ABC, abstractmethod
 
@@ -38,12 +36,16 @@ class EdgeTTS(BaseTTS):
 
     async def _async_speak(self, text: str):
         import edge_tts
+        import pygame
         with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as f:
             tmp_path = f.name
         communicate = edge_tts.Communicate(text, self._voice)
         await communicate.save(tmp_path)
-        subprocess.run(["powershell", "-c", f'(New-Object Media.SoundPlayer "{tmp_path}").PlaySync()'],
-                       capture_output=True)
+        pygame.mixer.init()
+        pygame.mixer.music.load(tmp_path)
+        pygame.mixer.music.play()
+        while pygame.mixer.music.get_busy():
+            pygame.time.wait(100)
 
 
 class OpenAITTS(BaseTTS):
@@ -53,6 +55,7 @@ class OpenAITTS(BaseTTS):
         self._model = model
 
     def speak(self, text: str):
+        import pygame
         with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as f:
             tmp_path = f.name
         response = self._client.audio.speech.create(
@@ -61,8 +64,11 @@ class OpenAITTS(BaseTTS):
             input=text,
         )
         response.stream_to_file(tmp_path)
-        subprocess.run(["powershell", "-c", f'(New-Object Media.SoundPlayer "{tmp_path}").PlaySync()'],
-                       capture_output=True)
+        pygame.mixer.init()
+        pygame.mixer.music.load(tmp_path)
+        pygame.mixer.music.play()
+        while pygame.mixer.music.get_busy():
+            pygame.time.wait(100)
 
 
 def get_tts_engine(backend: str, cfg: dict) -> BaseTTS:
