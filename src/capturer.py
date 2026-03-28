@@ -86,6 +86,9 @@ class Capturer:
                 if rect:
                     region = {"left": rect[0], "top": rect[1],
                               "width": rect[2] - rect[0], "height": rect[3] - rect[1]}
+                    if self._debug:
+                        monitors_info = [(m["width"], m["height"]) for m in sct.monitors[1:]]
+                        print(f"[capturer] lol_window rect={rect} size={region['width']}x{region['height']} monitors={monitors_info}")
                 else:
                     print("[capturer] LOL window not found, falling back to monitor capture")
                     idx = min(self._monitor, len(sct.monitors) - 1)
@@ -94,6 +97,8 @@ class Capturer:
                 idx = min(self._monitor, len(sct.monitors) - 1)
                 region = sct.monitors[idx]
             shot = sct.grab(region)
+            if self._debug and self._region == "lol_window":
+                print(f"[capturer] captured image size={shot.size}")
             img = Image.frombytes("RGB", shot.size, shot.rgb)
             buf = io.BytesIO()
             img.save(buf, format="JPEG", quality=self._jpeg_quality)
@@ -104,10 +109,16 @@ class Capturer:
 
     @staticmethod
     def _find_lol_window() -> tuple[int, int, int, int] | None:
-        """Return (left, top, right, bottom) of the LOL window in physical pixels."""
+        """Return (left, top, right, bottom) of the LOL window in physical screen pixels.
+
+        Uses DwmGetWindowAttribute(DWMWA_EXTENDED_FRAME_BOUNDS) which always returns
+        physical pixel coordinates regardless of the process DPI awareness mode.
+        Falls back to GetWindowRect + DPI scaling when DWM is unavailable.
+        """
         try:
             import win32gui
             import ctypes
+            import ctypes.wintypes
 
             hwnd = None
             for title in ["League of Legends", "英雄联盟"]:
@@ -129,21 +140,20 @@ class Capturer:
             if hwnd is None:
                 return None
 
-            rect = win32gui.GetWindowRect(hwnd)  # logical pixels
+            # Primary method: DwmGetWindowAttribute returns physical pixels always
+            DWMWA_EXTENDED_FRAME_BOUNDS = 9
+            rect = ctypes.wintypes.RECT()
+            hr = ctypes.windll.dwmapi.DwmGetWindowAttribute(
+                hwnd, DWMWA_EXTENDED_FRAME_BOUNDS,
+                ctypes.byref(rect), ctypes.sizeof(rect),
+            )
+            if hr == 0:  # S_OK
+                return (rect.left, rect.top, rect.right, rect.bottom)
 
-            # Scale logical → physical pixels to handle DPI scaling (e.g. 4K 150%)
-            try:
-                dpi = ctypes.windll.user32.GetDpiForWindow(hwnd)
-                scale = dpi / 96.0
-                if scale != 1.0:
-                    rect = (
-                        int(rect[0] * scale), int(rect[1] * scale),
-                        int(rect[2] * scale), int(rect[3] * scale),
-                    )
-            except Exception:
-                pass
+            # Fallback: GetWindowRect (logical pixels) — no DPI scaling applied here
+            # because mss on a DPI-unaware process also works in logical space
+            return win32gui.GetWindowRect(hwnd)
 
-            return rect
         except Exception:
             return None
 
