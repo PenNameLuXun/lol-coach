@@ -200,10 +200,24 @@ def _format_lol(data: dict, detail: str = "normal") -> str:
 
 # ── TFT formatter ─────────────────────────────────────────────────────────────
 
+def _tft_unit_str(entry: dict, with_items: bool = False) -> str:
+    """Format a single TFT board unit, optionally with its items."""
+    champ = entry.get("championName", "")
+    name = champ[4:] if champ.startswith("TFT_") else champ
+    if not name:
+        return ""
+    if with_items:
+        item_names = [i["displayName"] for i in entry.get("items", []) if i.get("displayName")]
+        if item_names:
+            return f"{name}({'+'.join(item_names)})"
+    return name
+
+
 def _format_tft(data: dict, detail: str = "normal") -> str:
     active = data.get("activePlayer", {})
     level = active.get("level", 1)
     gold = int(active.get("currentGold", 0))
+    interest = min(gold // 10, 5)  # interest income: 1g per 10g, capped at 5
     game_time = int(data.get("gameData", {}).get("gameTime", 0))
     minutes, seconds = divmod(game_time, 60)
 
@@ -212,32 +226,53 @@ def _format_tft(data: dict, detail: str = "normal") -> str:
     # Collect all entries for my summoner (each unit on board is a separate entry)
     my_entries = [p for p in data.get("allPlayers", []) if p.get("summonerName") == my_name]
     my_hp = None
-    board_units: list[str] = []
     for entry in my_entries:
         hp = entry.get("championStats", {}).get("currentHealth")
         if hp is not None and my_hp is None:
             my_hp = int(hp)
-        champ = entry.get("championName", "")
-        name = champ[4:] if champ.startswith("TFT_") else champ
-        if name:
-            board_units.append(name)
+
+    events = data.get("events", {}).get("Events", [])
+
+    # Count alive players (those with hp > 0, deduplicated by summonerName)
+    seen_names: set[str] = set()
+    alive_count = 0
+    for p in data.get("allPlayers", []):
+        n = p.get("summonerName", "")
+        if n in seen_names:
+            continue
+        seen_names.add(n)
+        hp = p.get("championStats", {}).get("currentHealth", 0)
+        if (hp or 0) > 0:
+            alive_count += 1
 
     # ── minimal ──────────────────────────────────────────────────────────────
     parts = [
         "[云顶之弈]",
         f"时间{minutes}:{seconds:02d}",
         f"等级{level}",
+        f"金币{gold}(利息{interest})",
         f"生命{my_hp}" if my_hp is not None else "",
+        f"存活{alive_count}人" if alive_count else "",
     ]
 
     if detail == "minimal":
         return "，".join(p for p in parts if p)
 
     # ── normal ────────────────────────────────────────────────────────────────
-    if board_units:
-        parts.append(f"棋子{'|'.join(board_units[:6])}")
+    # Board units with items (up to 6)
+    board_strs = [_tft_unit_str(e, with_items=True) for e in my_entries]
+    board_strs = [s for s in board_strs if s]
+    if board_strs:
+        parts.append(f"棋子{'|'.join(board_strs[:6])}")
 
-    events = data.get("events", {}).get("Events", [])
+    # Augments chosen (extract augment name from events)
+    augments = [
+        e.get("Augment", e.get("augment", "强化"))
+        for e in events if e.get("EventName") == "TFT_Augment"
+    ]
+    if augments:
+        parts.append(f"已选强化{'|'.join(augments)}")
+
     _tft_notable = {"TFT_PlayerDied", "TFT_ItemPickedUp", "TFT_Augment"}
     _tft_labels = {
         "TFT_PlayerDied": "玩家淘汰", "TFT_ItemPickedUp": "拾取装备", "TFT_Augment": "选择强化",
@@ -253,14 +288,13 @@ def _format_tft(data: dict, detail: str = "normal") -> str:
         return "，".join(p for p in parts if p)
 
     # ── full ──────────────────────────────────────────────────────────────────
-    parts.append(f"金币{gold}")
+    # All board units with items if more than 6
+    if len(board_strs) > 6:
+        parts.append(f"全部棋子{'|'.join(board_strs)}")
 
-    if len(board_units) > 6:
-        parts.append(f"全部棋子{'|'.join(board_units)}")
-
-    # Other players' HP (standings overview), deduplicate by summonerName
+    # Other players' HP standings, deduplicated by summonerName
     seen: set[str] = {my_name}
-    others: list[tuple[str, int]] = []  # (name, hp)
+    others: list[tuple[str, int]] = []
     for p in data.get("allPlayers", []):
         name = p.get("summonerName", "")
         if name in seen:
@@ -274,13 +308,12 @@ def _format_tft(data: dict, detail: str = "normal") -> str:
         standings = "  ".join(f"{n}:{h}" for n, h in others[:7])
         parts.append(f"其他玩家生命：{standings}")
 
-    # All events
-    if len(recent) < len(events):
-        all_notable = [
-            _tft_labels.get(e["EventName"], e["EventName"])
-            for e in events if e.get("EventName") in _tft_notable
-        ]
-        if all_notable:
-            parts.append(f"全部事件{'|'.join(all_notable[-5:])}")
+    # All notable events
+    all_notable = [
+        _tft_labels.get(e["EventName"], e["EventName"])
+        for e in events if e.get("EventName") in _tft_notable
+    ]
+    if all_notable:
+        parts.append(f"全部事件{'|'.join(all_notable[-5:])}")
 
     return "，".join(p for p in parts if p)

@@ -158,7 +158,9 @@ def test_format_tft_minimal():
     assert "云顶之弈" in result
     assert "等级6" in result
     assert "棋子" not in result
-    assert "金币" not in result
+    assert "金币4" in result       # gold shown in all detail levels
+    assert "利息0" in result       # interest shown in all detail levels
+    assert "存活" in result        # alive player count
 
 
 def test_format_tft_normal_includes_units_and_events():
@@ -166,6 +168,7 @@ def test_format_tft_normal_includes_units_and_events():
     assert "Jinx" in result
     assert "Garen" in result
     assert "淘汰" in result
+    assert "已选强化" in result    # augment tracking
     assert "其他玩家" not in result
 
 
