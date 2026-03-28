@@ -81,10 +81,19 @@ class Capturer:
 
     def _take_screenshot(self) -> bytes:
         with mss.mss() as sct:
-            # monitors[0] = all combined, monitors[1] = primary, monitors[2] = second, ...
-            idx = min(self._monitor, len(sct.monitors) - 1)
-            monitor = sct.monitors[idx]
-            shot = sct.grab(monitor)
+            if self._region == "lol_window":
+                rect = self._find_lol_window()
+                if rect:
+                    region = {"left": rect[0], "top": rect[1],
+                              "width": rect[2] - rect[0], "height": rect[3] - rect[1]}
+                else:
+                    print("[capturer] LOL window not found, falling back to monitor capture")
+                    idx = min(self._monitor, len(sct.monitors) - 1)
+                    region = sct.monitors[idx]
+            else:
+                idx = min(self._monitor, len(sct.monitors) - 1)
+                region = sct.monitors[idx]
+            shot = sct.grab(region)
             img = Image.frombytes("RGB", shot.size, shot.rgb)
             buf = io.BytesIO()
             img.save(buf, format="JPEG", quality=self._jpeg_quality)
@@ -92,6 +101,28 @@ class Capturer:
         if self._debug:
             self._save_debug(jpeg)
         return jpeg
+
+    @staticmethod
+    def _find_lol_window() -> tuple[int, int, int, int] | None:
+        """Return (left, top, right, bottom) of the LOL window, or None if not found."""
+        try:
+            import win32gui
+            titles = ["League of Legends", "英雄联盟"]
+            for title in titles:
+                hwnd = win32gui.FindWindow(None, title)
+                if hwnd and win32gui.IsWindowVisible(hwnd):
+                    return win32gui.GetWindowRect(hwnd)
+            # partial match fallback
+            result = []
+            def _enum(hwnd, _):
+                if win32gui.IsWindowVisible(hwnd):
+                    t = win32gui.GetWindowText(hwnd).lower()
+                    if "league" in t or "英雄联盟" in t:
+                        result.append(win32gui.GetWindowRect(hwnd))
+            win32gui.EnumWindows(_enum, None)
+            return result[0] if result else None
+        except Exception:
+            return None
 
     def _save_debug(self, jpeg: bytes):
         ts = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:19]
