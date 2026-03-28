@@ -61,6 +61,11 @@ class LolClient:
             return None
 
 
+_POS_MAP = {
+    "TOP": "上路", "JUNGLE": "打野", "MIDDLE": "中路",
+    "BOTTOM": "下路", "UTILITY": "辅助",
+}
+
 # ── Detection ─────────────────────────────────────────────────────────────────
 
 def _is_tft(data: dict) -> bool:
@@ -89,11 +94,15 @@ def _format_lol(data: dict, detail: str = "normal") -> str:
     my_player = next((p for p in data.get("allPlayers", []) if p.get("summonerName") == my_name), {})
     my_champ = my_player.get("championName", "")
     my_team = my_player.get("team", "ORDER")
+    my_position = my_player.get("position", "")
 
     # ── minimal ──────────────────────────────────────────────────────────────
+    pos_label = _POS_MAP.get(my_position.upper(), "")
+
     parts = [
         f"时间{minutes}:{seconds:02d}",
         f"英雄{my_champ}" if my_champ else "",
+        f"分路{pos_label}" if pos_label else "",
         f"等级{level}",
         f"血{hp_pct}%",
         f"金币{gold}",
@@ -156,7 +165,9 @@ def _format_lol(data: dict, detail: str = "normal") -> str:
         ally_strs = []
         for p in allies:
             sc = p.get("scores", {})
-            s = f"{p.get('championName','?')} {sc.get('kills',0)}/{sc.get('deaths',0)}/{sc.get('assists',0)}"
+            pos = _POS_MAP.get(p.get("position", "").upper(), "")
+            s = f"{p.get('championName','?')}({pos})" if pos else f"{p.get('championName','?')}"
+            s += f" {sc.get('kills',0)}/{sc.get('deaths',0)}/{sc.get('assists',0)}"
             if p.get("isDead"):
                 s += f"(复活{p.get('respawnTimer',0):.0f}s)"
             ally_strs.append(s)
@@ -168,7 +179,9 @@ def _format_lol(data: dict, detail: str = "normal") -> str:
         enemy_strs = []
         for p in enemies:
             sc = p.get("scores", {})
-            s = f"{p.get('championName','?')} {sc.get('kills',0)}/{sc.get('deaths',0)}/{sc.get('assists',0)}"
+            pos = _POS_MAP.get(p.get("position", "").upper(), "")
+            s = f"{p.get('championName','?')}({pos})" if pos else f"{p.get('championName','?')}"
+            s += f" {sc.get('kills',0)}/{sc.get('deaths',0)}/{sc.get('assists',0)}"
             if p.get("isDead"):
                 s += f"(复活{p.get('respawnTimer',0):.0f}s)"
             enemy_strs.append(s)
