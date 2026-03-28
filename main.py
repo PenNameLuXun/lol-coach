@@ -27,6 +27,7 @@ from src.history import History
 from src.capturer import Capturer
 from src.ai_provider import get_provider
 from src.tts_engine import get_tts_engine
+from src.lol_client import LolClient
 from src.ui.main_window import MainWindow
 from src.ui.tray import TrayIcon
 from src.ui.overlay import OverlayWindow
@@ -42,6 +43,7 @@ class SignalBridge(QObject):
 
 def ai_worker(bus: EventBus, config: Config, bridge: SignalBridge, stop_event: threading.Event, tray: TrayIcon):
     retry_after = 0.0  # seconds to wait before next request (rate-limit backoff)
+    lol = LolClient()
     while not stop_event.is_set():
         try:
             image_bytes = bus.get_capture(timeout=1.0)
@@ -58,7 +60,11 @@ def ai_worker(bus: EventBus, config: Config, bridge: SignalBridge, stop_event: t
         try:
             tray.set_state(TrayIcon.STATE_BUSY)
             provider = get_provider(config.ai_provider, config.ai_config(config.ai_provider))
-            text = provider.analyze(image_bytes, config.system_prompt)
+            prompt = config.system_prompt
+            game_data = lol.get_game_summary()
+            if game_data:
+                prompt = f"{prompt}\n\n当前游戏数据：{game_data}"
+            text = provider.analyze(image_bytes, prompt)
             bus.put_advice(text)
             bus.emit_advice(text)
             bridge.advice_ready.emit(text)
