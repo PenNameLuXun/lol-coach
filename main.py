@@ -90,16 +90,17 @@ def ai_worker(bus: EventBus, config: Config, bridge: SignalBridge, stop_event: t
                 prompt = f"{prompt}\n\n当前游戏数据：{game_data}"
             img = latest_image if config.capture_use_screenshot else None
 
-            # Vision bridge: convert screenshot to text for text-only providers
+            # Vision bridge: uses raw screenshot regardless of main provider's use_screenshot.
+            # Converts image to text description, then main provider receives text only.
             vb = config.vision_bridge
-            if vb and img is not None:
+            if vb and latest_image is not None:
                 try:
                     vb_provider = get_provider(vb["provider"], config.ai_config(vb["provider"]))
                     vb_prompt = vb.get("prompt", "请简洁描述这张游戏截图中的关键战局信息。")
-                    description = vb_provider.analyze(img, vb_prompt)
+                    description = vb_provider.analyze(latest_image, vb_prompt)
                     prompt = f"{prompt}\n\n截图描述：{description}"
-                    img = None  # main provider receives text only
-                    print(f"[Vision bridge] {vb['provider']} → description ready")
+                    img = None  # main provider always receives text only when bridge is active
+                    print(f"[Vision bridge] {vb['provider']} → ok")
                 except Exception as e:
                     print(f"[Vision bridge error] {e}")
 
@@ -110,7 +111,10 @@ def ai_worker(bus: EventBus, config: Config, bridge: SignalBridge, stop_event: t
                 with open(f"debug_captures/{ts}_prompt.txt", "w", encoding="utf-8") as _f:
                     _f.write(f"[provider] {config.ai_provider}\n")
                     _f.write(f"[model] {config.ai_config(config.ai_provider).get('model', '')}\n")
-                    _f.write(f"[screenshot] {'yes' if img else 'no'}\n\n")
+                    _f.write(f"[screenshot] {'yes' if img else 'no'}\n")
+                    if vb:
+                        _f.write(f"[vision_bridge] {vb['provider']} → {'ok' if '截图描述：' in prompt else 'failed'}\n")
+                    _f.write("\n")
                     _f.write(prompt)
             text = provider.analyze(img, prompt)
             bus.put_advice(text)

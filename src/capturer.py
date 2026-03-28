@@ -104,23 +104,46 @@ class Capturer:
 
     @staticmethod
     def _find_lol_window() -> tuple[int, int, int, int] | None:
-        """Return (left, top, right, bottom) of the LOL window, or None if not found."""
+        """Return (left, top, right, bottom) of the LOL window in physical pixels."""
         try:
             import win32gui
-            titles = ["League of Legends", "英雄联盟"]
-            for title in titles:
-                hwnd = win32gui.FindWindow(None, title)
-                if hwnd and win32gui.IsWindowVisible(hwnd):
-                    return win32gui.GetWindowRect(hwnd)
-            # partial match fallback
-            result = []
-            def _enum(hwnd, _):
-                if win32gui.IsWindowVisible(hwnd):
-                    t = win32gui.GetWindowText(hwnd).lower()
-                    if "league" in t or "英雄联盟" in t:
-                        result.append(win32gui.GetWindowRect(hwnd))
-            win32gui.EnumWindows(_enum, None)
-            return result[0] if result else None
+            import ctypes
+
+            hwnd = None
+            for title in ["League of Legends", "英雄联盟"]:
+                h = win32gui.FindWindow(None, title)
+                if h and win32gui.IsWindowVisible(h):
+                    hwnd = h
+                    break
+
+            if hwnd is None:
+                found = []
+                def _enum(h, _):
+                    if win32gui.IsWindowVisible(h):
+                        t = win32gui.GetWindowText(h).lower()
+                        if "league" in t or "英雄联盟" in t:
+                            found.append(h)
+                win32gui.EnumWindows(_enum, None)
+                hwnd = found[0] if found else None
+
+            if hwnd is None:
+                return None
+
+            rect = win32gui.GetWindowRect(hwnd)  # logical pixels
+
+            # Scale logical → physical pixels to handle DPI scaling (e.g. 4K 150%)
+            try:
+                dpi = ctypes.windll.user32.GetDpiForWindow(hwnd)
+                scale = dpi / 96.0
+                if scale != 1.0:
+                    rect = (
+                        int(rect[0] * scale), int(rect[1] * scale),
+                        int(rect[2] * scale), int(rect[3] * scale),
+                    )
+            except Exception:
+                pass
+
+            return rect
         except Exception:
             return None
 
