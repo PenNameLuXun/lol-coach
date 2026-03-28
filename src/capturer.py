@@ -30,6 +30,7 @@ class Capturer:
         hotkey: str,
         region: str,
         jpeg_quality: int,
+        monitor: int = 1,
         debug: bool = False,
     ):
         self._queue = capture_queue
@@ -37,6 +38,7 @@ class Capturer:
         self._hotkey = hotkey
         self._region = region
         self._jpeg_quality = jpeg_quality
+        self._monitor = monitor
         self._debug = debug
         self._stop_event = threading.Event()
         self._thread: threading.Thread | None = None
@@ -79,7 +81,9 @@ class Capturer:
 
     def _take_screenshot(self) -> bytes:
         with mss.mss() as sct:
-            monitor = sct.monitors[0]  # full screen (index 0 = all monitors combined)
+            # monitors[0] = all combined, monitors[1] = primary, monitors[2] = second, ...
+            idx = min(self._monitor, len(sct.monitors) - 1)
+            monitor = sct.monitors[idx]
             shot = sct.grab(monitor)
             img = Image.frombytes("RGB", shot.size, shot.rgb)
             buf = io.BytesIO()

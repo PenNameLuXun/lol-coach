@@ -81,6 +81,8 @@ capture:
   region: "fullscreen"
   # JPEG compression quality (1-95)
   jpeg_quality: 85
+  # Monitor index: 1 = primary, 2 = second monitor, 3 = third, ...
+  monitor: 1
 
 overlay:
   enabled: true

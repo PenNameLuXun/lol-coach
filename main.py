@@ -148,6 +148,7 @@ def main():
         hotkey=config.capture_hotkey,
         region=config.capture_region,
         jpeg_quality=config.capture_jpeg_quality,
+        monitor=config.capture_monitor,
         debug=args.debug,
     )
 

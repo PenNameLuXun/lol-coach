@@ -72,6 +72,11 @@ class ConfigTab(QWidget):
         self._region_combo.addItems(["fullscreen", "lol_window"])
         cap_form.addRow("截图区域:", self._region_combo)
 
+        self._monitor_spin = QSpinBox()
+        self._monitor_spin.setRange(1, 8)
+        self._monitor_spin.setToolTip("1 = 主屏，2 = 第二块屏幕，以此类推")
+        cap_form.addRow("截图屏幕:", self._monitor_spin)
+
         self._quality_spin = QSpinBox()
         self._quality_spin.setRange(10, 95)
         cap_form.addRow("JPEG 质量:", self._quality_spin)
@@ -107,6 +112,7 @@ class ConfigTab(QWidget):
         self._interval_spin.setValue(self._cfg.capture_interval)
         self._hotkey_edit.setText(self._cfg.capture_hotkey)
         self._region_combo.setCurrentText(self._cfg.capture_region)
+        self._monitor_spin.setValue(self._cfg.capture_monitor)
         self._quality_spin.setValue(self._cfg.capture_jpeg_quality)
         self._fade_spin.setValue(self._cfg.overlay.get("fade_after", 8))
         self._overlay_hotkey_edit.setText(self._cfg.overlay.get("toggle_hotkey", ""))
@@ -128,6 +134,7 @@ class ConfigTab(QWidget):
         self._cfg.set("capture.interval", self._interval_spin.value())
         self._cfg.set("capture.hotkey", self._hotkey_edit.text())
         self._cfg.set("capture.region", self._region_combo.currentText())
+        self._cfg.set("capture.monitor", self._monitor_spin.value())
         self._cfg.set("capture.jpeg_quality", self._quality_spin.value())
         self._cfg.set("overlay.fade_after", self._fade_spin.value())
         self._cfg.set("overlay.toggle_hotkey", self._overlay_hotkey_edit.text())
