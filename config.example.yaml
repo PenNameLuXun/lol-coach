@@ -63,6 +63,14 @@ ai:
     use_screenshot: true
     # base_url: "http://localhost:11434/v1"  # optional override
 
+  # Vision bridge: use a vision model to describe the screenshot,
+  # then pass the description as text to the main provider.
+  # Useful for text-only models like DeepSeek that don't support images.
+  vision_bridge:
+    enabled: false
+    provider: ollama   # which provider to call for image→text (must support vision)
+    prompt: "请简洁描述这张英雄联盟游戏截图中的关键战局信息，包括小地图态势、英雄血量、技能CD等。"
+
 tts:
   # Active backend: windows | edge | openai
   backend: edge

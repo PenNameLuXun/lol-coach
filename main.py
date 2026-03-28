@@ -89,6 +89,20 @@ def ai_worker(bus: EventBus, config: Config, bridge: SignalBridge, stop_event: t
             if game_data:
                 prompt = f"{prompt}\n\n当前游戏数据：{game_data}"
             img = latest_image if config.capture_use_screenshot else None
+
+            # Vision bridge: convert screenshot to text for text-only providers
+            vb = config.vision_bridge
+            if vb and img is not None:
+                try:
+                    vb_provider = get_provider(vb["provider"], config.ai_config(vb["provider"]))
+                    vb_prompt = vb.get("prompt", "请简洁描述这张游戏截图中的关键战局信息。")
+                    description = vb_provider.analyze(img, vb_prompt)
+                    prompt = f"{prompt}\n\n截图描述：{description}"
+                    img = None  # main provider receives text only
+                    print(f"[Vision bridge] {vb['provider']} → description ready")
+                except Exception as e:
+                    print(f"[Vision bridge error] {e}")
+
             if debug:
                 import datetime
                 ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")

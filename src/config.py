@@ -107,6 +107,14 @@ class Config:
     def start_minimized(self) -> bool:
         return self._data.get("app", {}).get("start_minimized", True)
 
+    @property
+    def vision_bridge(self) -> dict | None:
+        """Return vision_bridge config dict if enabled, else None."""
+        cfg = self._data.get("ai", {}).get("vision_bridge", {})
+        if not cfg.get("enabled", False):
+            return None
+        return cfg
+
     def get(self, key: str, default: Any = None) -> Any:
         """Dot-notation access e.g. 'capture.interval'"""
         parts = key.split(".")
