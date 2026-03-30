@@ -1,5 +1,13 @@
 from unittest.mock import patch, MagicMock
-from src.lol_client import LolClient, _format_lol, _format_tft, _is_tft
+from src.lol_client import (
+    LolClient,
+    _format_lol,
+    _format_tft,
+    _is_tft,
+    extract_key_metrics,
+    get_player_address_from_data,
+    summarize_game_data,
+)
 
 # ── shared LOL test data ──────────────────────────────────────────────────────
 
@@ -215,3 +223,20 @@ def test_get_game_summary_auto_detects_tft():
         result = LolClient().get_game_summary()
         assert result is not None
         assert "云顶之弈" in result
+
+
+def test_extract_key_metrics_returns_normalized_fields():
+    metrics = extract_key_metrics(LOL_DATA)
+    assert metrics["game_time"] == "12:05"
+    assert metrics["gold"] == 1350
+    assert metrics["hp_pct"] == 66
+    assert metrics["kda"] == "3/1/5"
+
+
+def test_get_player_address_from_data_uses_champion_name():
+    assert get_player_address_from_data(LOL_DATA, "champion") == "Jinx"
+
+
+def test_summarize_game_data_uses_formatter():
+    result = summarize_game_data(LOL_DATA, "minimal")
+    assert "时间12:05" in result

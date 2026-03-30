@@ -7,6 +7,8 @@ ai:
   # Seconds between AI analysis requests. Defaults to capture.interval if not set.
   # Set higher than capture.interval to refresh screenshots more often than AI calls.
   interval: 3
+  # Number of recent decision snapshots kept in memory for trend-aware coaching.
+  decision_memory_size: 5
 
   system_prompt: "你是一个英雄联盟教练，根据当前游戏截图，用简短的中文（不超过50字）给出最重要的一条对局建议。"
 
@@ -65,11 +67,12 @@ ai:
 
   # Vision bridge: use a vision model to describe the screenshot,
   # then pass the description as text to the main provider.
-  # Useful for text-only models like DeepSeek that don't support images.
+  # This project now defaults to a bridge-first pipeline for higher-confidence decisions.
   vision_bridge:
-    enabled: false
+    enabled: true
     provider: ollama   # which provider to call for image→text (must support vision)
-    prompt: "请简洁描述这张英雄联盟游戏截图中的关键战局信息，包括小地图态势、英雄血量、技能CD等。"
+    # Leave prompt empty to use the built-in structured bridge prompt.
+    prompt: ""
 
 tts:
   # Active backend: windows | edge | openai

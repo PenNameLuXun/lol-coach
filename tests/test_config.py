@@ -9,9 +9,11 @@ MINIMAL_CONFIG = {
     "ai": {
         "provider": "claude",
         "system_prompt": "test prompt",
+        "decision_memory_size": 4,
         "claude": {"api_key": "k1", "model": "claude-opus-4-6", "max_tokens": 200, "temperature": 0.7},
         "openai": {"api_key": "k2", "model": "gpt-4o", "max_tokens": 200, "temperature": 0.7},
         "gemini": {"api_key": "k3", "model": "gemini-1.5-pro", "max_tokens": 200, "temperature": 0.7},
+        "vision_bridge": {"provider": "openai"},
     },
     "tts": {
         "backend": "windows",
@@ -87,3 +89,13 @@ def test_get_nested_key(config_file):
 def test_system_prompt(config_file):
     cfg = Config(config_file)
     assert cfg.system_prompt == "test prompt"
+
+
+def test_decision_memory_size(config_file):
+    cfg = Config(config_file)
+    assert cfg.decision_memory_size == 4
+
+
+def test_vision_bridge_defaults_enabled_when_present(config_file):
+    cfg = Config(config_file)
+    assert cfg.vision_bridge == {"provider": "openai"}

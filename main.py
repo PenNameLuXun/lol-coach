@@ -11,6 +11,7 @@ Wires all components together:
 """
 
 import argparse
+import datetime
 import queue
 import shutil
 import signal
@@ -22,12 +23,19 @@ from PyQt6.QtWidgets import QApplication
 from PyQt6.QtCore import QObject, pyqtSignal, QTimer
 
 from src.config import Config
+from src.decision_context import (
+    AnalysisSnapshot,
+    ContextWindow,
+    build_bridge_prompt,
+    build_decision_prompt,
+    parse_bridge_output,
+)
 from src.event_bus import EventBus
 from src.history import History
 from src.capturer import Capturer
 from src.ai_provider import get_provider
 from src.tts_engine import get_tts_engine
-from src.lol_client import LolClient
+from src.lol_client import LolClient, extract_key_metrics, get_player_address_from_data, summarize_game_data
 from src.ui.main_window import MainWindow
 from src.ui.tray import TrayIcon
 from src.ui.overlay import OverlayWindow
@@ -42,10 +50,10 @@ class SignalBridge(QObject):
 # ── Worker threads ─────────────────────────────────────────────────────────────
 
 def ai_worker(bus: EventBus, config: Config, bridge: SignalBridge, stop_event: threading.Event, tray: TrayIcon, capturer, debug: bool = False):
-    import time
     lol = LolClient()
     latest_image: bytes | None = None
     retry_after = 0.0
+    context_window = ContextWindow(limit=config.decision_memory_size)
 
     while not stop_event.is_set():
         # Always drain capture queue to keep latest screenshot buffered
@@ -74,9 +82,8 @@ def ai_worker(bus: EventBus, config: Config, bridge: SignalBridge, stop_event: t
         try:
             tray.set_state(TrayIcon.STATE_BUSY)
             provider = get_provider(config.ai_provider, config.ai_config(config.ai_provider))
-            prompt = config.system_prompt
-            game_data = lol.get_game_summary(detail=config.lol_client_detail)
-            if game_data is None and config.lol_client_require_game:
+            live_data = lol.get_live_data()
+            if live_data is None and config.lol_client_require_game:
                 if lol.last_seen_in_game:
                     print("[AI worker] game over, skipping analysis")
                 else:
@@ -85,12 +92,19 @@ def ai_worker(bus: EventBus, config: Config, bridge: SignalBridge, stop_event: t
                 tray.set_state(TrayIcon.STATE_RUNNING)
                 continue
             capturer.resume()
-            address = lol.get_player_address(config.lol_client_address_by)
-            if address:
-                prompt = f'{prompt}\n请用"{address}"称呼玩家。'
-            if game_data:
-                prompt = f"{prompt}\n\n当前游戏数据：{game_data}"
+            game_data = summarize_game_data(live_data, detail=config.lol_client_detail) if live_data else ""
+            metrics = extract_key_metrics(live_data) if live_data else {
+                "game_time": "?",
+                "gold": "?",
+                "hp_pct": "?",
+                "mana_pct": "?",
+                "level": "?",
+                "kda": "?",
+                "cs": "?",
+            }
+            address = get_player_address_from_data(live_data, config.lol_client_address_by) if live_data else None
             img = latest_image if config.capture_use_screenshot else None
+            bridge_facts: dict[str, str] | None = None
 
             # Vision bridge: uses raw screenshot regardless of main provider's use_screenshot.
             # Converts image to text description, then main provider receives text only.
@@ -98,13 +112,22 @@ def ai_worker(bus: EventBus, config: Config, bridge: SignalBridge, stop_event: t
             if vb and latest_image is not None:
                 try:
                     vb_provider = get_provider(vb["provider"], config.ai_config(vb["provider"]))
-                    vb_prompt = vb.get("prompt", "请简洁描述这张游戏截图中的关键战局信息。")
+                    vb_prompt = vb.get("prompt") or build_bridge_prompt(game_data, metrics)
                     description = vb_provider.analyze(latest_image, vb_prompt)
-                    prompt = f"{prompt}\n\n截图描述：{description}"
+                    bridge_facts = parse_bridge_output(description)
                     img = None  # main provider always receives text only when bridge is active
                     print(f"[Vision bridge] {vb['provider']} → ok")
                 except Exception as e:
                     print(f"[Vision bridge error] {e}")
+
+            prompt = build_decision_prompt(
+                system_prompt=config.system_prompt,
+                game_summary=game_data,
+                address=address,
+                metrics=metrics,
+                bridge_facts=bridge_facts,
+                historical_context=context_window.render_for_prompt(),
+            )
 
             if debug:
                 import datetime
@@ -115,13 +138,23 @@ def ai_worker(bus: EventBus, config: Config, bridge: SignalBridge, stop_event: t
                     _f.write(f"[model] {config.ai_config(config.ai_provider).get('model', '')}\n")
                     _f.write(f"[screenshot] {'yes' if img else 'no'}\n")
                     if vb:
-                        _f.write(f"[vision_bridge] {vb['provider']} → {'ok' if '截图描述：' in prompt else 'failed'}\n")
+                        _f.write(f"[vision_bridge] {vb['provider']} → {bridge_facts.get('confidence', 'failed') if bridge_facts else 'failed'}\n")
                     _f.write("\n")
                     _f.write(prompt)
             text = provider.analyze(img, prompt)
             bus.put_advice(text)
             bus.emit_advice(text)
             bridge.advice_ready.emit(text)
+            context_window.add(
+                AnalysisSnapshot(
+                    timestamp=datetime.datetime.now(),
+                    game_summary=game_data,
+                    address=address,
+                    metrics=metrics,
+                    bridge_facts=bridge_facts or {},
+                    advice=text,
+                )
+            )
             tray.set_state(TrayIcon.STATE_RUNNING)
         except Exception as e:
             msg = str(e)

@@ -24,41 +24,84 @@ class LolClient:
     def __init__(self):
         self.last_seen_in_game = False  # True once a live game was detected
 
-    def get_game_summary(self, detail: str = "normal") -> str | None:
-        """Return a compact Chinese game-state string, or None if not in game or game is over."""
+    def get_live_data(self) -> dict | None:
+        """Return raw live client payload, or None if not in game / game over."""
         try:
             import requests
             data = requests.get(f"{_BASE}/allgamedata", verify=False, timeout=1).json()
             events = data.get("events", {}).get("Events", [])
             if any(e.get("EventName") == "GameEnd" for e in events):
-                return None  # game over, stop sending
+                return None
             self.last_seen_in_game = True
-            if _is_tft(data):
-                return _format_tft(data, detail)
-            return _format_lol(data, detail)
+            return data
         except Exception:
             return None
 
+    def get_game_summary(self, detail: str = "normal") -> str | None:
+        """Return a compact Chinese game-state string, or None if not in game or game is over."""
+        data = self.get_live_data()
+        if data is None:
+            return None
+        return summarize_game_data(data, detail)
+
     def get_player_address(self, address_by: str = "champion") -> str | None:
         """Return the name to address the player by, or None if not in game."""
-        if address_by == "none":
+        data = self.get_live_data()
+        if data is None:
             return None
-        try:
-            import requests
-            data = requests.get(f"{_BASE}/allgamedata", verify=False, timeout=1).json()
-            active = data.get("activePlayer", {})
-            my_name = active.get("summonerName", "")
-            if address_by == "summoner":
-                return my_name or None
-            # champion (default)
-            for player in data.get("allPlayers", []):
-                if player.get("summonerName") == my_name:
-                    champ = player.get("championName", "")
-                    # strip TFT_ prefix
-                    return champ[4:] if champ.startswith("TFT_") else champ or None
-            return my_name or None
-        except Exception:
-            return None
+        return get_player_address_from_data(data, address_by)
+
+
+def summarize_game_data(data: dict, detail: str = "normal") -> str:
+    if _is_tft(data):
+        return _format_tft(data, detail)
+    return _format_lol(data, detail)
+
+
+def get_player_address_from_data(data: dict, address_by: str = "champion") -> str | None:
+    """Return the name to address the player by, or None if not in game."""
+    if address_by == "none":
+        return None
+    active = data.get("activePlayer", {})
+    my_name = active.get("summonerName", "")
+    if address_by == "summoner":
+        return my_name or None
+    for player in data.get("allPlayers", []):
+        if player.get("summonerName") == my_name:
+            champ = player.get("championName", "")
+            return champ[4:] if champ.startswith("TFT_") else champ or None
+    return my_name or None
+
+
+def extract_key_metrics(data: dict) -> dict[str, int | str]:
+    """Return normalized metrics used for prompt assembly and trend tracking."""
+    active = data.get("activePlayer", {})
+    stats = active.get("championStats", {})
+    game_time_seconds = int(data.get("gameData", {}).get("gameTime", 0))
+    minutes, seconds = divmod(game_time_seconds, 60)
+
+    my_name = active.get("summonerName", "")
+    my_player = next((p for p in data.get("allPlayers", []) if p.get("summonerName") == my_name), {})
+    my_scores = my_player.get("scores", {})
+
+    hp = int(stats.get("currentHealth", 0))
+    max_hp = int(stats.get("maxHealth", 1) or 1)
+    resource = int(stats.get("resourceValue", 0))
+    max_resource = int(stats.get("resourceMax", 0) or 0)
+
+    return {
+        "game_time_seconds": game_time_seconds,
+        "game_time": f"{minutes}:{seconds:02d}",
+        "gold": int(active.get("currentGold", 0)),
+        "level": int(active.get("level", 1)),
+        "hp_pct": int(hp / max_hp * 100) if max_hp else 0,
+        "mana_pct": int(resource / max_resource * 100) if max_resource else 0,
+        "kda": f"{my_scores.get('kills', 0)}/{my_scores.get('deaths', 0)}/{my_scores.get('assists', 0)}",
+        "cs": int(my_scores.get("creepScore", 0)),
+        "champion": my_player.get("championName", ""),
+        "position": my_player.get("position", ""),
+        "mode": data.get("gameData", {}).get("gameMode", ""),
+    }
 
 
 _POS_MAP = {

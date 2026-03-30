@@ -111,9 +111,15 @@ class Config:
     def vision_bridge(self) -> dict | None:
         """Return vision_bridge config dict if enabled, else None."""
         cfg = self._data.get("ai", {}).get("vision_bridge", {})
-        if not cfg.get("enabled", False):
+        if not cfg:
+            return None
+        if not cfg.get("enabled", True):
             return None
         return cfg
+
+    @property
+    def decision_memory_size(self) -> int:
+        return int(self._data.get("ai", {}).get("decision_memory_size", 5))
 
     def get(self, key: str, default: Any = None) -> Any:
         """Dot-notation access e.g. 'capture.interval'"""
