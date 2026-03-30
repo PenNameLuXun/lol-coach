@@ -231,6 +231,7 @@ def test_extract_key_metrics_returns_normalized_fields():
     assert metrics["gold"] == 1350
     assert metrics["hp_pct"] == 66
     assert metrics["kda"] == "3/1/5"
+    assert metrics["event_signature"] == "DragonKill|ChampionKill"
 
 
 def test_get_player_address_from_data_uses_champion_name():

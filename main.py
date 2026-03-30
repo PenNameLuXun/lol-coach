@@ -25,9 +25,11 @@ from PyQt6.QtCore import QObject, pyqtSignal, QTimer
 from src.config import Config
 from src.decision_context import (
     AnalysisSnapshot,
+    AnalysisPlan,
     ContextWindow,
     build_bridge_prompt,
     build_decision_prompt,
+    choose_analysis_plan,
     parse_bridge_output,
 )
 from src.event_bus import EventBus
@@ -105,11 +107,23 @@ def ai_worker(bus: EventBus, config: Config, bridge: SignalBridge, stop_event: t
             address = get_player_address_from_data(live_data, config.lol_client_address_by) if live_data else None
             img = latest_image if config.capture_use_screenshot else None
             bridge_facts: dict[str, str] | None = None
+            previous_snapshot = context_window.latest()
+            plan: AnalysisPlan = choose_analysis_plan(
+                current_metrics=metrics,
+                previous_snapshot=previous_snapshot,
+                has_image=img is not None,
+                now=datetime.datetime.now(),
+                trigger_cfg=config.analysis_trigger,
+            )
+            if not plan.should_analyze:
+                tray.set_state(TrayIcon.STATE_RUNNING)
+                print(f"[AI worker] skipped stable cycle ({plan.reason})")
+                continue
 
             # Vision bridge: uses raw screenshot regardless of main provider's use_screenshot.
             # Converts image to text description, then main provider receives text only.
             vb = config.vision_bridge
-            if vb and latest_image is not None:
+            if vb and latest_image is not None and plan.run_bridge:
                 try:
                     vb_provider = get_provider(vb["provider"], config.ai_config(vb["provider"]))
                     vb_prompt = vb.get("prompt") or build_bridge_prompt(game_data, metrics)
@@ -118,7 +132,12 @@ def ai_worker(bus: EventBus, config: Config, bridge: SignalBridge, stop_event: t
                     img = None  # main provider always receives text only when bridge is active
                     print(f"[Vision bridge] {vb['provider']} → ok")
                 except Exception as e:
+                    img = None
                     print(f"[Vision bridge error] {e}")
+            elif previous_snapshot is not None:
+                bridge_facts = previous_snapshot.bridge_facts
+            if vb:
+                img = None
 
             prompt = build_decision_prompt(
                 system_prompt=config.system_prompt,
@@ -136,6 +155,7 @@ def ai_worker(bus: EventBus, config: Config, bridge: SignalBridge, stop_event: t
                 with open(f"debug_captures/{ts}_prompt.txt", "w", encoding="utf-8") as _f:
                     _f.write(f"[provider] {config.ai_provider}\n")
                     _f.write(f"[model] {config.ai_config(config.ai_provider).get('model', '')}\n")
+                    _f.write(f"[trigger_reason] {plan.reason}\n")
                     _f.write(f"[screenshot] {'yes' if img else 'no'}\n")
                     if vb:
                         _f.write(f"[vision_bridge] {vb['provider']} → {bridge_facts.get('confidence', 'failed') if bridge_facts else 'failed'}\n")
@@ -153,6 +173,7 @@ def ai_worker(bus: EventBus, config: Config, bridge: SignalBridge, stop_event: t
                     metrics=metrics,
                     bridge_facts=bridge_facts or {},
                     advice=text,
+                    reason=plan.reason,
                 )
             )
             tray.set_state(TrayIcon.STATE_RUNNING)

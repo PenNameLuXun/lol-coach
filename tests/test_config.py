@@ -10,6 +10,7 @@ MINIMAL_CONFIG = {
         "provider": "claude",
         "system_prompt": "test prompt",
         "decision_memory_size": 4,
+        "analysis_trigger": {"force_after_seconds": 30, "hp_drop_pct": 18},
         "claude": {"api_key": "k1", "model": "claude-opus-4-6", "max_tokens": 200, "temperature": 0.7},
         "openai": {"api_key": "k2", "model": "gpt-4o", "max_tokens": 200, "temperature": 0.7},
         "gemini": {"api_key": "k3", "model": "gemini-1.5-pro", "max_tokens": 200, "temperature": 0.7},
@@ -99,3 +100,8 @@ def test_decision_memory_size(config_file):
 def test_vision_bridge_defaults_enabled_when_present(config_file):
     cfg = Config(config_file)
     assert cfg.vision_bridge == {"provider": "openai"}
+
+
+def test_analysis_trigger_config(config_file):
+    cfg = Config(config_file)
+    assert cfg.analysis_trigger["force_after_seconds"] == 30

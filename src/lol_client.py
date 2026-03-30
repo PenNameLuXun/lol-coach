@@ -88,6 +88,12 @@ def extract_key_metrics(data: dict) -> dict[str, int | str]:
     max_hp = int(stats.get("maxHealth", 1) or 1)
     resource = int(stats.get("resourceValue", 0))
     max_resource = int(stats.get("resourceMax", 0) or 0)
+    events = data.get("events", {}).get("Events", [])
+    notable_events = [
+        e.get("EventName", "")
+        for e in events[-6:]
+        if e.get("EventName") in {"DragonKill", "BaronKill", "HeraldKill", "TurretKilled", "ChampionKill", "InhibKilled"}
+    ]
 
     return {
         "game_time_seconds": game_time_seconds,
@@ -101,6 +107,8 @@ def extract_key_metrics(data: dict) -> dict[str, int | str]:
         "champion": my_player.get("championName", ""),
         "position": my_player.get("position", ""),
         "mode": data.get("gameData", {}).get("gameMode", ""),
+        "event_signature": "|".join(notable_events[-3:]) if notable_events else "none",
+        "is_dead": "true" if my_player.get("isDead") else "false",
     }
 
 

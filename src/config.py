@@ -121,6 +121,10 @@ class Config:
     def decision_memory_size(self) -> int:
         return int(self._data.get("ai", {}).get("decision_memory_size", 5))
 
+    @property
+    def analysis_trigger(self) -> dict:
+        return self._data.get("ai", {}).get("analysis_trigger", {})
+
     def get(self, key: str, default: Any = None) -> Any:
         """Dot-notation access e.g. 'capture.interval'"""
         parts = key.split(".")

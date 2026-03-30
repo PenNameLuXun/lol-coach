@@ -9,6 +9,13 @@ ai:
   interval: 3
   # Number of recent decision snapshots kept in memory for trend-aware coaching.
   decision_memory_size: 5
+  # Decide when a full bridge+LLM analysis is worth running.
+  analysis_trigger:
+    force_after_seconds: 45
+    hp_drop_pct: 20
+    gold_delta: 350
+    cs_delta: 8
+    skip_stable_cycles: true
 
   system_prompt: "你是一个英雄联盟教练，根据当前游戏截图，用简短的中文（不超过50字）给出最重要的一条对局建议。"
 

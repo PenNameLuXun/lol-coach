@@ -9,8 +9,13 @@ BRIDGE_FIELDS = (
     "scene",
     "fight_state",
     "player_risk",
+    "threat_level",
+    "ally_support",
     "visible_enemies",
     "objective_pressure",
+    "resource_window",
+    "map_control",
+    "engage_window",
     "wave_state",
     "confidence",
     "focus",
@@ -26,6 +31,14 @@ class AnalysisSnapshot:
     metrics: dict[str, int | str]
     bridge_facts: dict[str, str]
     advice: str
+    reason: str = "scheduled"
+
+
+@dataclass(slots=True)
+class AnalysisPlan:
+    should_analyze: bool
+    run_bridge: bool
+    reason: str
 
 
 @dataclass(slots=True)
@@ -87,12 +100,15 @@ class ContextWindow:
             bridge = snap.bridge_facts
             snapshot_lines.append(
                 f"T-{len(last_three) - idx}: 时间{metrics.get('game_time', '?')} 金币{metrics.get('gold', '?')} "
-                f"血量{metrics.get('hp_pct', '?')}% 风险{bridge.get('player_risk', 'unknown')} "
-                f"场景{bridge.get('scene', 'unknown')} 建议{snap.advice}"
+                f"血量{metrics.get('hp_pct', '?')}% 风险{bridge.get('threat_level', bridge.get('player_risk', 'unknown'))} "
+                f"资源{bridge.get('resource_window', 'unknown')} 建议{snap.advice}"
             )
         lines.append("最近三次分析：" + " | ".join(snapshot_lines))
         lines.append(f"上一条建议：{latest.advice}")
         return "\n".join(lines)
+
+    def latest(self) -> AnalysisSnapshot | None:
+        return self._items[-1] if self._items else None
 
 
 def build_bridge_prompt(game_summary: str, metrics: dict[str, int | str]) -> str:
@@ -103,8 +119,13 @@ def build_bridge_prompt(game_summary: str, metrics: dict[str, int | str]) -> str
         "scene: lane|river|jungle|base|objective|teamfight|unknown\n"
         "fight_state: none|skirmish|teamfight|postfight|unknown\n"
         "player_risk: low|medium|high|unknown\n"
+        "threat_level: stable|pressured|critical|unknown\n"
+        "ally_support: isolated|even|advantaged|outnumbered|unknown\n"
         "visible_enemies: 0|1|2|3|4|5|unknown\n"
         "objective_pressure: none|dragon|baron|herald|tower|base|unknown\n"
+        "resource_window: spend_gold|contest_objective|push_tower|hold_wave|farm|reset|unknown\n"
+        "map_control: losing|contested|neutral|winning|unknown\n"
+        "engage_window: bad|neutral|good|unknown\n"
         "wave_state: pushing|neutral|under_tower|crashing|unknown\n"
         "confidence: high|medium|low\n"
         "focus: 用不超过12字写出当前镜头最值得关注的点\n"
@@ -167,11 +188,62 @@ def build_decision_prompt(
         f"当前游戏摘要：{game_summary or '无'}\n"
         f"当前关键数值：时间{metrics.get('game_time', '?')} 金币{metrics.get('gold', '?')} "
         f"血量{metrics.get('hp_pct', '?')}% 蓝量{metrics.get('mana_pct', '?')}% "
-        f"等级{metrics.get('level', '?')} KDA{metrics.get('kda', '?')} 补刀{metrics.get('cs', '?')}\n"
+        f"等级{metrics.get('level', '?')} KDA{metrics.get('kda', '?')} 补刀{metrics.get('cs', '?')} "
+        f"事件{metrics.get('event_signature', 'none')}\n"
         f"视觉核验置信度：{confidence}\n"
         f"视觉核验结果：{bridge_text}\n"
         f"短时历史：\n{historical_context}"
     )
+
+
+def choose_analysis_plan(
+    current_metrics: dict[str, int | str],
+    previous_snapshot: AnalysisSnapshot | None,
+    has_image: bool,
+    now: datetime,
+    trigger_cfg: dict[str, int | bool],
+) -> AnalysisPlan:
+    if previous_snapshot is None:
+        return AnalysisPlan(True, has_image, "initial")
+
+    force_after = int(trigger_cfg.get("force_after_seconds", 45))
+    hp_drop_threshold = int(trigger_cfg.get("hp_drop_pct", 20))
+    gold_delta_threshold = int(trigger_cfg.get("gold_delta", 350))
+    cs_delta_threshold = int(trigger_cfg.get("cs_delta", 8))
+    stable_skip = bool(trigger_cfg.get("skip_stable_cycles", True))
+
+    elapsed = (now - previous_snapshot.timestamp).total_seconds()
+    if elapsed >= force_after:
+        return AnalysisPlan(True, has_image, "stale_context")
+
+    prev = previous_snapshot.metrics
+    hp_drop = _int_value(prev.get("hp_pct")) - _int_value(current_metrics.get("hp_pct"))
+    if hp_drop >= hp_drop_threshold:
+        return AnalysisPlan(True, has_image, "hp_drop")
+
+    if _int_value(current_metrics.get("level")) > _int_value(prev.get("level")):
+        return AnalysisPlan(True, False, "level_up")
+
+    if _int_value(current_metrics.get("gold")) - _int_value(prev.get("gold")) >= gold_delta_threshold:
+        return AnalysisPlan(True, False, "gold_spike")
+
+    if _int_value(current_metrics.get("cs")) - _int_value(prev.get("cs")) >= cs_delta_threshold:
+        return AnalysisPlan(True, False, "farm_shift")
+
+    current_events = str(current_metrics.get("event_signature", "none"))
+    prev_events = str(prev.get("event_signature", "none"))
+    if current_events != prev_events and current_events != "none":
+        return AnalysisPlan(True, has_image, "event_change")
+
+    prev_bridge = previous_snapshot.bridge_facts
+    if prev_bridge.get("threat_level") in {"critical", "pressured"}:
+        return AnalysisPlan(True, has_image, "threat_followup")
+    if prev_bridge.get("resource_window") in {"contest_objective", "push_tower"}:
+        return AnalysisPlan(True, has_image, "resource_window")
+    if prev_bridge.get("objective_pressure") in {"dragon", "baron", "herald"}:
+        return AnalysisPlan(True, has_image, "objective_pressure")
+
+    return AnalysisPlan(not stable_skip, False, "stable_skip" if stable_skip else "scheduled")
 
 
 def _bridge_facts_to_text(bridge_facts: dict[str, str] | None) -> str:
@@ -192,3 +264,7 @@ def _safe_delta(old: int | str | None, new: int | str | None) -> int | None:
 
 def _top_counter(counter: Counter[str]) -> str:
     return "，".join(f"{name}:{count}" for name, count in counter.most_common(3))
+
+
+def _int_value(value: int | str | None) -> int:
+    return value if isinstance(value, int) else 0
