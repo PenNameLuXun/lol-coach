@@ -18,6 +18,7 @@ import signal
 import sys
 import threading
 import os
+import time
 
 from PyQt6.QtWidgets import QApplication
 from PyQt6.QtCore import QObject, pyqtSignal, QTimer
@@ -51,7 +52,16 @@ class SignalBridge(QObject):
 
 # ── Worker threads ─────────────────────────────────────────────────────────────
 
-def ai_worker(bus: EventBus, config: Config, bridge: SignalBridge, stop_event: threading.Event, tray: TrayIcon, capturer, debug: bool = False):
+def ai_worker(
+    bus: EventBus,
+    config: Config,
+    bridge: SignalBridge,
+    stop_event: threading.Event,
+    tray: TrayIcon,
+    capturer,
+    debug: bool = False,
+    debug_timing: bool = False,
+):
     lol = LolClient()
     latest_image: bytes | None = None
     retry_after = 0.0
@@ -82,6 +92,7 @@ def ai_worker(bus: EventBus, config: Config, bridge: SignalBridge, stop_event: t
             latest_image = fresh
 
         try:
+            cycle_started_at = time.perf_counter()
             tray.set_state(TrayIcon.STATE_BUSY)
             provider = get_provider(config.ai_provider, config.ai_config(config.ai_provider))
             live_data = lol.get_live_data()
@@ -123,11 +134,14 @@ def ai_worker(bus: EventBus, config: Config, bridge: SignalBridge, stop_event: t
             # Vision bridge: uses raw screenshot regardless of main provider's use_screenshot.
             # Converts image to text description, then main provider receives text only.
             vb = config.vision_bridge
+            bridge_elapsed_ms = 0.0
             if vb and latest_image is not None and plan.run_bridge:
                 try:
                     vb_provider = get_provider(vb["provider"], config.ai_config(vb["provider"]))
                     vb_prompt = vb.get("prompt") or build_bridge_prompt(game_data, metrics)
+                    bridge_started_at = time.perf_counter()
                     description = vb_provider.analyze(latest_image, vb_prompt)
+                    bridge_elapsed_ms = (time.perf_counter() - bridge_started_at) * 1000
                     bridge_facts = parse_bridge_output(description)
                     img = None  # main provider always receives text only when bridge is active
                     print(f"[Vision bridge] {vb['provider']} → ok")
@@ -159,9 +173,21 @@ def ai_worker(bus: EventBus, config: Config, bridge: SignalBridge, stop_event: t
                     _f.write(f"[screenshot] {'yes' if img else 'no'}\n")
                     if vb:
                         _f.write(f"[vision_bridge] {vb['provider']} → {bridge_facts.get('confidence', 'failed') if bridge_facts else 'failed'}\n")
+                        _f.write(f"[vision_bridge_ms] {bridge_elapsed_ms:.0f}\n")
                     _f.write("\n")
                     _f.write(prompt)
+            provider_started_at = time.perf_counter()
             text = provider.analyze(img, prompt)
+            provider_elapsed_ms = (time.perf_counter() - provider_started_at) * 1000
+            cycle_elapsed_ms = (time.perf_counter() - cycle_started_at) * 1000
+            if debug_timing:
+                print(
+                    "[timing] "
+                    f"reason={plan.reason} "
+                    f"bridge_ms={bridge_elapsed_ms:.0f} "
+                    f"provider_ms={provider_elapsed_ms:.0f} "
+                    f"total_ms={cycle_elapsed_ms:.0f}"
+                )
             bus.put_advice(text)
             bus.emit_advice(text)
             bridge.advice_ready.emit(text)
@@ -216,6 +242,7 @@ def tts_worker(bus: EventBus, config: Config, stop_event: threading.Event):
 def main():
     parser = argparse.ArgumentParser(description="LOL Coach")
     parser.add_argument("--debug", action="store_true", help="save each screenshot to debug_captures/")
+    parser.add_argument("--debug-timing", action="store_true", help="print bridge/provider timing for each analyzed cycle")
     args = parser.parse_args()
 
     # Bootstrap config
@@ -284,7 +311,12 @@ def main():
         running[0] = True
         stop_event.clear()
         capturer.start()
-        ai_thread = threading.Thread(target=ai_worker, args=(bus, config, bridge, stop_event, tray, capturer), kwargs={"debug": args.debug}, daemon=True)
+        ai_thread = threading.Thread(
+            target=ai_worker,
+            args=(bus, config, bridge, stop_event, tray, capturer),
+            kwargs={"debug": args.debug, "debug_timing": args.debug_timing},
+            daemon=True,
+        )
         tts_thread = threading.Thread(target=tts_worker, args=(bus, config, stop_event), daemon=True)
         ai_thread.start()
         tts_thread.start()
