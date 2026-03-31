@@ -142,7 +142,14 @@ def test_dialogue_plugin_builds_reply_prompt(tmp_path, monkeypatch):
     config_path = tmp_path / "config.yaml"
     input_path = tmp_path / "dialogue_input.txt"
     config_path.write_text(
-        f"dialogue_plugin:\n  source: file\n  text_file: {input_path.as_posix()}\n  speaker: 测试玩家\n  clear_after_read: false\n",
+        (
+            "plugin_settings:\n"
+            "  dialogue:\n"
+            "    source: file\n"
+            f"    text_file: {input_path.as_posix()}\n"
+            "    speaker: 测试玩家\n"
+            "    clear_after_read: false\n"
+        ),
         encoding="utf-8",
     )
     input_path.write_text("你好，帮我测试一下语音回复。", encoding="utf-8")
@@ -174,7 +181,14 @@ def test_dialogue_source_reads_lines_in_loop_without_mutating_file(tmp_path, mon
     config_path = tmp_path / "config.yaml"
     input_path = tmp_path / "dialogue_input.txt"
     config_path.write_text(
-        f"dialogue_plugin:\n  source: file\n  text_file: {input_path.as_posix()}\n  speaker: 测试玩家\n  clear_after_read: false\n",
+        (
+            "plugin_settings:\n"
+            "  dialogue:\n"
+            "    source: file\n"
+            f"    text_file: {input_path.as_posix()}\n"
+            "    speaker: 测试玩家\n"
+            "    clear_after_read: false\n"
+        ),
         encoding="utf-8",
     )
     input_path.write_text("第一行\n\n第二行\n第三行\n", encoding="utf-8")
@@ -198,7 +212,14 @@ def test_dialogue_plugin_rules_echo_input(tmp_path, monkeypatch):
     config_path = tmp_path / "config.yaml"
     input_path = tmp_path / "dialogue_input.txt"
     config_path.write_text(
-        f"dialogue_plugin:\n  source: file\n  text_file: {input_path.as_posix()}\n  speaker: 测试玩家\n  clear_after_read: false\n",
+        (
+            "plugin_settings:\n"
+            "  dialogue:\n"
+            "    source: file\n"
+            f"    text_file: {input_path.as_posix()}\n"
+            "    speaker: 测试玩家\n"
+            "    clear_after_read: false\n"
+        ),
         encoding="utf-8",
     )
     input_path.write_text("规则模式测试", encoding="utf-8")

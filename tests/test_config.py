@@ -15,9 +15,7 @@ MINIMAL_CONFIG = {
     "scheduler": {"interval": 4},
     "ai": {
         "provider": "claude",
-        "system_prompt": "test prompt",
         "decision_memory_size": 4,
-        "analysis_trigger": {"force_after_seconds": 30, "hp_drop_pct": 18},
         "claude": {"api_key": "k1", "model": "claude-opus-4-6", "max_tokens": 200, "temperature": 0.7},
         "openai": {"api_key": "k2", "model": "gpt-4o", "max_tokens": 200, "temperature": 0.7},
         "gemini": {"api_key": "k3", "model": "gemini-1.5-pro", "max_tokens": 200, "temperature": 0.7},
@@ -34,12 +32,23 @@ MINIMAL_CONFIG = {
     "overlay": {"enabled": True, "x": 100, "y": 100, "fade_after": 8, "toggle_hotkey": "ctrl+shift+h"},
     "app": {"start_minimized": True},
     "plugin_settings": {
-        "lol": {"detail": "full", "address_by": "champion", "require_game": True},
+        "lol": {
+            "detail": "full",
+            "address_by": "champion",
+            "require_game": True,
+            "system_prompt": "lol prompt",
+            "trigger_force_after_seconds": 30,
+            "trigger_hp_drop_pct": 18,
+            "trigger_gold_delta": 300,
+            "trigger_cs_delta": 6,
+            "trigger_skip_stable_cycles": True,
+        },
         "dialogue": {
             "source": "file",
             "text_file": "dialogue_input.txt",
             "speaker": "玩家",
             "clear_after_read": True,
+            "system_prompt": "dialogue prompt",
         },
     },
 }
@@ -105,11 +114,6 @@ def test_get_nested_key(config_file):
     assert cfg.get("overlay.x") == 100
 
 
-def test_system_prompt(config_file):
-    cfg = Config(config_file)
-    assert cfg.system_prompt == "test prompt"
-
-
 def test_decision_memory_size(config_file):
     cfg = Config(config_file)
     assert cfg.decision_memory_size == 4
@@ -118,11 +122,6 @@ def test_decision_memory_size(config_file):
 def test_vision_bridge_defaults_enabled_when_present(config_file):
     cfg = Config(config_file)
     assert cfg.vision_bridge == {"provider": "openai", "model": "gpt-4.1-mini"}
-
-
-def test_analysis_trigger_config(config_file):
-    cfg = Config(config_file)
-    assert cfg.analysis_trigger["force_after_seconds"] == 30
 
 
 def test_vision_bridge_provider_config_merges_override(config_file):
@@ -146,6 +145,8 @@ def test_plugin_settings_helpers(config_file):
     assert cfg.plugin_detail("lol") == "full"
     assert cfg.plugin_address_by("lol") == "champion"
     assert cfg.plugin_require_game("lol") is True
+    assert cfg.plugin_system_prompt("lol") == "lol prompt"
+    assert cfg.plugin_analysis_trigger("lol")["force_after_seconds"] == 30
 
 
 def test_update_many_saves_once_with_plugin_settings(config_file):

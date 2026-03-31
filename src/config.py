@@ -41,10 +41,6 @@ class Config:
     def ai_provider(self) -> str:
         return self._data["ai"]["provider"]
 
-    @property
-    def system_prompt(self) -> str:
-        return self._data["ai"]["system_prompt"]
-
     def ai_config(self, provider: str) -> dict:
         return self._data["ai"][provider]
 
@@ -56,40 +52,19 @@ class Config:
         return self._data["tts"].get(backend, {})
 
     @property
-    def tts_interrupt(self) -> bool:
-        return self._data["tts"].get("interrupt", True)
-
-    @property
-    def tts_wait_for_completion(self) -> bool:
-        return bool(self._data.get("tts", {}).get("wait_for_completion", False))
-
-    @property
     def tts_playback_mode(self) -> str:
         mode = str(self._data.get("tts", {}).get("playback_mode", "")).strip().lower()
         if mode in {"wait", "interrupt", "continue", "fit_wait", "fit_continue"}:
             return mode
-        # Backward compatibility for older configs.
-        if self.tts_wait_for_completion:
-            return "wait"
-        if self.tts_interrupt:
-            return "interrupt"
         return "continue"
 
     @property
     def scheduler_interval(self) -> int:
-        scheduler_cfg = self._data.get("scheduler", {})
-        if "interval" in scheduler_cfg:
-            return int(scheduler_cfg["interval"])
-        return int(self._data.get("ai", {}).get("interval", self.capture_interval))
+        return int(self._data["scheduler"]["interval"])
 
     @property
     def capture_interval(self) -> int:
         return self._data["capture"]["interval"]
-
-    @property
-    def ai_interval(self) -> int:
-        """Backward-compatible alias for the scheduler heartbeat."""
-        return self.scheduler_interval
 
     @property
     def capture_hotkey(self) -> str:
@@ -153,10 +128,6 @@ class Config:
         return int(self._data.get("ai", {}).get("decision_memory_size", 5))
 
     @property
-    def analysis_trigger(self) -> dict:
-        return self._data.get("ai", {}).get("analysis_trigger", {})
-
-    @property
     def decision_mode(self) -> str:
         return self._data.get("decision", {}).get("mode", "ai")
 
@@ -197,6 +168,37 @@ class Config:
             if value is not None:
                 return bool(value)
         return True
+
+    def plugin_system_prompt(self, plugin_id: str | None) -> str:
+        if plugin_id:
+            value = self.plugin_setting(plugin_id, "system_prompt")
+            if value is not None:
+                return str(value)
+        return ""
+
+    def plugin_analysis_trigger(self, plugin_id: str | None) -> dict:
+        defaults = {
+            "force_after_seconds": 45,
+            "hp_drop_pct": 20,
+            "gold_delta": 350,
+            "cs_delta": 8,
+            "skip_stable_cycles": True,
+        }
+        if not plugin_id:
+            return defaults
+        result = dict(defaults)
+        mapping = {
+            "force_after_seconds": "trigger_force_after_seconds",
+            "hp_drop_pct": "trigger_hp_drop_pct",
+            "gold_delta": "trigger_gold_delta",
+            "cs_delta": "trigger_cs_delta",
+            "skip_stable_cycles": "trigger_skip_stable_cycles",
+        }
+        for key, setting_key in mapping.items():
+            value = self.plugin_setting(plugin_id, setting_key)
+            if value is not None:
+                result[key] = value
+        return result
 
     def get(self, key: str, default: Any = None) -> Any:
         """Dot-notation access e.g. 'capture.interval'"""

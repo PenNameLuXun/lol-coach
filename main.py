@@ -244,7 +244,7 @@ def ai_worker(
                 previous_snapshot=previous_snapshot,
                 has_image=img is not None,
                 now=datetime.datetime.now(),
-                trigger_cfg=config.analysis_trigger,
+                trigger_cfg=config.plugin_analysis_trigger(active_plugin_id),
             )
             if not plan.should_analyze:
                 tray.set_state(TrayIcon.STATE_RUNNING)
@@ -288,7 +288,7 @@ def ai_worker(
             prompt = (
                 active_context.plugin.build_decision_prompt(
                     active_context.state,
-                    system_prompt=config.system_prompt,
+                    system_prompt=config.plugin_system_prompt(active_plugin_id),
                     bridge_facts=bridge_facts,
                     snapshots=context_window.items(),
                     rule_hint=rule_advice.hint if rule_advice else None,

@@ -52,6 +52,13 @@ class DialoguePlugin:
                 "default": False,
                 "help": "当前逐行循环模式不会修改文件，该开关仅为兼容旧配置保留。",
             },
+            {
+                "key": "system_prompt",
+                "label": "系统提示词",
+                "type": "text",
+                "default": "你是测试助手，会根据用户刚才说的话给出一句自然、简短、适合语音播报的中文回复。",
+                "help": "Dialogue 插件专属系统提示词。",
+            },
         ],
     }
 

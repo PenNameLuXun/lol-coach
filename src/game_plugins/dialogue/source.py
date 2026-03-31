@@ -58,10 +58,7 @@ class DialogueSource:
                 self._config = {}
             self._config_mtime = mtime
         plugin_settings = self._config.get("plugin_settings", {}).get("dialogue", {})
-        if isinstance(plugin_settings, dict) and plugin_settings:
-            return plugin_settings
-        legacy = self._config.get("dialogue_plugin", {})
-        return legacy if isinstance(legacy, dict) else {}
+        return plugin_settings if isinstance(plugin_settings, dict) else {}
 
     def _read_text_payload(
         self,

@@ -8,15 +8,6 @@ from src.config import Config
 from src.game_plugins.registry import discover_plugins
 from src.ui.widgets.collapsible_box import CollapsibleBox
 
-PROMPT_PRESETS = {
-    "LOL 5V5 对战": "你是一个英雄联盟教练，根据当前游戏截图，用简短的中文（不超过50字）给出最重要的一条对局建议。",
-    "云顶之弈": "你是一个云顶之弈教练，根据当前游戏截图，用简短的中文（不超过50字）给出最重要的一条建议，例如该买什么英雄、阵容方向、经济决策等。",
-    "王者荣耀": "你是一个王者荣耀教练，根据当前游戏截图，用简短的中文（不超过50字）给出最重要的一条对局建议。",
-    "Dota2": "You are a Dota2 coach. Based on the current screenshot, give the single most important advice in concise Chinese (under 50 characters).",
-    "自定义": "",
-}
-
-
 class ConfigTab(QWidget):
     """Form for editing all config.yaml settings.
 
@@ -85,15 +76,6 @@ class ConfigTab(QWidget):
 
         self._model_edit = QLineEdit()
         ai_form.addRow("模型名称:", self._model_edit)
-
-        self._preset_combo = QComboBox()
-        self._preset_combo.addItems(list(PROMPT_PRESETS.keys()))
-        self._preset_combo.currentTextChanged.connect(self._apply_preset)
-        ai_form.addRow("游戏模式:", self._preset_combo)
-
-        self._prompt_edit = QTextEdit()
-        self._prompt_edit.setMaximumHeight(80)
-        ai_form.addRow("System Prompt:", self._prompt_edit)
 
         root.addWidget(self._wrap_section("AI 设置", ai_box, collapsed=False))
 
@@ -217,6 +199,10 @@ class ConfigTab(QWidget):
             spin = QSpinBox()
             spin.setRange(int(field.get("min", 0)), int(field.get("max", 9999)))
             return spin
+        if field_type == "text":
+            edit = QTextEdit()
+            edit.setMaximumHeight(90)
+            return edit
         if field_type == "select":
             combo = QComboBox()
             combo.addItems([str(option) for option in field.get("options", [])])
@@ -228,6 +214,8 @@ class ConfigTab(QWidget):
             return widget.isChecked()
         if isinstance(widget, QSpinBox):
             return widget.value()
+        if isinstance(widget, QTextEdit):
+            return widget.toPlainText()
         if isinstance(widget, QComboBox):
             return widget.currentText()
         return widget.text()
@@ -237,14 +225,12 @@ class ConfigTab(QWidget):
             widget.setChecked(bool(value))
         elif isinstance(widget, QSpinBox):
             widget.setValue(int(value))
+        elif isinstance(widget, QTextEdit):
+            widget.setPlainText("" if value is None else str(value))
         elif isinstance(widget, QComboBox):
             widget.setCurrentText(str(value))
         else:
             widget.setText("" if value is None else str(value))
-
-    def _apply_preset(self, name: str):
-        if name != "自定义" and PROMPT_PRESETS[name]:
-            self._prompt_edit.setPlainText(PROMPT_PRESETS[name])
 
     def _load_values(self):
         self._decision_mode_combo.setCurrentText(self._cfg.decision_mode)
@@ -255,13 +241,6 @@ class ConfigTab(QWidget):
         provider = self._cfg.ai_provider
         self._api_key_edit.setText(self._cfg.ai_config(provider).get("api_key", ""))
         self._model_edit.setText(self._cfg.ai_config(provider).get("model", ""))
-        current_prompt = self._cfg.system_prompt
-        # match existing prompt to a preset, fallback to 自定义
-        matched = next((k for k, v in PROMPT_PRESETS.items() if v == current_prompt), "自定义")
-        self._preset_combo.blockSignals(True)
-        self._preset_combo.setCurrentText(matched)
-        self._preset_combo.blockSignals(False)
-        self._prompt_edit.setPlainText(current_prompt)
         self._tts_combo.setCurrentText(self._cfg.tts_backend)
         self._tts_playback_mode_combo.setCurrentText(self._cfg.tts_playback_mode)
         self._tts_windows_rate_spin.setValue(int(self._cfg.tts_config("windows").get("rate", 0)))
@@ -298,7 +277,6 @@ class ConfigTab(QWidget):
             "ai.provider": provider,
             f"ai.{provider}.api_key": self._api_key_edit.text(),
             f"ai.{provider}.model": self._model_edit.text(),
-            "ai.system_prompt": self._prompt_edit.toPlainText(),
             "tts.backend": self._tts_combo.currentText(),
             "tts.playback_mode": self._tts_playback_mode_combo.currentText(),
             "tts.windows.rate": self._tts_windows_rate_spin.value(),
