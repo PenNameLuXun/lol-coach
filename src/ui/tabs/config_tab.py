@@ -1,11 +1,12 @@
 from PyQt6.QtWidgets import (
     QWidget, QFormLayout, QComboBox, QLineEdit,
     QSpinBox, QPushButton, QTextEdit, QGroupBox, QVBoxLayout,
-    QCheckBox, QLabel
+    QCheckBox, QLabel, QScrollArea
 )
 from PyQt6.QtCore import pyqtSignal
 from src.config import Config
 from src.game_plugins.registry import discover_plugins
+from src.ui.widgets.collapsible_box import CollapsibleBox
 
 PROMPT_PRESETS = {
     "LOL 5V5 对战": "你是一个英雄联盟教练，根据当前游戏截图，用简短的中文（不超过50字）给出最重要的一条对局建议。",
@@ -33,7 +34,14 @@ class ConfigTab(QWidget):
         self._load_values()
 
     def _build_ui(self):
-        root = QVBoxLayout(self)
+        outer = QVBoxLayout(self)
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        outer.addWidget(scroll)
+
+        content = QWidget()
+        scroll.setWidget(content)
+        root = QVBoxLayout(content)
 
         # ── Decision ────────────────────────────────────────────────────────
         decision_box = QGroupBox("决策模式")
@@ -53,7 +61,7 @@ class ConfigTab(QWidget):
         self._hybrid_threshold_spin.setRange(0, 100)
         decision_form.addRow("混合直出阈值:", self._hybrid_threshold_spin)
 
-        root.addWidget(decision_box)
+        root.addWidget(self._wrap_section("决策模式", decision_box, collapsed=False))
         root.addWidget(self._build_plugin_settings_box())
 
         # ── AI ────────────────────────────────────────────────────────────────
@@ -81,7 +89,7 @@ class ConfigTab(QWidget):
         self._prompt_edit.setMaximumHeight(80)
         ai_form.addRow("System Prompt:", self._prompt_edit)
 
-        root.addWidget(ai_box)
+        root.addWidget(self._wrap_section("AI 设置", ai_box, collapsed=False))
 
         # ── TTS ───────────────────────────────────────────────────────────────
         tts_box = QGroupBox("语音输出")
@@ -95,7 +103,7 @@ class ConfigTab(QWidget):
         self._tts_rate_edit.setPlaceholderText("+0%  (如 +30% 加速，-20% 减速，仅 edge 生效)")
         tts_form.addRow("语速:", self._tts_rate_edit)
 
-        root.addWidget(tts_box)
+        root.addWidget(self._wrap_section("语音输出", tts_box, collapsed=True))
 
         # ── Capture ───────────────────────────────────────────────────────────
         cap_box = QGroupBox("截图设置")
@@ -123,7 +131,7 @@ class ConfigTab(QWidget):
         self._quality_spin.setRange(10, 95)
         cap_form.addRow("JPEG 质量:", self._quality_spin)
 
-        root.addWidget(cap_box)
+        root.addWidget(self._wrap_section("截图设置", cap_box, collapsed=True))
 
         # ── Overlay ───────────────────────────────────────────────────────────
         ov_box = QGroupBox("悬浮窗")
@@ -137,15 +145,21 @@ class ConfigTab(QWidget):
         self._overlay_hotkey_edit = QLineEdit()
         ov_form.addRow("显示/隐藏热键:", self._overlay_hotkey_edit)
 
-        root.addWidget(ov_box)
+        root.addWidget(self._wrap_section("悬浮窗", ov_box, collapsed=True))
 
         # ── Save button ───────────────────────────────────────────────────────
         save_btn = QPushButton("保存配置")
         save_btn.clicked.connect(self._save)
         root.addWidget(save_btn)
+        root.addStretch(1)
 
-    def _build_plugin_settings_box(self) -> QGroupBox:
-        plugin_box = QGroupBox("插件设置")
+    def _wrap_section(self, title: str, widget: QWidget, collapsed: bool) -> CollapsibleBox:
+        box = CollapsibleBox(title, collapsed=collapsed)
+        box.setContentWidget(widget)
+        return box
+
+    def _build_plugin_settings_box(self) -> CollapsibleBox:
+        plugin_box = QWidget()
         plugin_layout = QVBoxLayout(plugin_box)
 
         for plugin in self._plugins:
@@ -174,9 +188,10 @@ class ConfigTab(QWidget):
                 widgets[str(field["key"])] = (field, widget)
 
             self._plugin_setting_widgets[plugin.id] = widgets
-            plugin_layout.addWidget(group)
+            plugin_layout.addWidget(self._wrap_section(plugin.display_name, group, collapsed=True))
 
-        return plugin_box
+        plugin_layout.addStretch(1)
+        return self._wrap_section("插件设置", plugin_box, collapsed=True)
 
     def _create_plugin_widget(self, field: dict):
         field_type = field.get("type", "string")

@@ -113,6 +113,11 @@ def ai_worker(
             previous_plugin_id = rule_engine.bound_plugin_id
             active_context = rule_engine.discover_active_context()
             active_plugin_id = active_context.plugin.id if active_context else None
+            if active_context and active_plugin_id != previous_plugin_id:
+                print(
+                    "[AI worker] matched plugin "
+                    f"{active_context.plugin.display_name} ({active_plugin_id})"
+                )
             live_data = active_context.state.raw_data if active_context else None
             if live_data is None and config.plugin_require_game(active_plugin_id):
                 candidate_plugin_id = active_plugin_id or previous_plugin_id
