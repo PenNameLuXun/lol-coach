@@ -122,18 +122,6 @@ class Config:
         return self._data.get("overlay", {})
 
     @property
-    def lol_client_detail(self) -> str:
-        return self._data.get("lol_client", {}).get("detail", "normal")
-
-    @property
-    def lol_client_address_by(self) -> str:
-        return self._data.get("lol_client", {}).get("address_by", "champion")
-
-    @property
-    def lol_client_require_game(self) -> bool:
-        return self._data.get("lol_client", {}).get("require_game", True)
-
-    @property
     def start_minimized(self) -> bool:
         return self._data.get("app", {}).get("start_minimized", True)
 
@@ -194,21 +182,21 @@ class Config:
             value = self.plugin_setting(plugin_id, "detail")
             if value is not None:
                 return str(value)
-        return self._data.get("lol_client", {}).get("detail", "normal")
+        return "normal"
 
     def plugin_address_by(self, plugin_id: str | None) -> str:
         if plugin_id:
             value = self.plugin_setting(plugin_id, "address_by")
             if value is not None:
                 return str(value)
-        return self._data.get("lol_client", {}).get("address_by", "champion")
+        return "champion"
 
     def plugin_require_game(self, plugin_id: str | None) -> bool:
         if plugin_id:
             value = self.plugin_setting(plugin_id, "require_game")
             if value is not None:
                 return bool(value)
-        return self._data.get("lol_client", {}).get("require_game", True)
+        return True
 
     def get(self, key: str, default: Any = None) -> Any:
         """Dot-notation access e.g. 'capture.interval'"""

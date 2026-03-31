@@ -158,18 +158,3 @@ overlay:
 
 app:
   start_minimized: true
-
-lol_client:
-  # Detail level for game data sent to AI:
-  #   minimal — time, champion, level, HP, gold
-  #   normal  — + mana, items, recent events (default)
-  #   full    — + KDA, CS, wards, summoner spells, keystone rune, all allies/enemies
-  detail: full
-  # How to address the player in AI responses:
-  #   champion  — use champion name, e.g. "Jinx" (default)
-  #   summoner  — use summoner name, e.g. "PlayerName"
-  #   none      — no address
-  address_by: champion
-  # Only send AI analysis when an active game is detected (default: true)
-  # Set to false to analyze screenshots even outside of a game
-  require_game: true
