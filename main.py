@@ -440,19 +440,31 @@ def main():
     running = [False]
 
     # ── UI ────────────────────────────────────────────────────────────────────
-    overlay = OverlayWindow(fade_after=config.overlay.get("fade_after", 8))
-    overlay.move_to(config.overlay.get("x", 100), config.overlay.get("y", 100))
+    overlay = None
+    if config.overlay.get("enabled", True):
+        overlay = OverlayWindow(fade_after=config.overlay.get("fade_after", 8))
+        overlay.move_to(config.overlay.get("x", 100), config.overlay.get("y", 100))
 
-    window = MainWindow(config, history)
+    window: MainWindow | None = None
     tray = TrayIcon("assets/icon.png")
     tray.show()
+
+    def ensure_window() -> MainWindow:
+        nonlocal window
+        if window is None:
+            window = MainWindow(config, history)
+        return window
 
     # ── Signals ───────────────────────────────────────────────────────────────
     def on_advice(text: str):
         _log_with_timestamp("UI", f"display len={len(text)} text={text[:60]}")
-        overlay.show_advice(text)
-        window.on_advice(text)
-        session_id = window.history_tab.get_current_session_id()
+        if overlay is not None:
+            overlay.show_advice(text)
+        if window is not None:
+            window.on_advice(text)
+            session_id = window.history_tab.get_current_session_id()
+        else:
+            session_id = None
         history.add_advice(text, "timer", session_id=session_id)
 
     bridge.advice_ready.connect(on_advice)
@@ -470,7 +482,7 @@ def main():
 
     # Register overlay toggle hotkey
     overlay_hotkey = config.overlay.get("toggle_hotkey", "")
-    if overlay_hotkey:
+    if overlay is not None and overlay_hotkey:
         try:
             import keyboard
             keyboard.add_hotkey(overlay_hotkey, lambda: overlay.setVisible(not overlay.isVisible()))
@@ -513,8 +525,13 @@ def main():
         else:
             start_analysis()
 
+    def open_window():
+        ensure_window().show()
+        ensure_window().raise_()
+        ensure_window().activateWindow()
+
     tray.toggle_requested.connect(toggle)
-    tray.open_window_requested.connect(window.show)
+    tray.open_window_requested.connect(open_window)
     tray.quit_requested.connect(lambda: (pause_analysis(), config._stop_watcher(), app.quit()))
 
     # ── Ctrl+C support ────────────────────────────────────────────────────────
@@ -533,7 +550,7 @@ def main():
 
     # Auto-start
     if not config.start_minimized:
-        window.show()
+        open_window()
     start_analysis()
 
     sys.exit(app.exec())
