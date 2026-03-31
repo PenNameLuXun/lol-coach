@@ -61,6 +61,12 @@ class ConfigTab(QWidget):
         self._hybrid_threshold_spin.setRange(0, 100)
         decision_form.addRow("混合直出阈值:", self._hybrid_threshold_spin)
 
+        self._scheduler_interval_spin = QSpinBox()
+        self._scheduler_interval_spin.setRange(1, 60)
+        self._scheduler_interval_spin.setSuffix(" 秒")
+        self._scheduler_interval_spin.setToolTip("主调度心跳。每轮分析、规则判断和文本推进都按这个间隔触发。")
+        decision_form.addRow("分析心跳:", self._scheduler_interval_spin)
+
         root.addWidget(self._wrap_section("决策模式", decision_box, collapsed=False))
         root.addWidget(self._build_plugin_settings_box())
 
@@ -100,8 +106,8 @@ class ConfigTab(QWidget):
         tts_form.addRow("TTS 后端:", self._tts_combo)
 
         self._tts_playback_mode_combo = QComboBox()
-        self._tts_playback_mode_combo.addItems(["wait", "interrupt", "continue"])
-        self._tts_playback_mode_combo.setToolTip("wait=顺序播完再继续；interrupt=若后端支持则打断当前播报；continue=不等待也不打断，继续排队。")
+        self._tts_playback_mode_combo.addItems(["wait", "interrupt", "continue", "fit_wait", "fit_continue"])
+        self._tts_playback_mode_combo.setToolTip("wait=顺序播完再继续；interrupt=若后端支持则打断；continue=继续排队；fit_* 会按分析心跳尽量调语速播完。")
         tts_form.addRow("播报模式:", self._tts_playback_mode_combo)
 
         self._tts_windows_rate_spin = QSpinBox()
@@ -244,6 +250,7 @@ class ConfigTab(QWidget):
         self._decision_mode_combo.setCurrentText(self._cfg.decision_mode)
         self._enabled_plugins_edit.setText(",".join(self._cfg.enabled_plugins))
         self._hybrid_threshold_spin.setValue(self._cfg.rules_config.get("hybrid_priority_threshold", 85))
+        self._scheduler_interval_spin.setValue(self._cfg.scheduler_interval)
         self._provider_combo.setCurrentText(self._cfg.ai_provider)
         provider = self._cfg.ai_provider
         self._api_key_edit.setText(self._cfg.ai_config(provider).get("api_key", ""))
@@ -287,6 +294,7 @@ class ConfigTab(QWidget):
             "decision.mode": self._decision_mode_combo.currentText(),
             "decision.plugins.enabled": enabled_plugins,
             "decision.rules.hybrid_priority_threshold": self._hybrid_threshold_spin.value(),
+            "scheduler.interval": self._scheduler_interval_spin.value(),
             "ai.provider": provider,
             f"ai.{provider}.api_key": self._api_key_edit.text(),
             f"ai.{provider}.model": self._model_edit.text(),

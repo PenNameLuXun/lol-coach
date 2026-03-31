@@ -10,9 +10,11 @@ def test_windows_tts_calls_sapi_speak():
         mock_dispatch.return_value = engine
         tts = WindowsTTS(rate=20, volume=1.0)
         assert engine.Rate == 10
-        tts.speak("push mid")
+        tts.speak("push mid", rate_override=-2)
         engine.Speak.assert_called_once_with("push mid", 1)
+        assert engine.Rate == -2
         assert tts.supports_interrupt() is True
+        assert tts.supports_dynamic_rate() is True
 
 
 def test_windows_tts_stop_called_on_interrupt():

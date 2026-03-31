@@ -66,7 +66,7 @@ class Config:
     @property
     def tts_playback_mode(self) -> str:
         mode = str(self._data.get("tts", {}).get("playback_mode", "")).strip().lower()
-        if mode in {"wait", "interrupt", "continue"}:
+        if mode in {"wait", "interrupt", "continue", "fit_wait", "fit_continue"}:
             return mode
         # Backward compatibility for older configs.
         if self.tts_wait_for_completion:
@@ -76,13 +76,20 @@ class Config:
         return "continue"
 
     @property
+    def scheduler_interval(self) -> int:
+        scheduler_cfg = self._data.get("scheduler", {})
+        if "interval" in scheduler_cfg:
+            return int(scheduler_cfg["interval"])
+        return int(self._data.get("ai", {}).get("interval", self.capture_interval))
+
+    @property
     def capture_interval(self) -> int:
         return self._data["capture"]["interval"]
 
     @property
     def ai_interval(self) -> int:
-        """Seconds between AI analysis requests. Defaults to capture.interval."""
-        return self._data.get("ai", {}).get("interval", self.capture_interval)
+        """Backward-compatible alias for the scheduler heartbeat."""
+        return self.scheduler_interval
 
     @property
     def capture_hotkey(self) -> str:

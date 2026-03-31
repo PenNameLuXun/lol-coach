@@ -4,6 +4,7 @@ import tempfile
 import pytest
 import yaml
 from src.config import Config
+from main import _resolve_tts_rate_override
 
 MINIMAL_CONFIG = {
     "decision": {
@@ -11,6 +12,7 @@ MINIMAL_CONFIG = {
         "plugins": {"enabled": ["lol"]},
         "rules": {"hybrid_priority_threshold": 88},
     },
+    "scheduler": {"interval": 4},
     "ai": {
         "provider": "claude",
         "system_prompt": "test prompt",
@@ -64,6 +66,7 @@ def test_load_tts_backend(config_file):
     cfg = Config(config_file)
     assert cfg.tts_backend == "windows"
     assert cfg.tts_playback_mode == "continue"
+    assert cfg.scheduler_interval == 4
 
 
 def test_load_capture_interval(config_file):
@@ -156,3 +159,22 @@ def test_update_many_saves_once_with_plugin_settings(config_file):
     cfg2 = Config(config_file)
     assert cfg2.plugin_setting("dialogue", "source") == "microphone"
     assert cfg2.plugin_setting("dialogue", "speaker") == "测试员"
+
+
+def test_fit_rate_does_not_slow_below_base(config_file):
+    cfg = Config(config_file)
+    cfg.update_many(
+        {
+            "scheduler.interval": 10,
+            "tts.playback_mode": "fit_wait",
+            "tts.windows.rate": 2,
+        }
+    )
+    cfg2 = Config(config_file)
+
+    class DummyEngine:
+        def supports_dynamic_rate(self):
+            return True
+
+    rate = _resolve_tts_rate_override(cfg2, "windows", DummyEngine(), "短句")
+    assert rate == 2

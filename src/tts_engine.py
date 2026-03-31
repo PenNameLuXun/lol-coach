@@ -9,15 +9,18 @@ import openai
 
 class BaseTTS(ABC):
     @abstractmethod
-    def speak(self, text: str): ...
+    def speak(self, text: str, rate_override=None): ...
 
     def interrupt(self): ...  # optional: stop current playback
 
     def supports_interrupt(self) -> bool:
         return False
 
-    def start(self, text: str):
-        self.speak(text)
+    def supports_dynamic_rate(self) -> bool:
+        return False
+
+    def start(self, text: str, rate_override=None):
+        self.speak(text, rate_override=rate_override)
 
     def is_busy(self) -> bool:
         return False
@@ -38,24 +41,32 @@ class WindowsTTS(BaseTTS):
         pythoncom.CoInitialize()
         self._pythoncom = pythoncom
         self._voice = win32com.client.Dispatch("SAPI.SpVoice")
-        # SAPI rate is a relative scale, typically from -10 to 10.
-        normalized_rate = max(-10, min(10, int(rate)))
+        self._base_rate = self._normalize_rate(rate)
         # SAPI volume is 0-100; keep accepting 0.0-1.0 in config.
-        self._voice.Rate = normalized_rate
+        self._voice.Rate = self._base_rate
         self._voice.Volume = max(0, min(100, int(volume * 100)))
 
-    def speak(self, text: str):
-        self.start(text)
+    @staticmethod
+    def _normalize_rate(rate: int) -> int:
+        return max(-10, min(10, int(rate)))
+
+    def speak(self, text: str, rate_override=None):
+        self.start(text, rate_override=rate_override)
         started_at = time.perf_counter()
         while self.is_busy():
             time.sleep(0.05)
         _tts_log("windows", f"engine_end elapsed_ms={(time.perf_counter() - started_at) * 1000:.0f}")
 
-    def start(self, text: str):
-        _tts_log("windows", f"engine_start len={len(text)}")
+    def start(self, text: str, rate_override=None):
+        applied_rate = self._base_rate if rate_override is None else self._normalize_rate(rate_override)
+        self._voice.Rate = applied_rate
+        _tts_log("windows", f"engine_start len={len(text)} rate={applied_rate}")
         self._voice.Speak(text, self._ASYNC_FLAG)
 
     def supports_interrupt(self) -> bool:
+        return True
+
+    def supports_dynamic_rate(self) -> bool:
         return True
 
     def is_busy(self) -> bool:
@@ -77,7 +88,7 @@ class EdgeTTS(BaseTTS):
         self._voice = voice
         self._rate = rate
 
-    def speak(self, text: str):
+    def speak(self, text: str, rate_override=None):
         asyncio.run(self._async_speak(text))
 
     async def _async_speak(self, text: str):
@@ -107,7 +118,7 @@ class OpenAITTS(BaseTTS):
         self._voice = voice
         self._model = model
 
-    def speak(self, text: str):
+    def speak(self, text: str, rate_override=None):
         import pygame
         with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as f:
             tmp_path = f.name

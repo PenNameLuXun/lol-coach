@@ -11,6 +11,10 @@ decision:
     # In hybrid mode, rules at or above this priority bypass AI immediately.
     hybrid_priority_threshold: 85
 
+scheduler:
+  # Main decision heartbeat in seconds.
+  interval: 3
+
 plugin_settings:
   lol:
     detail: full
@@ -30,9 +34,6 @@ plugin_settings:
 ai:
   # Active provider: claude | openai | gemini
   provider: claude
-  # Seconds between AI analysis requests. Defaults to capture.interval if not set.
-  # Set higher than capture.interval to refresh screenshots more often than AI calls.
-  interval: 3
   # Number of recent decision snapshots kept in memory for trend-aware coaching.
   decision_memory_size: 5
   # Decide when a full bridge+LLM analysis is worth running.
@@ -115,6 +116,8 @@ tts:
   # wait = 顺序播完再继续
   # interrupt = 若后端支持，用新语音打断当前播报
   # continue = 不等待也不打断，继续排队
+  # fit_wait = 按分析心跳尽量调语速播完，播不完则等待
+  # fit_continue = 按分析心跳尽量调语速播完，播不完也继续排队
   playback_mode: continue
 
   windows:

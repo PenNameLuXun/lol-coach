@@ -71,6 +71,24 @@ def _empty_ai_payload() -> AiPayload:
     )
 
 
+def _resolve_tts_rate_override(config: Config, backend: str, engine, text: str) -> int | None:
+    mode = config.tts_playback_mode
+    if mode not in {"fit_wait", "fit_continue"}:
+        return None
+    if backend != "windows" or not engine.supports_dynamic_rate():
+        return None
+    target_seconds = max(1.0, config.scheduler_interval * 0.9)
+    base_rate = int(config.tts_config("windows").get("rate", 0))
+    text_len = max(1, len(text.strip()))
+
+    # Heuristic fit for short Chinese coaching lines on SAPI.
+    estimated_chars_per_sec = max(1.6, 3.0 + base_rate * 0.18)
+    desired_chars_per_sec = text_len / max(0.6, target_seconds - 0.4)
+    desired_rate = round((desired_chars_per_sec - 3.0) / 0.18)
+    # fit_* only speeds up when needed; it should never slow below the configured base rate.
+    return max(-10, min(10, max(base_rate, desired_rate)))
+
+
 # ── Worker threads ─────────────────────────────────────────────────────────────
 
 def ai_worker(
@@ -104,7 +122,7 @@ def ai_worker(
                 break
 
         # Wait for next AI analysis slot
-        stop_event.wait(timeout=config.ai_interval)
+        stop_event.wait(timeout=config.scheduler_interval)
         if stop_event.is_set():
             break
 
@@ -149,7 +167,7 @@ def ai_worker(
             game_data = payload.game_summary
             metrics = payload.metrics
             address = payload.address
-            if config.tts_playback_mode == "wait" and tts_busy_event.is_set():
+            if config.tts_playback_mode in {"wait", "fit_wait"} and tts_busy_event.is_set():
                 tray.set_state(TrayIcon.STATE_RUNNING)
                 print("[AI worker] waiting for TTS before next cycle")
                 continue
@@ -390,7 +408,7 @@ def tts_worker(bus: EventBus, config: Config, stop_event: threading.Event, busy_
                 active_started_at = time.perf_counter()
                 _log_with_timestamp("TTS", f"start len={len(text)} text={text[:60]}")
                 busy_event.set()
-                engine.start(text)
+                engine.start(text, rate_override=_resolve_tts_rate_override(config, current_backend, engine, text))
                 continue
 
             try:
@@ -400,7 +418,7 @@ def tts_worker(bus: EventBus, config: Config, stop_event: threading.Event, busy_
             started_at = time.perf_counter()
             _log_with_timestamp("TTS", f"start len={len(text)} text={text[:60]}")
             busy_event.set()
-            engine.speak(text)
+            engine.speak(text, rate_override=_resolve_tts_rate_override(config, current_backend, engine, text))
             elapsed_ms = (time.perf_counter() - started_at) * 1000
             _log_with_timestamp("TTS", f"end elapsed_ms={elapsed_ms:.0f}")
         except Exception as e:
