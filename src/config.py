@@ -203,6 +203,10 @@ class Config:
                 result[key] = value
         return result
 
+    @property
+    def overwolf(self) -> dict:
+        return self._data.get("overwolf", {})
+
     def get(self, key: str, default: Any = None) -> Any:
         """Dot-notation access e.g. 'capture.interval'"""
         parts = key.split(".")

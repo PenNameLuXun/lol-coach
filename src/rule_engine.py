@@ -34,8 +34,8 @@ class RuleAdvice:
 class RuleEngine:
     """Thin wrapper over the plugin registry to produce the best rule advice."""
 
-    def __init__(self, enabled_plugin_ids: list[str] | None = None):
-        self._registry = build_default_registry(enabled_plugin_ids=enabled_plugin_ids)
+    def __init__(self, enabled_plugin_ids: list[str] | None = None, config=None):
+        self._registry = build_default_registry(enabled_plugin_ids=enabled_plugin_ids, config=config)
         self._state = EngineState.DISCOVERING
         self._bound_plugin_id: str | None = None
 

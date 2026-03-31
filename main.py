@@ -102,7 +102,7 @@ def ai_worker(
     debug: bool = False,
     debug_timing: bool = False,
 ):
-    rule_engine = RuleEngine(enabled_plugin_ids=config.enabled_plugins)
+    rule_engine = RuleEngine(enabled_plugin_ids=config.enabled_plugins, config=config)
     latest_image: bytes | None = None
     retry_after = 0.0
     context_window = ContextWindow(limit=config.decision_memory_size)

@@ -53,8 +53,14 @@ class TftPlugin:
         ],
     }
 
-    def __init__(self):
+    def __init__(self, config=None):
         self._source = TftLiveDataSource()
+        if config is not None:
+            ow_cfg = config.get("overwolf", {}) or {}
+            if ow_cfg.get("enabled", False):
+                host = ow_cfg.get("host", "127.0.0.1")
+                port = int(ow_cfg.get("port", 7799))
+                self._source.enable_overwolf(host=host, port=port)
 
     def is_available(self) -> bool:
         return self._source.is_available()
@@ -71,18 +77,37 @@ class TftPlugin:
     def extract_state(self, raw_data: dict, metrics: dict[str, int | str]) -> GameState:
         metrics = metrics or extract_key_metrics(raw_data)
         active = raw_data.get("activePlayer", {})
-        hp = _find_tft_hp(raw_data, active.get("summonerName", ""))
-        alive = _count_tft_alive(raw_data)
-        raw_gold = int(active.get("currentGold", 0) or 0)
-        # TFT currentGold returns cumulative earned gold, not current held gold — unusable
-        gold = raw_gold if raw_gold <= 100 else 0
-        level = int(active.get("level", 1) or 1)
-        print(f"[TFT state] hp={hp} raw_gold={raw_gold} gold={gold} level={level} alive={alive}")
+        ow = raw_data.get("_overwolf")  # injected by TftLiveDataSource when Overwolf connected
+
+        if ow:
+            # Overwolf provides accurate real-time TFT data
+            hp = int(ow.get("hp", 100))
+            gold = int(ow.get("gold", 0))
+            level = int(ow.get("level", 1))
+            alive = int(ow.get("alive_players", 0))
+            source = "overwolf"
+        else:
+            # Fallback: Riot Live Client (limited TFT support)
+            hp = _find_tft_hp(raw_data, active.get("summonerName", ""))
+            alive = _count_tft_alive(raw_data)
+            raw_gold = int(active.get("currentGold", 0) or 0)
+            gold = raw_gold if raw_gold <= 100 else 0  # currentGold is cumulative in TFT
+            level = int(active.get("level", 1) or 1)
+            source = "riot"
+
+        print(f"[TFT state:{source}] hp={hp} gold={gold} level={level} alive={alive}")
+
         derived = {
             "player_hp": hp,
             "alive_players": alive,
             "level": level,
             "gold": gold,
+            "shop": ow.get("shop", []) if ow else [],
+            "board": ow.get("board", []) if ow else [],
+            "bench": ow.get("bench", []) if ow else [],
+            "traits": ow.get("traits", []) if ow else [],
+            "round": ow.get("round", "") if ow else "",
+            "data_source": source,
         }
         return GameState(plugin_id=self.id, game_type="tft", raw_data=raw_data, metrics=metrics, derived=derived)
 
