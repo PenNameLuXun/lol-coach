@@ -1,4 +1,4 @@
-from src.rule_engine import RuleEngine
+from src.rule_engine import EngineState, RuleEngine
 from tests.test_lol_client import LOL_DATA, TFT_DATA
 
 
@@ -61,8 +61,46 @@ def test_rule_engine_discovers_active_context(mocker):
     engine = RuleEngine()
     plugin = engine.registry.get("lol")
     assert plugin is not None
+    mocker.patch.object(plugin, "is_available", return_value=True)
     mocker.patch.object(plugin, "fetch_live_data", return_value=LOL_DATA)
     context = engine.discover_active_context()
     assert context is not None
     assert context.plugin.id == "lol"
     assert context.state.plugin_id == "lol"
+
+
+def test_rule_engine_binds_plugin_after_discovery(mocker):
+    engine = RuleEngine()
+    lol_plugin = engine.registry.get("lol")
+    tft_plugin = engine.registry.get("tft")
+    assert lol_plugin is not None
+    assert tft_plugin is not None
+    mocker.patch.object(lol_plugin, "is_available", return_value=True)
+    fetch_mock = mocker.patch.object(lol_plugin, "fetch_live_data", return_value=LOL_DATA)
+    detect_mock = mocker.patch.object(lol_plugin, "detect", return_value=True)
+    tft_available_mock = mocker.patch.object(tft_plugin, "is_available", return_value=True)
+
+    context = engine.discover_active_context()
+    assert context is not None
+    assert context.plugin.id == "lol"
+    assert engine.state == EngineState.BOUND
+    assert engine.bound_plugin_id == "lol"
+    fetch_mock.assert_called_once()
+    detect_mock.assert_called_once()
+    tft_available_mock.assert_not_called()
+
+
+def test_rule_engine_invalidates_binding_when_bound_plugin_fails(mocker):
+    engine = RuleEngine()
+    lol_plugin = engine.registry.get("lol")
+    tft_plugin = engine.registry.get("tft")
+    assert lol_plugin is not None
+    assert tft_plugin is not None
+    engine.bind_plugin("lol")
+    mocker.patch.object(lol_plugin, "is_available", return_value=False)
+    mocker.patch.object(tft_plugin, "is_available", return_value=False)
+
+    context = engine.discover_active_context()
+    assert context is None
+    assert engine.state == EngineState.DISCOVERING
+    assert engine.bound_plugin_id is None

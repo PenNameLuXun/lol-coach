@@ -1,10 +1,8 @@
 from datetime import datetime, timedelta
 
-from src.decision_context import (
+from src.analysis_flow import (
     AnalysisSnapshot,
     ContextWindow,
-    build_bridge_prompt,
-    build_decision_prompt,
     choose_analysis_plan,
     parse_bridge_output,
 )
@@ -34,7 +32,7 @@ def test_parse_bridge_output_reads_structured_lines():
     assert parsed["confidence"] == "high"
 
 
-def test_context_window_renders_recent_trends():
+def test_context_window_keeps_recent_snapshots():
     window = ContextWindow(limit=5)
     base = datetime(2026, 1, 1, 12, 0, 0)
     for idx in range(3):
@@ -59,28 +57,9 @@ def test_context_window_renders_recent_trends():
                 advice=f"advice {idx}",
             )
         )
-    rendered = window.render_for_prompt()
-    assert "金币变化 +400" in rendered
-    assert "最近风险分布" in rendered
-    assert "上一条建议：advice 2" in rendered
-
-
-def test_prompt_builders_include_safety_context():
-    bridge_prompt = build_bridge_prompt("时间12:00，金币1000", {"game_time": "12:00", "gold": 1000, "hp_pct": 75, "level": 8})
-    assert "resource_window:" in bridge_prompt
-    decision_prompt = build_decision_prompt(
-        system_prompt="你是教练",
-        game_summary="时间12:00，金币1000",
-        address="Jinx",
-        metrics={"game_time": "12:00", "gold": 1000, "hp_pct": 75, "mana_pct": 50, "level": 8, "kda": "1/0/2", "cs": 90, "event_signature": "DragonKill"},
-        bridge_facts={"confidence": "high", "scene": "river", "player_risk": "medium", "resource_window": "contest_objective"},
-        historical_context="无历史上下文。",
-        rule_hint="敌方减员，可转资源",
-    )
-    assert "决策规则" in decision_prompt
-    assert "视觉核验置信度：high" in decision_prompt
-    assert "事件DragonKill" in decision_prompt
-    assert "规则引擎提示：敌方减员，可转资源" in decision_prompt
+    assert window.latest() is not None
+    assert window.latest().advice == "advice 2"
+    assert len(window.items()) == 3
 
 
 def test_choose_analysis_plan_skips_stable_cycles():

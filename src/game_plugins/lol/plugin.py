@@ -1,6 +1,17 @@
-from src.game_plugins.base import GameState, RuleResult
+from src.analysis_flow import AnalysisSnapshot
+from src.game_plugins.base import AiPayload, GameState, RuleResult
+from src.game_plugins.league_shared.live_client import (
+    detect_game_type,
+    extract_key_metrics,
+    get_player_address_from_data,
+    summarize_game_data,
+)
+from src.game_plugins.lol.prompting import (
+    build_bridge_prompt,
+    build_decision_prompt,
+    render_history_context,
+)
 from src.game_plugins.lol.source import LolLiveDataSource
-from src.lol_client import detect_game_type, extract_key_metrics
 
 
 class LolPlugin:
@@ -79,11 +90,54 @@ class LolPlugin:
     def render_advice(self, rule: RuleResult, state: GameState) -> str:
         return rule.message
 
+    def build_ai_payload(
+        self,
+        state: GameState,
+        detail: str = "normal",
+        address_by: str = "champion",
+    ) -> AiPayload:
+        return AiPayload(
+            game_summary=summarize_game_data(state.raw_data, detail=detail),
+            address=get_player_address_from_data(state.raw_data, address_by),
+            metrics=dict(state.metrics),
+        )
+
     def build_ai_context(self, state: GameState) -> str:
         return (
             f"规则观察：最近事件{state.derived.get('latest_event', 'none')}，"
             f"我方阵亡{state.derived.get('ally_dead', 0)}人，"
             f"敌方阵亡{state.derived.get('enemy_dead', 0)}人。"
+        )
+
+    def build_rule_hint(self, rule: RuleResult, state: GameState, rendered_advice: str) -> str:
+        return f"{rendered_advice} {self.build_ai_context(state)}"
+
+    def build_vision_prompt(self, state: GameState, detail: str = "normal") -> str:
+        payload = self.build_ai_payload(state, detail=detail)
+        return build_bridge_prompt(payload.game_summary, payload.metrics)
+
+    def build_history_context(self, snapshots: list[AnalysisSnapshot]) -> str:
+        return render_history_context(snapshots)
+
+    def build_decision_prompt(
+        self,
+        state: GameState,
+        system_prompt: str,
+        bridge_facts: dict[str, str] | None,
+        snapshots: list[AnalysisSnapshot],
+        rule_hint: str | None = None,
+        detail: str = "normal",
+        address_by: str = "champion",
+    ) -> str:
+        payload = self.build_ai_payload(state, detail=detail, address_by=address_by)
+        return build_decision_prompt(
+            system_prompt=system_prompt,
+            game_summary=payload.game_summary,
+            address=payload.address,
+            metrics=payload.metrics,
+            bridge_facts=bridge_facts,
+            historical_context=self.build_history_context(snapshots),
+            rule_hint=rule_hint,
         )
 
 

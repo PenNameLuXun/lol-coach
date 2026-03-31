@@ -23,22 +23,20 @@ import time
 from PyQt6.QtWidgets import QApplication
 from PyQt6.QtCore import QObject, pyqtSignal, QTimer
 
-from src.config import Config
-from src.decision_context import (
+from src.analysis_flow import (
     AnalysisSnapshot,
     AnalysisPlan,
     ContextWindow,
-    build_bridge_prompt,
-    build_decision_prompt,
     choose_analysis_plan,
     parse_bridge_output,
 )
+from src.config import Config
 from src.event_bus import EventBus
 from src.history import History
 from src.capturer import Capturer
 from src.ai_provider import get_provider
 from src.tts_engine import get_tts_engine
-from src.lol_client import get_player_address_from_data, summarize_game_data
+from src.game_plugins.base import AiPayload
 from src.rule_engine import RuleEngine
 from src.ui.main_window import MainWindow
 from src.ui.tray import TrayIcon
@@ -49,6 +47,23 @@ from src.ui.overlay import OverlayWindow
 
 class SignalBridge(QObject):
     advice_ready = pyqtSignal(str)
+
+
+def _empty_ai_payload() -> AiPayload:
+    return AiPayload(
+        game_summary="",
+        address=None,
+        metrics={
+            "game_time": "?",
+            "gold": "?",
+            "hp_pct": "?",
+            "mana_pct": "?",
+            "level": "?",
+            "kda": "?",
+            "cs": "?",
+            "event_signature": "none",
+        },
+    )
 
 
 # ── Worker threads ─────────────────────────────────────────────────────────────
@@ -106,17 +121,18 @@ def ai_worker(
                 tray.set_state(TrayIcon.STATE_RUNNING)
                 continue
             capturer.resume()
-            game_data = summarize_game_data(live_data, detail=config.lol_client_detail) if live_data else ""
-            metrics = active_context.state.metrics if active_context else {
-                "game_time": "?",
-                "gold": "?",
-                "hp_pct": "?",
-                "mana_pct": "?",
-                "level": "?",
-                "kda": "?",
-                "cs": "?",
-            }
-            address = get_player_address_from_data(live_data, config.lol_client_address_by) if live_data else None
+            payload = (
+                active_context.plugin.build_ai_payload(
+                    active_context.state,
+                    detail=config.lol_client_detail,
+                    address_by=config.lol_client_address_by,
+                )
+                if active_context
+                else _empty_ai_payload()
+            )
+            game_data = payload.game_summary
+            metrics = payload.metrics
+            address = payload.address
             img = latest_image if config.capture_use_screenshot else None
             bridge_facts: dict[str, str] | None = None
             previous_snapshot = context_window.latest()
@@ -204,7 +220,17 @@ def ai_worker(
                 try:
                     vb_provider_name, vb_provider_cfg = config.vision_bridge_provider_config()
                     vb_provider = get_provider(vb_provider_name, vb_provider_cfg)
-                    vb_prompt = vb.get("prompt") or build_bridge_prompt(game_data, metrics)
+                    vb_prompt = (
+                        vb.get("prompt")
+                        or (
+                            active_context.plugin.build_vision_prompt(
+                                active_context.state,
+                                detail=config.lol_client_detail,
+                            )
+                            if active_context
+                            else ""
+                        )
+                    )
                     bridge_started_at = time.perf_counter()
                     description = vb_provider.analyze(latest_image, vb_prompt)
                     bridge_elapsed_ms = (time.perf_counter() - bridge_started_at) * 1000
@@ -219,19 +245,18 @@ def ai_worker(
             if vb:
                 img = None
 
-            prompt = build_decision_prompt(
-                system_prompt=config.system_prompt,
-                game_summary=game_data,
-                address=address,
-                metrics=metrics,
-                bridge_facts=bridge_facts,
-                historical_context=context_window.render_for_prompt(),
-                rule_hint=(
-                    f"{rule_advice.text} "
-                    f"{rule_advice.plugin.build_ai_context(rule_advice.state)}"
-                    if rule_advice
-                    else None
-                ),
+            prompt = (
+                active_context.plugin.build_decision_prompt(
+                    active_context.state,
+                    system_prompt=config.system_prompt,
+                    bridge_facts=bridge_facts,
+                    snapshots=context_window.items(),
+                    rule_hint=rule_advice.hint if rule_advice else None,
+                    detail=config.lol_client_detail,
+                    address_by=config.lol_client_address_by,
+                )
+                if active_context
+                else ""
             )
 
             if debug:

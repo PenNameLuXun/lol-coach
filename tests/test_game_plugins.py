@@ -1,5 +1,7 @@
 from src.game_plugins import build_default_registry
+from src.analysis_flow import AnalysisSnapshot
 from src.game_plugins.registry import discover_plugins
+from datetime import datetime
 from tests.test_lol_client import LOL_DATA, TFT_DATA
 
 
@@ -29,3 +31,108 @@ def test_registry_can_filter_enabled_plugins():
     manifests = registry.manifests()
     assert len(manifests) == 1
     assert manifests[0]["id"] == "lol"
+
+
+def test_lol_plugin_builds_ai_payload():
+    registry = build_default_registry(enabled_plugin_ids=["lol"])
+    plugin = registry.get("lol")
+    assert plugin is not None
+    state = plugin.extract_state(LOL_DATA, {})
+
+    payload = plugin.build_ai_payload(state, detail="minimal", address_by="champion")
+
+    assert "时间12:05" in payload.game_summary
+    assert payload.address == "Jinx"
+    assert payload.metrics["gold"] == 1350
+
+
+def test_tft_plugin_builds_ai_payload():
+    registry = build_default_registry(enabled_plugin_ids=["tft"])
+    plugin = registry.get("tft")
+    assert plugin is not None
+    state = plugin.extract_state(TFT_DATA, {})
+
+    payload = plugin.build_ai_payload(state, detail="minimal", address_by="summoner")
+
+    assert "云顶之弈" in payload.game_summary
+    assert payload.address == "TestPlayer"
+    assert payload.metrics["game_type"] == "tft"
+
+
+def test_lol_plugin_builds_rule_hint():
+    registry = build_default_registry(enabled_plugin_ids=["lol"])
+    plugin = registry.get("lol")
+    assert plugin is not None
+    state = plugin.extract_state(LOL_DATA, {"hp_pct": 20, "gold": 1800})
+    rule = plugin.evaluate_rules(state)[0]
+
+    hint = plugin.build_rule_hint(rule, state, plugin.render_advice(rule, state))
+
+    assert "规则观察" in hint
+    assert rule.message in hint
+
+
+def test_lol_plugin_builds_decision_prompt():
+    registry = build_default_registry(enabled_plugin_ids=["lol"])
+    plugin = registry.get("lol")
+    assert plugin is not None
+    state = plugin.extract_state(LOL_DATA, {})
+
+    prompt = plugin.build_decision_prompt(
+        state,
+        system_prompt="你是教练",
+        bridge_facts={"confidence": "high", "scene": "river", "player_risk": "medium"},
+        snapshots=[],
+        rule_hint="敌方减员，可转资源",
+        detail="minimal",
+        address_by="champion",
+    )
+
+    assert "你是教练" in prompt
+    assert "当前游戏摘要" in prompt
+    assert "规则引擎提示：敌方减员，可转资源" in prompt
+    assert "视觉核验置信度：high" in prompt
+
+
+def test_lol_plugin_builds_history_context():
+    registry = build_default_registry(enabled_plugin_ids=["lol"])
+    plugin = registry.get("lol")
+    assert plugin is not None
+
+    history = plugin.build_history_context(
+        [
+            AnalysisSnapshot(
+                timestamp=datetime(2026, 1, 1, 12, 0, 0),
+                game_summary="summary",
+                address="Jinx",
+                metrics={"game_time": "12:00", "gold": 1000, "level": 8, "cs": 90, "hp_pct": 70},
+                bridge_facts={"player_risk": "medium", "scene": "river"},
+                advice="补刀",
+            )
+        ]
+    )
+
+    assert "上一条建议：补刀" in history
+
+
+def test_tft_plugin_builds_game_specific_prompts():
+    registry = build_default_registry(enabled_plugin_ids=["tft"])
+    plugin = registry.get("tft")
+    assert plugin is not None
+    state = plugin.extract_state(TFT_DATA, {})
+
+    vision_prompt = plugin.build_vision_prompt(state, detail="minimal")
+    decision_prompt = plugin.build_decision_prompt(
+        state,
+        system_prompt="你是云顶教练",
+        bridge_facts={"confidence": "high", "board_strength": "stable", "upgrade_window": "roll_now"},
+        snapshots=[],
+        rule_hint="血量危险，准备搜牌保血",
+        detail="minimal",
+        address_by="summoner",
+    )
+
+    assert "云顶之弈视觉核验模块" in vision_prompt
+    assert "board_strength:" in vision_prompt
+    assert "当前云顶摘要" in decision_prompt
+    assert "不要猜测具体羁绊" in decision_prompt

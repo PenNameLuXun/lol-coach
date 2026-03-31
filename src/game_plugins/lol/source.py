@@ -1,12 +1,12 @@
-from src.lol_client import LolClient
+from src.game_plugins.league_shared.live_client import LeagueLiveClient
 
 
 class LolLiveDataSource:
     def __init__(self):
-        self._client = LolClient()
+        self._client = LeagueLiveClient()
 
     def is_available(self) -> bool:
-        return True
+        return self._client.is_available()
 
     def fetch_live_data(self) -> dict | None:
         return self._client.get_live_data()

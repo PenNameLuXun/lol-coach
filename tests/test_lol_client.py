@@ -1,6 +1,6 @@
 from unittest.mock import patch, MagicMock
-from src.lol_client import (
-    LolClient,
+from src.game_plugins.league_shared.live_client import (
+    LeagueLiveClient,
     _format_lol,
     _format_tft,
     _is_tft,
@@ -203,14 +203,14 @@ def test_format_tft_full_standings_sorted_by_hp():
 
 def test_get_game_summary_returns_none_when_not_in_game():
     with patch("requests.get", side_effect=Exception("connection refused")):
-        assert LolClient().get_game_summary() is None
+        assert LeagueLiveClient().get_game_summary() is None
 
 
 def test_get_game_summary_auto_detects_lol():
     mock_resp = MagicMock()
     mock_resp.json.return_value = LOL_DATA
     with patch("requests.get", return_value=mock_resp):
-        result = LolClient().get_game_summary()
+        result = LeagueLiveClient().get_game_summary()
         assert result is not None
         assert "云顶之弈" not in result
         assert "Jinx" in result
@@ -220,7 +220,7 @@ def test_get_game_summary_auto_detects_tft():
     mock_resp = MagicMock()
     mock_resp.json.return_value = TFT_DATA
     with patch("requests.get", return_value=mock_resp):
-        result = LolClient().get_game_summary()
+        result = LeagueLiveClient().get_game_summary()
         assert result is not None
         assert "云顶之弈" in result
 
