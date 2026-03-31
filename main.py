@@ -110,10 +110,15 @@ def ai_worker(
         try:
             cycle_started_at = time.perf_counter()
             tray.set_state(TrayIcon.STATE_BUSY)
+            previous_plugin_id = rule_engine.bound_plugin_id
             active_context = rule_engine.discover_active_context()
+            active_plugin_id = active_context.plugin.id if active_context else None
             live_data = active_context.state.raw_data if active_context else None
-            if live_data is None and config.lol_client_require_game:
-                if rule_engine.had_seen_activity():
+            if live_data is None and config.plugin_require_game(active_plugin_id):
+                candidate_plugin_id = active_plugin_id or previous_plugin_id
+                if candidate_plugin_id == "dialogue" and rule_engine.had_seen_activity():
+                    print("[AI worker] waiting for dialogue input")
+                elif rule_engine.had_seen_activity():
                     print("[AI worker] game over, skipping analysis")
                 else:
                     print("[AI worker] not in game, skipping analysis")
@@ -124,8 +129,8 @@ def ai_worker(
             payload = (
                 active_context.plugin.build_ai_payload(
                     active_context.state,
-                    detail=config.lol_client_detail,
-                    address_by=config.lol_client_address_by,
+                    detail=config.plugin_detail(active_plugin_id),
+                    address_by=config.plugin_address_by(active_plugin_id),
                 )
                 if active_context
                 else _empty_ai_payload()
@@ -133,7 +138,8 @@ def ai_worker(
             game_data = payload.game_summary
             metrics = payload.metrics
             address = payload.address
-            img = latest_image if config.capture_use_screenshot else None
+            allow_visual = bool(active_context and active_context.plugin.wants_visual_context(active_context.state))
+            img = latest_image if config.capture_use_screenshot and allow_visual else None
             bridge_facts: dict[str, str] | None = None
             previous_snapshot = context_window.latest()
             rule_advice = rule_engine.evaluate_context(active_context) if active_context else None
@@ -225,18 +231,19 @@ def ai_worker(
                         or (
                             active_context.plugin.build_vision_prompt(
                                 active_context.state,
-                                detail=config.lol_client_detail,
+                                detail=config.plugin_detail(active_plugin_id),
                             )
                             if active_context
                             else ""
                         )
                     )
-                    bridge_started_at = time.perf_counter()
-                    description = vb_provider.analyze(latest_image, vb_prompt)
-                    bridge_elapsed_ms = (time.perf_counter() - bridge_started_at) * 1000
-                    bridge_facts = parse_bridge_output(description)
-                    img = None  # main provider always receives text only when bridge is active
-                    print(f"[Vision bridge] {vb['provider']} → ok")
+                    if vb_prompt.strip():
+                        bridge_started_at = time.perf_counter()
+                        description = vb_provider.analyze(latest_image, vb_prompt)
+                        bridge_elapsed_ms = (time.perf_counter() - bridge_started_at) * 1000
+                        bridge_facts = parse_bridge_output(description)
+                        img = None  # main provider always receives text only when bridge is active
+                        print(f"[Vision bridge] {vb['provider']} → ok")
                 except Exception as e:
                     img = None
                     print(f"[Vision bridge error] {e}")
@@ -252,15 +259,14 @@ def ai_worker(
                     bridge_facts=bridge_facts,
                     snapshots=context_window.items(),
                     rule_hint=rule_advice.hint if rule_advice else None,
-                    detail=config.lol_client_detail,
-                    address_by=config.lol_client_address_by,
+                    detail=config.plugin_detail(active_plugin_id),
+                    address_by=config.plugin_address_by(active_plugin_id),
                 )
                 if active_context
                 else ""
             )
 
             if debug:
-                import datetime
                 ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
                 os.makedirs("debug_captures", exist_ok=True)
                 with open(f"debug_captures/{ts}_prompt.txt", "w", encoding="utf-8") as _f:

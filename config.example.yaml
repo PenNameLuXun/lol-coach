@@ -11,6 +11,22 @@ decision:
     # In hybrid mode, rules at or above this priority bypass AI immediately.
     hybrid_priority_threshold: 85
 
+plugin_settings:
+  lol:
+    detail: full
+    address_by: champion
+    require_game: true
+  tft:
+    detail: normal
+    address_by: summoner
+    require_game: true
+  dialogue:
+    source: file
+    text_file: dialogue_input.txt
+    transcript_file: dialogue_mic.txt
+    speaker: 玩家
+    clear_after_read: false
+
 ai:
   # Active provider: claude | openai | gemini
   provider: claude

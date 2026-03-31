@@ -55,6 +55,9 @@ class GamePlugin(Protocol):
     def build_rule_hint(self, rule: RuleResult, state: GameState, rendered_advice: str) -> str:
         return rendered_advice
 
+    def wants_visual_context(self, state: GameState) -> bool:
+        return True
+
     def build_vision_prompt(self, state: GameState, detail: str = "normal") -> str:
         return ""
 

@@ -30,6 +30,13 @@ class Config:
             yaml.dump(self._data, f, allow_unicode=True)
         self._mtime = self._current_mtime()
 
+    def _set_in_memory(self, key: str, value: Any):
+        parts = key.split(".")
+        node = self._data
+        for part in parts[:-1]:
+            node = node.setdefault(part, {})
+        node[parts[-1]] = value
+
     @property
     def ai_provider(self) -> str:
         return self._data["ai"]["provider"]
@@ -152,6 +159,34 @@ class Config:
         enabled = plugins_cfg.get("enabled", [])
         return enabled if isinstance(enabled, list) else []
 
+    def plugin_settings(self, plugin_id: str) -> dict:
+        settings = self._data.get("plugin_settings", {}).get(plugin_id, {})
+        return settings if isinstance(settings, dict) else {}
+
+    def plugin_setting(self, plugin_id: str, key: str, default: Any = None) -> Any:
+        return self.plugin_settings(plugin_id).get(key, default)
+
+    def plugin_detail(self, plugin_id: str | None) -> str:
+        if plugin_id:
+            value = self.plugin_setting(plugin_id, "detail")
+            if value is not None:
+                return str(value)
+        return self._data.get("lol_client", {}).get("detail", "normal")
+
+    def plugin_address_by(self, plugin_id: str | None) -> str:
+        if plugin_id:
+            value = self.plugin_setting(plugin_id, "address_by")
+            if value is not None:
+                return str(value)
+        return self._data.get("lol_client", {}).get("address_by", "champion")
+
+    def plugin_require_game(self, plugin_id: str | None) -> bool:
+        if plugin_id:
+            value = self.plugin_setting(plugin_id, "require_game")
+            if value is not None:
+                return bool(value)
+        return self._data.get("lol_client", {}).get("require_game", True)
+
     def get(self, key: str, default: Any = None) -> Any:
         """Dot-notation access e.g. 'capture.interval'"""
         parts = key.split(".")
@@ -164,11 +199,12 @@ class Config:
 
     def set(self, key: str, value: Any):
         """Dot-notation write + save e.g. set('capture.interval', 10)"""
-        parts = key.split(".")
-        node = self._data
-        for part in parts[:-1]:
-            node = node.setdefault(part, {})
-        node[parts[-1]] = value
+        self._set_in_memory(key, value)
+        self.save()
+
+    def update_many(self, values: dict[str, Any]):
+        for key, value in values.items():
+            self._set_in_memory(key, value)
         self.save()
 
     def on_reload(self, callback: Callable):

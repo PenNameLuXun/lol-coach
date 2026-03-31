@@ -23,6 +23,32 @@ class LolPlugin:
         "source": {"kind": "league_live_client"},
         "supports_rules": True,
         "supports_ai_context": True,
+        "capabilities": {"ai": True, "rules": True, "visual": True},
+        "config_schema": [
+            {
+                "key": "detail",
+                "label": "数据细节",
+                "type": "select",
+                "options": ["minimal", "normal", "full"],
+                "default": "full",
+                "help": "控制发送给 AI 的局势摘要粒度。",
+            },
+            {
+                "key": "address_by",
+                "label": "玩家称呼",
+                "type": "select",
+                "options": ["champion", "summoner", "none"],
+                "default": "champion",
+                "help": "AI 回复中如何称呼玩家。",
+            },
+            {
+                "key": "require_game",
+                "label": "必须在对局中",
+                "type": "bool",
+                "default": True,
+                "help": "启用后仅在检测到活跃对局时分析。",
+            },
+        ],
     }
 
     def __init__(self):

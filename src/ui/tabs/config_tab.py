@@ -1,6 +1,7 @@
 from PyQt6.QtWidgets import (
     QWidget, QFormLayout, QComboBox, QLineEdit,
-    QSpinBox, QPushButton, QTextEdit, QGroupBox, QVBoxLayout
+    QSpinBox, QPushButton, QTextEdit, QGroupBox, QVBoxLayout,
+    QCheckBox, QLabel
 )
 from PyQt6.QtCore import pyqtSignal
 from src.config import Config
@@ -26,6 +27,8 @@ class ConfigTab(QWidget):
     def __init__(self, config: Config, parent=None):
         super().__init__(parent)
         self._cfg = config
+        self._plugins = discover_plugins()
+        self._plugin_setting_widgets: dict[str, dict[str, tuple[dict, object]]] = {}
         self._build_ui()
         self._load_values()
 
@@ -41,7 +44,7 @@ class ConfigTab(QWidget):
         decision_form.addRow("决策模式:", self._decision_mode_combo)
 
         self._enabled_plugins_edit = QLineEdit()
-        plugin_ids = [plugin.id for plugin in discover_plugins()]
+        plugin_ids = [plugin.id for plugin in self._plugins]
         self._enabled_plugins_edit.setPlaceholderText(",".join(plugin_ids) or "留空=全部插件")
         self._enabled_plugins_edit.setToolTip("逗号分隔插件ID，留空表示启用所有已发现插件")
         decision_form.addRow("启用插件:", self._enabled_plugins_edit)
@@ -51,6 +54,7 @@ class ConfigTab(QWidget):
         decision_form.addRow("混合直出阈值:", self._hybrid_threshold_spin)
 
         root.addWidget(decision_box)
+        root.addWidget(self._build_plugin_settings_box())
 
         # ── AI ────────────────────────────────────────────────────────────────
         ai_box = QGroupBox("AI 设置")
@@ -140,6 +144,73 @@ class ConfigTab(QWidget):
         save_btn.clicked.connect(self._save)
         root.addWidget(save_btn)
 
+    def _build_plugin_settings_box(self) -> QGroupBox:
+        plugin_box = QGroupBox("插件设置")
+        plugin_layout = QVBoxLayout(plugin_box)
+
+        for plugin in self._plugins:
+            schema = plugin.manifest.get("config_schema", [])
+            if not schema:
+                continue
+            capabilities = plugin.manifest.get("capabilities", {})
+            caps = " / ".join(
+                label
+                for key, label in (("ai", "AI"), ("rules", "规则"), ("visual", "视觉"))
+                if capabilities.get(key, False)
+            ) or "无特殊能力"
+
+            group = QGroupBox(plugin.display_name)
+            form = QFormLayout(group)
+            badge = QLabel(f"能力: {caps}")
+            form.addRow("插件能力:", badge)
+
+            widgets: dict[str, tuple[dict, object]] = {}
+            for field in schema:
+                widget = self._create_plugin_widget(field)
+                help_text = str(field.get("help", "")).strip()
+                if help_text:
+                    widget.setToolTip(help_text)
+                form.addRow(f"{field.get('label', field['key'])}:", widget)
+                widgets[str(field["key"])] = (field, widget)
+
+            self._plugin_setting_widgets[plugin.id] = widgets
+            plugin_layout.addWidget(group)
+
+        return plugin_box
+
+    def _create_plugin_widget(self, field: dict):
+        field_type = field.get("type", "string")
+        if field_type == "bool":
+            return QCheckBox()
+        if field_type == "int":
+            spin = QSpinBox()
+            spin.setRange(int(field.get("min", 0)), int(field.get("max", 9999)))
+            return spin
+        if field_type == "select":
+            combo = QComboBox()
+            combo.addItems([str(option) for option in field.get("options", [])])
+            return combo
+        return QLineEdit()
+
+    def _plugin_field_value(self, widget):
+        if isinstance(widget, QCheckBox):
+            return widget.isChecked()
+        if isinstance(widget, QSpinBox):
+            return widget.value()
+        if isinstance(widget, QComboBox):
+            return widget.currentText()
+        return widget.text()
+
+    def _set_plugin_field_value(self, widget, value):
+        if isinstance(widget, QCheckBox):
+            widget.setChecked(bool(value))
+        elif isinstance(widget, QSpinBox):
+            widget.setValue(int(value))
+        elif isinstance(widget, QComboBox):
+            widget.setCurrentText(str(value))
+        else:
+            widget.setText("" if value is None else str(value))
+
     def _apply_preset(self, name: str):
         if name != "自定义" and PROMPT_PRESETS[name]:
             self._prompt_edit.setPlainText(PROMPT_PRESETS[name])
@@ -168,6 +239,11 @@ class ConfigTab(QWidget):
         self._quality_spin.setValue(self._cfg.capture_jpeg_quality)
         self._fade_spin.setValue(self._cfg.overlay.get("fade_after", 8))
         self._overlay_hotkey_edit.setText(self._cfg.overlay.get("toggle_hotkey", ""))
+        for plugin in self._plugins:
+            settings = self._cfg.plugin_settings(plugin.id)
+            for key, (field, widget) in self._plugin_setting_widgets.get(plugin.id, {}).items():
+                value = settings.get(key, field.get("default"))
+                self._set_plugin_field_value(widget, value)
 
     def _update_api_key_label(self, provider: str):
         try:
@@ -179,21 +255,27 @@ class ConfigTab(QWidget):
     def _save(self):
         plugin_text = self._enabled_plugins_edit.text().strip()
         enabled_plugins = [item.strip() for item in plugin_text.split(",") if item.strip()]
-        self._cfg.set("decision.mode", self._decision_mode_combo.currentText())
-        self._cfg.set("decision.plugins.enabled", enabled_plugins)
-        self._cfg.set("decision.rules.hybrid_priority_threshold", self._hybrid_threshold_spin.value())
         provider = self._provider_combo.currentText()
-        self._cfg.set("ai.provider", provider)
-        self._cfg.set(f"ai.{provider}.api_key", self._api_key_edit.text())
-        self._cfg.set(f"ai.{provider}.model", self._model_edit.text())
-        self._cfg.set("ai.system_prompt", self._prompt_edit.toPlainText())
-        self._cfg.set("tts.backend", self._tts_combo.currentText())
-        self._cfg.set("tts.edge.rate", self._tts_rate_edit.text())
-        self._cfg.set("capture.interval", self._interval_spin.value())
-        self._cfg.set("capture.hotkey", self._hotkey_edit.text())
-        self._cfg.set("capture.region", self._region_combo.currentText())
-        self._cfg.set("capture.monitor", self._monitor_spin.value())
-        self._cfg.set("capture.jpeg_quality", self._quality_spin.value())
-        self._cfg.set("overlay.fade_after", self._fade_spin.value())
-        self._cfg.set("overlay.toggle_hotkey", self._overlay_hotkey_edit.text())
+        updates = {
+            "decision.mode": self._decision_mode_combo.currentText(),
+            "decision.plugins.enabled": enabled_plugins,
+            "decision.rules.hybrid_priority_threshold": self._hybrid_threshold_spin.value(),
+            "ai.provider": provider,
+            f"ai.{provider}.api_key": self._api_key_edit.text(),
+            f"ai.{provider}.model": self._model_edit.text(),
+            "ai.system_prompt": self._prompt_edit.toPlainText(),
+            "tts.backend": self._tts_combo.currentText(),
+            "tts.edge.rate": self._tts_rate_edit.text(),
+            "capture.interval": self._interval_spin.value(),
+            "capture.hotkey": self._hotkey_edit.text(),
+            "capture.region": self._region_combo.currentText(),
+            "capture.monitor": self._monitor_spin.value(),
+            "capture.jpeg_quality": self._quality_spin.value(),
+            "overlay.fade_after": self._fade_spin.value(),
+            "overlay.toggle_hotkey": self._overlay_hotkey_edit.text(),
+        }
+        for plugin_id, fields in self._plugin_setting_widgets.items():
+            for key, (_field, widget) in fields.items():
+                updates[f"plugin_settings.{plugin_id}.{key}"] = self._plugin_field_value(widget)
+        self._cfg.update_many(updates)
         self.config_changed.emit()

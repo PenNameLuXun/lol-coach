@@ -22,7 +22,7 @@ def test_registry_detects_tft_plugin():
 def test_discover_plugins_loads_manifests():
     plugins = discover_plugins()
     plugin_ids = {plugin.id for plugin in plugins}
-    assert {"lol", "tft"}.issubset(plugin_ids)
+    assert {"lol", "tft", "dialogue"}.issubset(plugin_ids)
     assert all(isinstance(plugin.manifest, dict) for plugin in plugins)
 
 
@@ -136,3 +136,82 @@ def test_tft_plugin_builds_game_specific_prompts():
     assert "board_strength:" in vision_prompt
     assert "当前云顶摘要" in decision_prompt
     assert "不要猜测具体羁绊" in decision_prompt
+
+
+def test_dialogue_plugin_builds_reply_prompt(tmp_path, monkeypatch):
+    config_path = tmp_path / "config.yaml"
+    input_path = tmp_path / "dialogue_input.txt"
+    config_path.write_text(
+        f"dialogue_plugin:\n  source: file\n  text_file: {input_path.as_posix()}\n  speaker: 测试玩家\n  clear_after_read: false\n",
+        encoding="utf-8",
+    )
+    input_path.write_text("你好，帮我测试一下语音回复。", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+
+    registry = build_default_registry(enabled_plugin_ids=["dialogue"])
+    plugin = registry.get("dialogue")
+    assert plugin is not None
+    raw_data = plugin.fetch_live_data()
+    assert raw_data is not None
+    state = plugin.extract_state(raw_data, {})
+    assert plugin.wants_visual_context(state) is False
+
+    prompt = plugin.build_decision_prompt(
+        state,
+        system_prompt="你是测试助手",
+        bridge_facts=None,
+        snapshots=[],
+        detail="normal",
+        address_by="summoner",
+    )
+
+    assert "语音对话测试" in prompt
+    assert "你好，帮我测试一下语音回复。" in prompt
+    assert "测试玩家" in prompt
+
+
+def test_dialogue_source_reads_lines_in_loop_without_mutating_file(tmp_path, monkeypatch):
+    config_path = tmp_path / "config.yaml"
+    input_path = tmp_path / "dialogue_input.txt"
+    config_path.write_text(
+        f"dialogue_plugin:\n  source: file\n  text_file: {input_path.as_posix()}\n  speaker: 测试玩家\n  clear_after_read: false\n",
+        encoding="utf-8",
+    )
+    input_path.write_text("第一行\n\n第二行\n第三行\n", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+
+    registry = build_default_registry(enabled_plugin_ids=["dialogue"])
+    plugin = registry.get("dialogue")
+    assert plugin is not None
+
+    texts = []
+    for _ in range(4):
+        raw_data = plugin.fetch_live_data()
+        assert raw_data is not None
+        texts.append(raw_data["dialogue"]["text"])
+
+    assert texts == ["第一行", "第二行", "第三行", "第一行"]
+    assert input_path.read_text(encoding="utf-8") == "第一行\n\n第二行\n第三行\n"
+
+
+def test_dialogue_plugin_rules_echo_input(tmp_path, monkeypatch):
+    config_path = tmp_path / "config.yaml"
+    input_path = tmp_path / "dialogue_input.txt"
+    config_path.write_text(
+        f"dialogue_plugin:\n  source: file\n  text_file: {input_path.as_posix()}\n  speaker: 测试玩家\n  clear_after_read: false\n",
+        encoding="utf-8",
+    )
+    input_path.write_text("规则模式测试", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+
+    registry = build_default_registry(enabled_plugin_ids=["dialogue"])
+    plugin = registry.get("dialogue")
+    assert plugin is not None
+    raw_data = plugin.fetch_live_data()
+    assert raw_data is not None
+    state = plugin.extract_state(raw_data, {})
+
+    rules = plugin.evaluate_rules(state)
+
+    assert len(rules) == 1
+    assert rules[0].message == "规则模式测试"

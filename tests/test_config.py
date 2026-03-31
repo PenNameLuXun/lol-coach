@@ -31,6 +31,10 @@ MINIMAL_CONFIG = {
     "capture": {"interval": 5, "hotkey": "ctrl+shift+a", "region": "fullscreen", "jpeg_quality": 85},
     "overlay": {"enabled": True, "x": 100, "y": 100, "fade_after": 8, "toggle_hotkey": "ctrl+shift+h"},
     "app": {"start_minimized": True},
+    "plugin_settings": {
+        "lol": {"detail": "full", "address_by": "champion", "require_game": True},
+        "dialogue": {"source": "file", "text_file": "dialogue_input.txt", "speaker": "玩家", "clear_after_read": True},
+    },
 }
 
 
@@ -125,3 +129,24 @@ def test_decision_mode_and_rules_config(config_file):
     assert cfg.decision_mode == "hybrid"
     assert cfg.rules_config["hybrid_priority_threshold"] == 88
     assert cfg.enabled_plugins == ["lol"]
+
+
+def test_plugin_settings_helpers(config_file):
+    cfg = Config(config_file)
+    assert cfg.plugin_settings("dialogue")["source"] == "file"
+    assert cfg.plugin_detail("lol") == "full"
+    assert cfg.plugin_address_by("lol") == "champion"
+    assert cfg.plugin_require_game("lol") is True
+
+
+def test_update_many_saves_once_with_plugin_settings(config_file):
+    cfg = Config(config_file)
+    cfg.update_many(
+        {
+            "plugin_settings.dialogue.source": "microphone",
+            "plugin_settings.dialogue.speaker": "测试员",
+        }
+    )
+    cfg2 = Config(config_file)
+    assert cfg2.plugin_setting("dialogue", "source") == "microphone"
+    assert cfg2.plugin_setting("dialogue", "speaker") == "测试员"
