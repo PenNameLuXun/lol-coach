@@ -48,9 +48,14 @@ def discover_plugins() -> list[GamePlugin]:
     plugins: list[GamePlugin] = []
     package_path = list(getattr(game_plugins_pkg, "__path__", []))
     for module_info in pkgutil.iter_modules(package_path):
-        if module_info.name in {"base", "registry"} or not module_info.name.endswith("_plugin"):
+        if module_info.name in {"base", "registry"}:
             continue
-        module = importlib.import_module(f"src.game_plugins.{module_info.name}")
+        if module_info.ispkg:
+            module = importlib.import_module(f"src.game_plugins.{module_info.name}")
+        else:
+            if not module_info.name.endswith("_plugin"):
+                continue
+            module = importlib.import_module(f"src.game_plugins.{module_info.name}")
         plugin = _instantiate_plugin_from_module(module)
         if plugin is not None:
             plugins.append(plugin)

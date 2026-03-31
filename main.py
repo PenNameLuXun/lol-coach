@@ -38,7 +38,7 @@ from src.history import History
 from src.capturer import Capturer
 from src.ai_provider import get_provider
 from src.tts_engine import get_tts_engine
-from src.lol_client import LolClient, extract_key_metrics, get_player_address_from_data, summarize_game_data
+from src.lol_client import get_player_address_from_data, summarize_game_data
 from src.rule_engine import RuleEngine
 from src.ui.main_window import MainWindow
 from src.ui.tray import TrayIcon
@@ -63,7 +63,6 @@ def ai_worker(
     debug: bool = False,
     debug_timing: bool = False,
 ):
-    lol = LolClient()
     rule_engine = RuleEngine(enabled_plugin_ids=config.enabled_plugins)
     latest_image: bytes | None = None
     retry_after = 0.0
@@ -96,9 +95,10 @@ def ai_worker(
         try:
             cycle_started_at = time.perf_counter()
             tray.set_state(TrayIcon.STATE_BUSY)
-            live_data = lol.get_live_data()
+            active_context = rule_engine.discover_active_context()
+            live_data = active_context.state.raw_data if active_context else None
             if live_data is None and config.lol_client_require_game:
-                if lol.last_seen_in_game:
+                if rule_engine.had_seen_activity():
                     print("[AI worker] game over, skipping analysis")
                 else:
                     print("[AI worker] not in game, skipping analysis")
@@ -107,7 +107,7 @@ def ai_worker(
                 continue
             capturer.resume()
             game_data = summarize_game_data(live_data, detail=config.lol_client_detail) if live_data else ""
-            metrics = extract_key_metrics(live_data) if live_data else {
+            metrics = active_context.state.metrics if active_context else {
                 "game_time": "?",
                 "gold": "?",
                 "hp_pct": "?",
@@ -120,7 +120,7 @@ def ai_worker(
             img = latest_image if config.capture_use_screenshot else None
             bridge_facts: dict[str, str] | None = None
             previous_snapshot = context_window.latest()
-            rule_advice = rule_engine.evaluate(live_data, metrics)
+            rule_advice = rule_engine.evaluate_context(active_context) if active_context else None
             decision_mode = config.decision_mode
             hybrid_threshold = int(config.rules_config.get("hybrid_priority_threshold", 85))
             if decision_mode == "rules":

@@ -1,7 +1,6 @@
-from __future__ import annotations
-
 from src.game_plugins.base import GameState, RuleResult
-from src.lol_client import detect_game_type
+from src.game_plugins.tft.source import TftLiveDataSource
+from src.lol_client import detect_game_type, extract_key_metrics
 
 
 class TftPlugin:
@@ -10,14 +9,28 @@ class TftPlugin:
     manifest = {
         "id": "tft",
         "display_name": "Teamfight Tactics",
+        "source": {"kind": "league_live_client"},
         "supports_rules": True,
         "supports_ai_context": True,
     }
+
+    def __init__(self):
+        self._source = TftLiveDataSource()
+
+    def is_available(self) -> bool:
+        return self._source.is_available()
+
+    def fetch_live_data(self) -> dict | None:
+        return self._source.fetch_live_data()
+
+    def has_seen_activity(self) -> bool:
+        return self._source.has_seen_activity()
 
     def detect(self, raw_data: dict, metrics: dict[str, int | str]) -> bool:
         return detect_game_type(raw_data) == "tft"
 
     def extract_state(self, raw_data: dict, metrics: dict[str, int | str]) -> GameState:
+        metrics = metrics or extract_key_metrics(raw_data)
         active = raw_data.get("activePlayer", {})
         hp = _find_tft_hp(raw_data, active.get("summonerName", ""))
         alive = _count_tft_alive(raw_data)

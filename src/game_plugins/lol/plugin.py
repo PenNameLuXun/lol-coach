@@ -1,7 +1,6 @@
-from __future__ import annotations
-
 from src.game_plugins.base import GameState, RuleResult
-from src.lol_client import detect_game_type
+from src.game_plugins.lol.source import LolLiveDataSource
+from src.lol_client import detect_game_type, extract_key_metrics
 
 
 class LolPlugin:
@@ -10,14 +9,28 @@ class LolPlugin:
     manifest = {
         "id": "lol",
         "display_name": "League of Legends",
+        "source": {"kind": "league_live_client"},
         "supports_rules": True,
         "supports_ai_context": True,
     }
+
+    def __init__(self):
+        self._source = LolLiveDataSource()
+
+    def is_available(self) -> bool:
+        return self._source.is_available()
+
+    def fetch_live_data(self) -> dict | None:
+        return self._source.fetch_live_data()
+
+    def has_seen_activity(self) -> bool:
+        return self._source.has_seen_activity()
 
     def detect(self, raw_data: dict, metrics: dict[str, int | str]) -> bool:
         return detect_game_type(raw_data) == "lol"
 
     def extract_state(self, raw_data: dict, metrics: dict[str, int | str]) -> GameState:
+        metrics = metrics or extract_key_metrics(raw_data)
         my_player = _get_my_player(raw_data)
         ally_dead, enemy_dead = _team_death_counts(
             raw_data,

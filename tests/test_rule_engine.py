@@ -55,3 +55,14 @@ def test_rule_engine_returns_tft_roll_rule():
     assert advice.game_type == "tft"
     assert advice.plugin_id == "tft"
     assert "搜牌" in advice.text
+
+
+def test_rule_engine_discovers_active_context(mocker):
+    engine = RuleEngine()
+    plugin = engine.registry.get("lol")
+    assert plugin is not None
+    mocker.patch.object(plugin, "fetch_live_data", return_value=LOL_DATA)
+    context = engine.discover_active_context()
+    assert context is not None
+    assert context.plugin.id == "lol"
+    assert context.state.plugin_id == "lol"
