@@ -188,6 +188,9 @@ class LolPlugin:
     def build_rule_hint(self, rule: RuleResult, state: GameState, rendered_advice: str) -> str:
         return f"{rendered_advice} {self.build_ai_context(state)}"
 
+    def wants_visual_context(self, state: GameState) -> bool:
+        return True
+
     def build_vision_prompt(self, state: GameState, detail: str = "normal") -> str:
         payload = self.build_ai_payload(state, detail=detail)
         return build_bridge_prompt(payload.game_summary, payload.metrics)
