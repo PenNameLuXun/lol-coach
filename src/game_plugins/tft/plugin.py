@@ -86,18 +86,78 @@ class TftPlugin:
         gold = _int(state.derived.get("gold"))
         level = _int(state.derived.get("level"))
         alive = _int(state.derived.get("alive_players"))
+        game_time_seconds = _int(state.metrics.get("game_time_seconds"))
+        game_minutes = game_time_seconds // 60
+
+        # 利息档位：10/20/30/40/50 金每档+1利息
+        interest_tier = min(gold // 10, 5)
+        # 距下一档差几金
+        next_tier_gap = (interest_tier + 1) * 10 - gold if interest_tier < 5 else 0
 
         rules: list[RuleResult] = []
-        if hp <= 25 and gold >= 20:
-            rules.append(RuleResult("tft_low_hp_roll", 96, "血量危险，别再贪利息，立刻搜牌保血。", ("roll", "survival")))
-        if hp <= 40 and gold >= 50:
+
+        # ── 血量危机 ──────────────────────────────────────────────────────
+        if hp <= 15:
+            rules.append(RuleResult("tft_critical_hp", 99, f"血量仅剩{hp}，必须全力D牌提战力，经济已无意义。", ("roll", "survival")))
+        elif hp <= 25 and gold >= 20:
+            rules.append(RuleResult("tft_low_hp_roll", 96, f"血量{hp}危险，别再贪利息，立刻搜牌保血。", ("roll", "survival")))
+        elif hp <= 35 and gold >= 30:
+            rules.append(RuleResult("tft_warn_hp_roll", 90, f"血量{hp}偏低，考虑搜牌稳住阵容，避免再被打崩。", ("roll", "survival")))
+        elif hp <= 40 and gold >= 50:
             rules.append(RuleResult("tft_convert_econ", 88, "血量开始危险，把50金的一部分转成战力，先保血。", ("economy", "survival")))
+
+        # ── 利息管理 ──────────────────────────────────────────────────────
         if gold >= 50 and hp >= 45:
-            rules.append(RuleResult("tft_hold_interest", 74, "经济健康，继续吃满50利息，别急着乱D。", ("economy",)))
+            rules.append(RuleResult("tft_hold_interest", 74, "经济满50，继续吃满利息，别急着乱D。", ("economy",)))
+        elif gold >= 40 and hp >= 50 and next_tier_gap <= 0:
+            rules.append(RuleResult("tft_hold_40_interest", 68, "守住40金利息档，每回合多1金，不要随意花费。", ("economy",)))
+        elif 1 <= next_tier_gap <= 3 and hp >= 50 and gold < 50:
+            rules.append(RuleResult("tft_interest_threshold", 66, f"再存{next_tier_gap}金就到下一利息档，尽量别在这里乱花。", ("economy",)))
+        if gold <= 10 and hp >= 55 and level <= 7:
+            rules.append(RuleResult("tft_rebuild_econ", 64, "经济偏薄，先稳住节奏，别在弱势回合硬搜。", ("economy", "tempo")))
+        if gold <= 5 and hp <= 50:
+            rules.append(RuleResult("tft_broke_low_hp", 85, "金币和血量双低，局势非常被动，专注下回合稳住阵型。", ("survival",)))
+
+        # ── 升级人口时机 ──────────────────────────────────────────────────
+        if level <= 5 and game_minutes >= 9 and gold >= 20 and hp >= 50:
+            rules.append(RuleResult("tft_level_up_5", 78, "局势稳定，可以考虑升到5级解锁更多棋子槽位。", ("level", "tempo")))
+        if level == 6 and game_minutes >= 14 and gold >= 30 and hp >= 45:
+            rules.append(RuleResult("tft_level_up_7", 76, "已6级，条件允许时升7级可提升出3费棋的概率。", ("level", "tempo")))
+        if level == 7 and alive <= 5 and gold >= 40 and hp >= 40:
+            rules.append(RuleResult("tft_level_up_8", 80, "进入后期，升8级能大幅提升出4费棋的概率，时机合适就升。", ("level", "top4")))
+        if level >= 8 and gold >= 50 and hp >= 30 and alive <= 4:
+            rules.append(RuleResult("tft_level_9_push", 72, "经济充裕，可以考虑冲9级，出5费棋概率大幅提升。", ("level", "top4")))
+
+        # ── 搜牌时机 ──────────────────────────────────────────────────────
+        if level >= 7 and gold >= 30 and hp <= 55 and alive >= 5:
+            rules.append(RuleResult("tft_slow_roll_7", 77, "7级搜牌效率高，血量有压力时可以慢滚找3费3星。", ("roll",)))
+        if level == 8 and gold >= 40 and hp <= 60:
+            rules.append(RuleResult("tft_roll_8_4cost", 79, "8级出4费棋概率最高，可以搜找核心4费。", ("roll",)))
+        if gold >= 60 and hp <= 45:
+            rules.append(RuleResult("tft_must_roll", 92, f"金币{gold}积压且血量偏低，必须搜牌提升战力了。", ("roll", "survival")))
+
+        # ── 决赛圈 ────────────────────────────────────────────────────────
         if alive <= 4 and gold >= 30:
             rules.append(RuleResult("tft_top4_push", 82, "已进决赛圈，别再纯贪经济，开始保血提质量。", ("top4", "tempo")))
-        if level <= 6 and gold <= 10 and hp >= 60:
-            rules.append(RuleResult("tft_rebuild_econ", 64, "经济偏薄，先稳住节奏，别在弱势回合硬搜。", ("economy", "tempo")))
+        if alive <= 3 and hp <= 30:
+            rules.append(RuleResult("tft_final_all_in", 95, "决赛圈且血量危急，放手一搏全力D牌，争取吃鸡。", ("roll", "survival", "top4")))
+        if alive <= 2:
+            rules.append(RuleResult("tft_final_fight", 97, "最终对决！全力优化站位和阵容，每一格都很关键。", ("top4", "positioning")))
+
+        # ── 连胜/连败经济策略 ─────────────────────────────────────────────
+        if hp >= 85 and gold >= 30 and alive >= 6:
+            rules.append(RuleResult("tft_win_streak_greed", 62, "血量充足，你可能在连胜，继续贪经济到50再搜。", ("economy",)))
+        if hp <= 60 and gold >= 40 and alive >= 6 and level <= 6:
+            rules.append(RuleResult("tft_lose_streak_dilemma", 70, "血量受损且金币充裕，考虑适当投资提升阵容强度打破连败。", ("roll", "economy")))
+
+        # ── 阶段节点提示 ──────────────────────────────────────────────────
+        if game_minutes <= 4 and level <= 3:
+            rules.append(RuleResult("tft_early_econ", 50, "对局初期，优先建立经济，不要轻易花钱升级。", ("economy",)))
+        if 9 <= game_minutes <= 11 and level <= 5:
+            rules.append(RuleResult("tft_stage3_transition", 60, "进入第三阶段，注意阵容方向，开始朝核心羁绊靠拢。", ("tempo",)))
+        if game_minutes >= 20 and level <= 6:
+            rules.append(RuleResult("tft_late_level_warn", 75, "后期人口偏低，抓紧升级或调整策略，别落后太多。", ("level", "tempo")))
+
         return rules
 
     def render_advice(self, rule: RuleResult, state: GameState) -> str:
