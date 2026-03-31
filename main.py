@@ -106,6 +106,8 @@ def ai_worker(
     latest_image: bytes | None = None
     retry_after = 0.0
     context_window = ContextWindow(limit=config.decision_memory_size)
+    _rule_repeat_count: dict[str, int] = {}
+    _RULE_REPEAT_LIMIT = 3
 
     while not stop_event.is_set():
         # Always drain capture queue to keep latest screenshot buffered
@@ -182,6 +184,16 @@ def ai_worker(
                 if not rule_advice:
                     tray.set_state(TrayIcon.STATE_RUNNING)
                     print("[Rules] no matching rule, skipping cycle")
+                    continue
+                rid = rule_advice.rule_id
+                _rule_repeat_count[rid] = _rule_repeat_count.get(rid, 0) + 1
+                # reset counts for rules that are no longer firing
+                for key in list(_rule_repeat_count):
+                    if key != rid:
+                        _rule_repeat_count[key] = 0
+                if _rule_repeat_count[rid] > _RULE_REPEAT_LIMIT:
+                    tray.set_state(TrayIcon.STATE_RUNNING)
+                    print(f"[Rules] suppressed repeat ({_rule_repeat_count[rid]}x): {rid}")
                     continue
                 text = rule_advice.text
                 if debug_timing:
