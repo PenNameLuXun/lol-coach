@@ -1,25 +1,28 @@
 import pytest
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, patch
 from src.tts_engine import WindowsTTS, EdgeTTS, OpenAITTS, get_tts_engine
 
 
-def test_windows_tts_calls_say_and_runAndWait():
-    with patch("src.tts_engine.pyttsx3.init") as mock_init:
+def test_windows_tts_calls_sapi_speak():
+    with patch("pythoncom.CoInitialize"), patch("pythoncom.CoUninitialize"), patch("win32com.client.Dispatch") as mock_dispatch:
         engine = MagicMock()
-        mock_init.return_value = engine
-        tts = WindowsTTS(rate=180, volume=1.0)
+        engine.WaitUntilDone.side_effect = [False, True]
+        mock_dispatch.return_value = engine
+        tts = WindowsTTS(rate=20, volume=1.0)
+        assert engine.Rate == 10
         tts.speak("push mid")
-        engine.say.assert_called_once_with("push mid")
-        engine.runAndWait.assert_called_once()
+        engine.Speak.assert_called_once_with("push mid", 1)
+        assert tts.supports_interrupt() is True
 
 
 def test_windows_tts_stop_called_on_interrupt():
-    with patch("src.tts_engine.pyttsx3.init") as mock_init:
+    with patch("pythoncom.CoInitialize"), patch("pythoncom.CoUninitialize"), patch("win32com.client.Dispatch") as mock_dispatch:
         engine = MagicMock()
-        mock_init.return_value = engine
-        tts = WindowsTTS(rate=180, volume=1.0)
+        mock_dispatch.return_value = engine
+        tts = WindowsTTS(rate=-20, volume=1.0)
+        assert engine.Rate == -10
         tts.interrupt()
-        engine.stop.assert_called_once()
+        engine.Speak.assert_called_once_with("", 2)
 
 
 def test_edge_tts_speak_calls_asyncio_run():
@@ -41,8 +44,8 @@ def test_openai_tts_streams_audio():
 
 
 def test_get_tts_engine_windows():
-    with patch("src.tts_engine.pyttsx3.init"):
-        engine = get_tts_engine("windows", {"rate": 180, "volume": 1.0})
+    with patch("pythoncom.CoInitialize"), patch("pythoncom.CoUninitialize"), patch("win32com.client.Dispatch"):
+        engine = get_tts_engine("windows", {"rate": 0, "volume": 1.0})
         assert isinstance(engine, WindowsTTS)
 
 

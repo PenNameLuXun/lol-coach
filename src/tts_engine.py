@@ -1,8 +1,9 @@
 import asyncio
+import datetime
 import tempfile
+import time
 from abc import ABC, abstractmethod
 
-import pyttsx3
 import openai
 
 
@@ -12,19 +13,63 @@ class BaseTTS(ABC):
 
     def interrupt(self): ...  # optional: stop current playback
 
+    def supports_interrupt(self) -> bool:
+        return False
+
+    def start(self, text: str):
+        self.speak(text)
+
+    def is_busy(self) -> bool:
+        return False
+
+
+def _tts_log(stage: str, message: str):
+    ts = datetime.datetime.now().strftime("%H:%M:%S.%f")[:-3]
+    print(f"[{ts}] [TTS:{stage}] {message}")
+
 
 class WindowsTTS(BaseTTS):
+    _ASYNC_FLAG = 1
+
     def __init__(self, rate: int, volume: float):
-        self._engine = pyttsx3.init()
-        self._engine.setProperty("rate", rate)
-        self._engine.setProperty("volume", volume)
+        import pythoncom
+        import win32com.client
+
+        pythoncom.CoInitialize()
+        self._pythoncom = pythoncom
+        self._voice = win32com.client.Dispatch("SAPI.SpVoice")
+        # SAPI rate is a relative scale, typically from -10 to 10.
+        normalized_rate = max(-10, min(10, int(rate)))
+        # SAPI volume is 0-100; keep accepting 0.0-1.0 in config.
+        self._voice.Rate = normalized_rate
+        self._voice.Volume = max(0, min(100, int(volume * 100)))
 
     def speak(self, text: str):
-        self._engine.say(text)
-        self._engine.runAndWait()
+        self.start(text)
+        started_at = time.perf_counter()
+        while self.is_busy():
+            time.sleep(0.05)
+        _tts_log("windows", f"engine_end elapsed_ms={(time.perf_counter() - started_at) * 1000:.0f}")
+
+    def start(self, text: str):
+        _tts_log("windows", f"engine_start len={len(text)}")
+        self._voice.Speak(text, self._ASYNC_FLAG)
+
+    def supports_interrupt(self) -> bool:
+        return True
+
+    def is_busy(self) -> bool:
+        return not bool(self._voice.WaitUntilDone(0))
 
     def interrupt(self):
-        self._engine.stop()
+        # 2 = SVSFPurgeBeforeSpeak
+        self._voice.Speak("", 2)
+
+    def __del__(self):
+        try:
+            self._pythoncom.CoUninitialize()
+        except Exception:
+            pass
 
 
 class EdgeTTS(BaseTTS):
@@ -40,13 +85,20 @@ class EdgeTTS(BaseTTS):
         import pygame
         with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as f:
             tmp_path = f.name
+        synth_started_at = time.perf_counter()
+        _tts_log("edge", f"synth_start len={len(text)} path={tmp_path}")
         communicate = edge_tts.Communicate(text, self._voice, rate=self._rate)
         await communicate.save(tmp_path)
+        synth_elapsed_ms = (time.perf_counter() - synth_started_at) * 1000
+        _tts_log("edge", f"synth_end elapsed_ms={synth_elapsed_ms:.0f}")
+        play_started_at = time.perf_counter()
         pygame.mixer.init()
         pygame.mixer.music.load(tmp_path)
+        _tts_log("edge", "play_start")
         pygame.mixer.music.play()
         while pygame.mixer.music.get_busy():
             pygame.time.wait(100)
+        _tts_log("edge", f"play_end elapsed_ms={(time.perf_counter() - play_started_at) * 1000:.0f}")
 
 
 class OpenAITTS(BaseTTS):
@@ -59,22 +111,29 @@ class OpenAITTS(BaseTTS):
         import pygame
         with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as f:
             tmp_path = f.name
+        synth_started_at = time.perf_counter()
+        _tts_log("openai", f"synth_start len={len(text)} path={tmp_path}")
         response = self._client.audio.speech.create(
             model=self._model,
             voice=self._voice,
             input=text,
         )
         response.stream_to_file(tmp_path)
+        synth_elapsed_ms = (time.perf_counter() - synth_started_at) * 1000
+        _tts_log("openai", f"synth_end elapsed_ms={synth_elapsed_ms:.0f}")
+        play_started_at = time.perf_counter()
         pygame.mixer.init()
         pygame.mixer.music.load(tmp_path)
+        _tts_log("openai", "play_start")
         pygame.mixer.music.play()
         while pygame.mixer.music.get_busy():
             pygame.time.wait(100)
+        _tts_log("openai", f"play_end elapsed_ms={(time.perf_counter() - play_started_at) * 1000:.0f}")
 
 
 def get_tts_engine(backend: str, cfg: dict) -> BaseTTS:
     if backend == "windows":
-        return WindowsTTS(rate=cfg.get("rate", 180), volume=cfg.get("volume", 1.0))
+        return WindowsTTS(rate=cfg.get("rate", 0), volume=cfg.get("volume", 1.0))
     if backend == "edge":
         return EdgeTTS(voice=cfg.get("voice", "zh-CN-XiaoxiaoNeural"), rate=cfg.get("rate", "+0%"))
     if backend == "openai":

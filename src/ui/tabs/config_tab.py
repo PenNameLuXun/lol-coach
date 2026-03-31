@@ -99,9 +99,19 @@ class ConfigTab(QWidget):
         self._tts_combo.addItems(["windows", "edge", "openai"])
         tts_form.addRow("TTS 后端:", self._tts_combo)
 
-        self._tts_rate_edit = QLineEdit()
-        self._tts_rate_edit.setPlaceholderText("+0%  (如 +30% 加速，-20% 减速，仅 edge 生效)")
-        tts_form.addRow("语速:", self._tts_rate_edit)
+        self._tts_playback_mode_combo = QComboBox()
+        self._tts_playback_mode_combo.addItems(["wait", "interrupt", "continue"])
+        self._tts_playback_mode_combo.setToolTip("wait=顺序播完再继续；interrupt=若后端支持则打断当前播报；continue=不等待也不打断，继续排队。")
+        tts_form.addRow("播报模式:", self._tts_playback_mode_combo)
+
+        self._tts_windows_rate_spin = QSpinBox()
+        self._tts_windows_rate_spin.setRange(-10, 10)
+        self._tts_windows_rate_spin.setToolTip("Windows SAPI 使用相对语速档位，0 为默认，负数更慢，正数更快")
+        tts_form.addRow("Windows 语速:", self._tts_windows_rate_spin)
+
+        self._tts_edge_rate_edit = QLineEdit()
+        self._tts_edge_rate_edit.setPlaceholderText("+0%  (如 +30% 加速，-20% 减速，仅 edge 生效)")
+        tts_form.addRow("Edge 语速:", self._tts_edge_rate_edit)
 
         root.addWidget(self._wrap_section("语音输出", tts_box, collapsed=True))
 
@@ -246,7 +256,9 @@ class ConfigTab(QWidget):
         self._preset_combo.blockSignals(False)
         self._prompt_edit.setPlainText(current_prompt)
         self._tts_combo.setCurrentText(self._cfg.tts_backend)
-        self._tts_rate_edit.setText(self._cfg.tts_config("edge").get("rate", "+0%"))
+        self._tts_playback_mode_combo.setCurrentText(self._cfg.tts_playback_mode)
+        self._tts_windows_rate_spin.setValue(int(self._cfg.tts_config("windows").get("rate", 0)))
+        self._tts_edge_rate_edit.setText(self._cfg.tts_config("edge").get("rate", "+0%"))
         self._interval_spin.setValue(self._cfg.capture_interval)
         self._hotkey_edit.setText(self._cfg.capture_hotkey)
         self._region_combo.setCurrentText(self._cfg.capture_region)
@@ -280,7 +292,9 @@ class ConfigTab(QWidget):
             f"ai.{provider}.model": self._model_edit.text(),
             "ai.system_prompt": self._prompt_edit.toPlainText(),
             "tts.backend": self._tts_combo.currentText(),
-            "tts.edge.rate": self._tts_rate_edit.text(),
+            "tts.playback_mode": self._tts_playback_mode_combo.currentText(),
+            "tts.windows.rate": self._tts_windows_rate_spin.value(),
+            "tts.edge.rate": self._tts_edge_rate_edit.text(),
             "capture.interval": self._interval_spin.value(),
             "capture.hotkey": self._hotkey_edit.text(),
             "capture.region": self._region_combo.currentText(),

@@ -49,6 +49,11 @@ class SignalBridge(QObject):
     advice_ready = pyqtSignal(str)
 
 
+def _log_with_timestamp(tag: str, message: str):
+    ts = datetime.datetime.now().strftime("%H:%M:%S.%f")[:-3]
+    print(f"[{ts}] [{tag}] {message}")
+
+
 def _empty_ai_payload() -> AiPayload:
     return AiPayload(
         game_summary="",
@@ -73,6 +78,7 @@ def ai_worker(
     config: Config,
     bridge: SignalBridge,
     stop_event: threading.Event,
+    tts_busy_event: threading.Event,
     tray: TrayIcon,
     capturer,
     debug: bool = False,
@@ -143,6 +149,10 @@ def ai_worker(
             game_data = payload.game_summary
             metrics = payload.metrics
             address = payload.address
+            if config.tts_playback_mode == "wait" and tts_busy_event.is_set():
+                tray.set_state(TrayIcon.STATE_RUNNING)
+                print("[AI worker] waiting for TTS before next cycle")
+                continue
             allow_visual = bool(active_context and active_context.plugin.wants_visual_context(active_context.state))
             img = latest_image if config.capture_use_screenshot and allow_visual else None
             bridge_facts: dict[str, str] | None = None
@@ -324,25 +334,82 @@ def ai_worker(
                 print("[AI worker] connection failed, retrying in 15s — is Ollama running? (`ollama serve`)")
 
 
-def tts_worker(bus: EventBus, config: Config, stop_event: threading.Event):
+def tts_worker(bus: EventBus, config: Config, stop_event: threading.Event, busy_event: threading.Event):
     current_engine = None
+    current_backend = None
+    current_cfg = None
 
     def get_engine():
-        return get_tts_engine(config.tts_backend, config.tts_config(config.tts_backend))
+        nonlocal current_engine, current_backend, current_cfg
+        backend = config.tts_backend
+        cfg = dict(config.tts_config(backend))
+        if current_engine is None or backend != current_backend or cfg != current_cfg:
+            current_engine = get_tts_engine(backend, cfg)
+            current_backend = backend
+            current_cfg = cfg
+        return current_engine
+
+    active_text: str | None = None
+    active_started_at = 0.0
 
     while not stop_event.is_set():
         try:
-            text = bus.get_latest_advice(timeout=1.0)
-        except queue.Empty:
-            continue
-        try:
             engine = get_engine()
-            if config.tts_interrupt and current_engine:
-                current_engine.interrupt()
-            current_engine = engine
+            playback_mode = config.tts_playback_mode
+            supports_interrupt = engine.supports_interrupt()
+
+            if playback_mode == "interrupt" and supports_interrupt:
+                next_text: str | None = None
+                if active_text is not None:
+                    if engine.is_busy():
+                        busy_event.set()
+                        try:
+                            next_text = bus.get_latest_advice(timeout=0.1)
+                        except queue.Empty:
+                            continue
+                        _log_with_timestamp("TTS", f"interrupt len={len(next_text)} text={next_text[:60]}")
+                        engine.interrupt()
+                        while engine.is_busy() and not stop_event.wait(timeout=0.02):
+                            pass
+                        elapsed_ms = (time.perf_counter() - active_started_at) * 1000
+                        _log_with_timestamp("TTS", f"end elapsed_ms={elapsed_ms:.0f} interrupted=true")
+                        active_text = None
+                    else:
+                        elapsed_ms = (time.perf_counter() - active_started_at) * 1000
+                        _log_with_timestamp("TTS", f"end elapsed_ms={elapsed_ms:.0f}")
+                        active_text = None
+                        busy_event.clear()
+                        continue
+                if next_text is None:
+                    try:
+                        next_text = bus.get_latest_advice(timeout=0.1)
+                    except queue.Empty:
+                        continue
+                text = next_text
+                active_text = text
+                active_started_at = time.perf_counter()
+                _log_with_timestamp("TTS", f"start len={len(text)} text={text[:60]}")
+                busy_event.set()
+                engine.start(text)
+                continue
+
+            try:
+                text = bus.get_latest_advice(timeout=1.0)
+            except queue.Empty:
+                continue
+            started_at = time.perf_counter()
+            _log_with_timestamp("TTS", f"start len={len(text)} text={text[:60]}")
+            busy_event.set()
             engine.speak(text)
+            elapsed_ms = (time.perf_counter() - started_at) * 1000
+            _log_with_timestamp("TTS", f"end elapsed_ms={elapsed_ms:.0f}")
         except Exception as e:
             print(f"[TTS worker error] {e}")
+            busy_event.clear()
+            active_text = None
+        finally:
+            if active_text is None and not stop_event.is_set():
+                busy_event.clear()
 
 
 # ── Main ───────────────────────────────────────────────────────────────────────
@@ -369,6 +436,7 @@ def main():
 
     bridge = SignalBridge()
     stop_event = threading.Event()
+    tts_busy_event = threading.Event()
     running = [False]
 
     # ── UI ────────────────────────────────────────────────────────────────────
@@ -381,6 +449,7 @@ def main():
 
     # ── Signals ───────────────────────────────────────────────────────────────
     def on_advice(text: str):
+        _log_with_timestamp("UI", f"display len={len(text)} text={text[:60]}")
         overlay.show_advice(text)
         window.on_advice(text)
         session_id = window.history_tab.get_current_session_id()
@@ -421,11 +490,11 @@ def main():
         capturer.start()
         ai_thread = threading.Thread(
             target=ai_worker,
-            args=(bus, config, bridge, stop_event, tray, capturer),
+            args=(bus, config, bridge, stop_event, tts_busy_event, tray, capturer),
             kwargs={"debug": args.debug, "debug_timing": args.debug_timing},
             daemon=True,
         )
-        tts_thread = threading.Thread(target=tts_worker, args=(bus, config, stop_event), daemon=True)
+        tts_thread = threading.Thread(target=tts_worker, args=(bus, config, stop_event, tts_busy_event), daemon=True)
         ai_thread.start()
         tts_thread.start()
         tray.set_state(TrayIcon.STATE_RUNNING)

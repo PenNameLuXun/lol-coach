@@ -60,6 +60,22 @@ class Config:
         return self._data["tts"].get("interrupt", True)
 
     @property
+    def tts_wait_for_completion(self) -> bool:
+        return bool(self._data.get("tts", {}).get("wait_for_completion", False))
+
+    @property
+    def tts_playback_mode(self) -> str:
+        mode = str(self._data.get("tts", {}).get("playback_mode", "")).strip().lower()
+        if mode in {"wait", "interrupt", "continue"}:
+            return mode
+        # Backward compatibility for older configs.
+        if self.tts_wait_for_completion:
+            return "wait"
+        if self.tts_interrupt:
+            return "interrupt"
+        return "continue"
+
+    @property
     def capture_interval(self) -> int:
         return self._data["capture"]["interval"]
 

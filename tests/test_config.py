@@ -23,7 +23,7 @@ MINIMAL_CONFIG = {
     },
     "tts": {
         "backend": "windows",
-        "interrupt": True,
+        "playback_mode": "continue",
         "windows": {"rate": 180, "volume": 1.0},
         "edge": {"voice": "zh-CN-XiaoxiaoNeural"},
         "openai": {"api_key": "k4", "voice": "alloy", "model": "tts-1"},
@@ -33,7 +33,12 @@ MINIMAL_CONFIG = {
     "app": {"start_minimized": True},
     "plugin_settings": {
         "lol": {"detail": "full", "address_by": "champion", "require_game": True},
-        "dialogue": {"source": "file", "text_file": "dialogue_input.txt", "speaker": "玩家", "clear_after_read": True},
+        "dialogue": {
+            "source": "file",
+            "text_file": "dialogue_input.txt",
+            "speaker": "玩家",
+            "clear_after_read": True,
+        },
     },
 }
 
@@ -58,6 +63,7 @@ def test_load_returns_api_key(config_file):
 def test_load_tts_backend(config_file):
     cfg = Config(config_file)
     assert cfg.tts_backend == "windows"
+    assert cfg.tts_playback_mode == "continue"
 
 
 def test_load_capture_interval(config_file):

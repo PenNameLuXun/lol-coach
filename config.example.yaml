@@ -112,11 +112,13 @@ tts:
   # Active backend: windows | edge | openai
   backend: edge
 
-  # Interrupt current speech when new advice arrives
-  interrupt: true
+  # wait = 顺序播完再继续
+  # interrupt = 若后端支持，用新语音打断当前播报
+  # continue = 不等待也不打断，继续排队
+  playback_mode: continue
 
   windows:
-    rate: 180       # Words per minute
+    rate: 0         # Windows SAPI 相对语速，建议范围 -10 到 10
     volume: 1.0
 
   edge:
