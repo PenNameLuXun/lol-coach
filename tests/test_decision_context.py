@@ -75,10 +75,12 @@ def test_prompt_builders_include_safety_context():
         metrics={"game_time": "12:00", "gold": 1000, "hp_pct": 75, "mana_pct": 50, "level": 8, "kda": "1/0/2", "cs": 90, "event_signature": "DragonKill"},
         bridge_facts={"confidence": "high", "scene": "river", "player_risk": "medium", "resource_window": "contest_objective"},
         historical_context="无历史上下文。",
+        rule_hint="敌方减员，可转资源",
     )
     assert "决策规则" in decision_prompt
     assert "视觉核验置信度：high" in decision_prompt
     assert "事件DragonKill" in decision_prompt
+    assert "规则引擎提示：敌方减员，可转资源" in decision_prompt
 
 
 def test_choose_analysis_plan_skips_stable_cycles():

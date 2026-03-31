@@ -6,6 +6,11 @@ import yaml
 from src.config import Config
 
 MINIMAL_CONFIG = {
+    "decision": {
+        "mode": "hybrid",
+        "plugins": {"enabled": ["lol"]},
+        "rules": {"hybrid_priority_threshold": 88},
+    },
     "ai": {
         "provider": "claude",
         "system_prompt": "test prompt",
@@ -14,7 +19,7 @@ MINIMAL_CONFIG = {
         "claude": {"api_key": "k1", "model": "claude-opus-4-6", "max_tokens": 200, "temperature": 0.7},
         "openai": {"api_key": "k2", "model": "gpt-4o", "max_tokens": 200, "temperature": 0.7},
         "gemini": {"api_key": "k3", "model": "gemini-1.5-pro", "max_tokens": 200, "temperature": 0.7},
-        "vision_bridge": {"provider": "openai"},
+        "vision_bridge": {"provider": "openai", "model": "gpt-4.1-mini"},
     },
     "tts": {
         "backend": "windows",
@@ -99,9 +104,24 @@ def test_decision_memory_size(config_file):
 
 def test_vision_bridge_defaults_enabled_when_present(config_file):
     cfg = Config(config_file)
-    assert cfg.vision_bridge == {"provider": "openai"}
+    assert cfg.vision_bridge == {"provider": "openai", "model": "gpt-4.1-mini"}
 
 
 def test_analysis_trigger_config(config_file):
     cfg = Config(config_file)
     assert cfg.analysis_trigger["force_after_seconds"] == 30
+
+
+def test_vision_bridge_provider_config_merges_override(config_file):
+    cfg = Config(config_file)
+    provider, bridge_cfg = cfg.vision_bridge_provider_config()
+    assert provider == "openai"
+    assert bridge_cfg["model"] == "gpt-4.1-mini"
+    assert bridge_cfg["api_key"] == "k2"
+
+
+def test_decision_mode_and_rules_config(config_file):
+    cfg = Config(config_file)
+    assert cfg.decision_mode == "hybrid"
+    assert cfg.rules_config["hybrid_priority_threshold"] == 88
+    assert cfg.enabled_plugins == ["lol"]

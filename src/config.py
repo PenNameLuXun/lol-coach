@@ -117,6 +117,19 @@ class Config:
             return None
         return cfg
 
+    def vision_bridge_provider_config(self) -> tuple[str, dict] | None:
+        """Return (provider_name, merged_provider_config) for the vision bridge."""
+        bridge = self.vision_bridge
+        if bridge is None:
+            return None
+        provider = bridge["provider"]
+        merged = dict(self.ai_config(provider))
+        for key, value in bridge.items():
+            if key in {"enabled", "provider", "prompt"}:
+                continue
+            merged[key] = value
+        return provider, merged
+
     @property
     def decision_memory_size(self) -> int:
         return int(self._data.get("ai", {}).get("decision_memory_size", 5))
@@ -124,6 +137,20 @@ class Config:
     @property
     def analysis_trigger(self) -> dict:
         return self._data.get("ai", {}).get("analysis_trigger", {})
+
+    @property
+    def decision_mode(self) -> str:
+        return self._data.get("decision", {}).get("mode", "ai")
+
+    @property
+    def rules_config(self) -> dict:
+        return self._data.get("decision", {}).get("rules", {})
+
+    @property
+    def enabled_plugins(self) -> list[str]:
+        plugins_cfg = self._data.get("decision", {}).get("plugins", {})
+        enabled = plugins_cfg.get("enabled", [])
+        return enabled if isinstance(enabled, list) else []
 
     def get(self, key: str, default: Any = None) -> Any:
         """Dot-notation access e.g. 'capture.interval'"""

@@ -39,6 +39,7 @@ from src.capturer import Capturer
 from src.ai_provider import get_provider
 from src.tts_engine import get_tts_engine
 from src.lol_client import LolClient, extract_key_metrics, get_player_address_from_data, summarize_game_data
+from src.rule_engine import RuleEngine
 from src.ui.main_window import MainWindow
 from src.ui.tray import TrayIcon
 from src.ui.overlay import OverlayWindow
@@ -63,6 +64,7 @@ def ai_worker(
     debug_timing: bool = False,
 ):
     lol = LolClient()
+    rule_engine = RuleEngine(enabled_plugin_ids=config.enabled_plugins)
     latest_image: bytes | None = None
     retry_after = 0.0
     context_window = ContextWindow(limit=config.decision_memory_size)
@@ -94,7 +96,6 @@ def ai_worker(
         try:
             cycle_started_at = time.perf_counter()
             tray.set_state(TrayIcon.STATE_BUSY)
-            provider = get_provider(config.ai_provider, config.ai_config(config.ai_provider))
             live_data = lol.get_live_data()
             if live_data is None and config.lol_client_require_game:
                 if lol.last_seen_in_game:
@@ -119,6 +120,70 @@ def ai_worker(
             img = latest_image if config.capture_use_screenshot else None
             bridge_facts: dict[str, str] | None = None
             previous_snapshot = context_window.latest()
+            rule_advice = rule_engine.evaluate(live_data, metrics)
+            decision_mode = config.decision_mode
+            hybrid_threshold = int(config.rules_config.get("hybrid_priority_threshold", 85))
+            if decision_mode == "rules":
+                if not rule_advice:
+                    tray.set_state(TrayIcon.STATE_RUNNING)
+                    print("[Rules] no matching rule, skipping cycle")
+                    continue
+                text = rule_advice.text
+                if debug_timing:
+                    cycle_elapsed_ms = (time.perf_counter() - cycle_started_at) * 1000
+                    print(
+                        "[timing] "
+                        f"reason=rule:{rule_advice.rule_id} "
+                        "bridge_ms=0 "
+                        "provider_ms=0 "
+                        f"total_ms={cycle_elapsed_ms:.0f}"
+                    )
+                bus.put_advice(text)
+                bus.emit_advice(text)
+                bridge.advice_ready.emit(text)
+                context_window.add(
+                    AnalysisSnapshot(
+                        timestamp=datetime.datetime.now(),
+                        game_summary=game_data,
+                        address=address,
+                        metrics=metrics,
+                        bridge_facts={},
+                        advice=text,
+                        reason=f"rule:{rule_advice.rule_id}",
+                    )
+                )
+                tray.set_state(TrayIcon.STATE_RUNNING)
+                continue
+
+            if decision_mode == "hybrid" and rule_advice and rule_advice.priority >= hybrid_threshold:
+                text = rule_advice.text
+                if debug_timing:
+                    cycle_elapsed_ms = (time.perf_counter() - cycle_started_at) * 1000
+                    print(
+                        "[timing] "
+                        f"reason=hybrid_rule:{rule_advice.rule_id} "
+                        "bridge_ms=0 "
+                        "provider_ms=0 "
+                        f"total_ms={cycle_elapsed_ms:.0f}"
+                    )
+                bus.put_advice(text)
+                bus.emit_advice(text)
+                bridge.advice_ready.emit(text)
+                context_window.add(
+                    AnalysisSnapshot(
+                        timestamp=datetime.datetime.now(),
+                        game_summary=game_data,
+                        address=address,
+                        metrics=metrics,
+                        bridge_facts={},
+                        advice=text,
+                        reason=f"hybrid_rule:{rule_advice.rule_id}",
+                    )
+                )
+                tray.set_state(TrayIcon.STATE_RUNNING)
+                continue
+
+            provider = get_provider(config.ai_provider, config.ai_config(config.ai_provider))
             plan: AnalysisPlan = choose_analysis_plan(
                 current_metrics=metrics,
                 previous_snapshot=previous_snapshot,
@@ -137,7 +202,8 @@ def ai_worker(
             bridge_elapsed_ms = 0.0
             if vb and latest_image is not None and plan.run_bridge:
                 try:
-                    vb_provider = get_provider(vb["provider"], config.ai_config(vb["provider"]))
+                    vb_provider_name, vb_provider_cfg = config.vision_bridge_provider_config()
+                    vb_provider = get_provider(vb_provider_name, vb_provider_cfg)
                     vb_prompt = vb.get("prompt") or build_bridge_prompt(game_data, metrics)
                     bridge_started_at = time.perf_counter()
                     description = vb_provider.analyze(latest_image, vb_prompt)
@@ -160,6 +226,12 @@ def ai_worker(
                 metrics=metrics,
                 bridge_facts=bridge_facts,
                 historical_context=context_window.render_for_prompt(),
+                rule_hint=(
+                    f"{rule_advice.text} "
+                    f"{rule_advice.plugin.build_ai_context(rule_advice.state)}"
+                    if rule_advice
+                    else None
+                ),
             )
 
             if debug:

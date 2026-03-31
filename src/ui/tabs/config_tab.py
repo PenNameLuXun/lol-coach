@@ -4,6 +4,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import pyqtSignal
 from src.config import Config
+from src.game_plugins.registry import discover_plugins
 
 PROMPT_PRESETS = {
     "LOL 5V5 对战": "你是一个英雄联盟教练，根据当前游戏截图，用简短的中文（不超过50字）给出最重要的一条对局建议。",
@@ -30,6 +31,26 @@ class ConfigTab(QWidget):
 
     def _build_ui(self):
         root = QVBoxLayout(self)
+
+        # ── Decision ────────────────────────────────────────────────────────
+        decision_box = QGroupBox("决策模式")
+        decision_form = QFormLayout(decision_box)
+
+        self._decision_mode_combo = QComboBox()
+        self._decision_mode_combo.addItems(["ai", "rules", "hybrid"])
+        decision_form.addRow("决策模式:", self._decision_mode_combo)
+
+        self._enabled_plugins_edit = QLineEdit()
+        plugin_ids = [plugin.id for plugin in discover_plugins()]
+        self._enabled_plugins_edit.setPlaceholderText(",".join(plugin_ids) or "留空=全部插件")
+        self._enabled_plugins_edit.setToolTip("逗号分隔插件ID，留空表示启用所有已发现插件")
+        decision_form.addRow("启用插件:", self._enabled_plugins_edit)
+
+        self._hybrid_threshold_spin = QSpinBox()
+        self._hybrid_threshold_spin.setRange(0, 100)
+        decision_form.addRow("混合直出阈值:", self._hybrid_threshold_spin)
+
+        root.addWidget(decision_box)
 
         # ── AI ────────────────────────────────────────────────────────────────
         ai_box = QGroupBox("AI 设置")
@@ -124,6 +145,9 @@ class ConfigTab(QWidget):
             self._prompt_edit.setPlainText(PROMPT_PRESETS[name])
 
     def _load_values(self):
+        self._decision_mode_combo.setCurrentText(self._cfg.decision_mode)
+        self._enabled_plugins_edit.setText(",".join(self._cfg.enabled_plugins))
+        self._hybrid_threshold_spin.setValue(self._cfg.rules_config.get("hybrid_priority_threshold", 85))
         self._provider_combo.setCurrentText(self._cfg.ai_provider)
         provider = self._cfg.ai_provider
         self._api_key_edit.setText(self._cfg.ai_config(provider).get("api_key", ""))
@@ -153,6 +177,11 @@ class ConfigTab(QWidget):
             pass
 
     def _save(self):
+        plugin_text = self._enabled_plugins_edit.text().strip()
+        enabled_plugins = [item.strip() for item in plugin_text.split(",") if item.strip()]
+        self._cfg.set("decision.mode", self._decision_mode_combo.currentText())
+        self._cfg.set("decision.plugins.enabled", enabled_plugins)
+        self._cfg.set("decision.rules.hybrid_priority_threshold", self._hybrid_threshold_spin.value())
         provider = self._provider_combo.currentText()
         self._cfg.set("ai.provider", provider)
         self._cfg.set(f"ai.{provider}.api_key", self._api_key_edit.text())

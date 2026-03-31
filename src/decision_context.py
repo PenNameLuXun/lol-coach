@@ -169,6 +169,7 @@ def build_decision_prompt(
     metrics: dict[str, int | str],
     bridge_facts: dict[str, str] | None,
     historical_context: str,
+    rule_hint: str | None = None,
 ) -> str:
     address_line = f"称呼玩家：{address}" if address else "称呼玩家：不要强行称呼"
     bridge_text = _bridge_facts_to_text(bridge_facts)
@@ -190,6 +191,7 @@ def build_decision_prompt(
         f"血量{metrics.get('hp_pct', '?')}% 蓝量{metrics.get('mana_pct', '?')}% "
         f"等级{metrics.get('level', '?')} KDA{metrics.get('kda', '?')} 补刀{metrics.get('cs', '?')} "
         f"事件{metrics.get('event_signature', 'none')}\n"
+        f"规则引擎提示：{rule_hint or '无'}\n"
         f"视觉核验置信度：{confidence}\n"
         f"视觉核验结果：{bridge_text}\n"
         f"短时历史：\n{historical_context}"

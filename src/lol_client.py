@@ -53,9 +53,13 @@ class LolClient:
 
 
 def summarize_game_data(data: dict, detail: str = "normal") -> str:
-    if _is_tft(data):
+    if detect_game_type(data) == "tft":
         return _format_tft(data, detail)
     return _format_lol(data, detail)
+
+
+def detect_game_type(data: dict) -> str:
+    return "tft" if _is_tft(data) else "lol"
 
 
 def get_player_address_from_data(data: dict, address_by: str = "champion") -> str | None:
@@ -96,6 +100,7 @@ def extract_key_metrics(data: dict) -> dict[str, int | str]:
     ]
 
     return {
+        "game_type": detect_game_type(data),
         "game_time_seconds": game_time_seconds,
         "game_time": f"{minutes}:{seconds:02d}",
         "gold": int(active.get("currentGold", 0)),
