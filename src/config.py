@@ -207,6 +207,20 @@ class Config:
     def overwolf(self) -> dict:
         return self._data.get("overwolf", {})
 
+    @property
+    def overwolf_required(self) -> bool:
+        if not self.overwolf.get("enabled", False):
+            return False
+        plugin_ids: set[str] = set(self.enabled_plugins)
+        plugin_settings = self._data.get("plugin_settings", {})
+        if not plugin_ids and isinstance(plugin_settings, dict):
+            plugin_ids = {str(key) for key in plugin_settings.keys()}
+        for plugin_id in plugin_ids:
+            data_source = str(self.plugin_setting(plugin_id, "data_source", "")).strip().lower()
+            if data_source in {"overwolf", "hybrid"}:
+                return True
+        return False
+
     def get(self, key: str, default: Any = None) -> Any:
         """Dot-notation access e.g. 'capture.interval'"""
         parts = key.split(".")

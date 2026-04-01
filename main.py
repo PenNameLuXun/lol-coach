@@ -18,6 +18,7 @@ import signal
 import sys
 import threading
 import os
+import subprocess
 import time
 
 from PyQt6.QtWidgets import QApplication
@@ -87,6 +88,60 @@ def _resolve_tts_rate_override(config: Config, backend: str, engine, text: str) 
     desired_rate = round((desired_chars_per_sec - 3.0) / 0.18)
     # fit_* only speeds up when needed; it should never slow below the configured base rate.
     return max(-10, min(10, max(base_rate, desired_rate)))
+
+
+def _is_overwolf_running() -> bool:
+    try:
+        result = shutil.which("powershell")
+        shell = result or "powershell"
+        cmd = (
+            "Get-CimInstance Win32_Process | "
+            "Where-Object { $_.Name -in @('Overwolf.exe','OverwolfBrowser.exe') } | "
+            "Select-Object -First 1 | ConvertTo-Json -Depth 2"
+        )
+        proc = os.popen(f'{shell} -NoProfile -Command "{cmd}"')
+        output = proc.read().strip()
+        proc.close()
+        return bool(output and output != "null")
+    except Exception:
+        return False
+
+
+def _try_start_overwolf(config: Config) -> None:
+    if not config.overwolf_required:
+        return
+    if _is_overwolf_running():
+        return
+
+    method = str(config.get("launcher.overwolf.method", "auto")).strip().lower()
+    path = str(config.get("launcher.overwolf.path", "")).strip()
+    protocol = str(config.get("launcher.overwolf.protocol", "overwolf://")).strip() or "overwolf://"
+
+    try:
+        if method == "path" and path:
+            subprocess.Popen([path], cwd=os.getcwd())
+            print(f"[startup] Overwolf required, started via path: {path}")
+            return
+        if method == "protocol":
+            os.startfile(protocol)
+            print(f"[startup] Overwolf required, started via protocol: {protocol}")
+            return
+
+        auto_paths = [
+            os.path.join(os.environ.get("ProgramFiles(x86)", ""), "Overwolf", "OverwolfLauncher.exe"),
+            os.path.join(os.environ.get("ProgramFiles", ""), "Overwolf", "OverwolfLauncher.exe"),
+            os.path.join(os.path.expanduser("~"), "AppData", "Local", "Overwolf", "OverwolfLauncher.exe"),
+        ]
+        for candidate in auto_paths:
+            if candidate and os.path.exists(candidate):
+                subprocess.Popen([candidate], cwd=os.getcwd())
+                print(f"[startup] Overwolf required, started via auto path: {candidate}")
+                return
+
+        os.startfile(protocol)
+        print(f"[startup] Overwolf required, started via fallback protocol: {protocol}")
+    except Exception as exc:
+        print(f"[startup] failed to start Overwolf: {exc}")
 
 
 # ── Worker threads ─────────────────────────────────────────────────────────────
@@ -460,6 +515,7 @@ def main():
 
     config = Config("config.yaml")
     config._start_watcher()
+    _try_start_overwolf(config)
 
     bus = EventBus()
     history = History("lol_coach.db")
