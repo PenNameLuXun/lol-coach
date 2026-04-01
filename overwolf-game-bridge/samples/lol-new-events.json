@@ -1,0 +1,16 @@
+{
+  "events": [
+    {
+      "name": "levelUp",
+      "data": {
+        "level": 6
+      }
+    },
+    {
+      "name": "goldUpdate",
+      "data": {
+        "gold": 1450
+      }
+    }
+  ]
+}

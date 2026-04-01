@@ -13,6 +13,19 @@ const FEATURE_MAP: Record<string, string[]> = {
   ],
   [GAME_IDS.LOL]: [
     "live_client_data",
+    "matchState",
+    "match_info",
+    "abilities",
+    "gold",
+    "minions",
+    "summoner_info",
+    "teams",
+    "team_frames",
+    "damage",
+    "heal",
+    "jungle_camps",
+    "level",
+    "gameMode",
   ],
 };
 

@@ -25,7 +25,7 @@
 
 - 真实 Overwolf 环境验证
 - 最终 `manifest.json` 权限与字段确认
-- `lol` provider 实现
+- `lol` provider 实现校准
 - `tft` provider 基于真实回调 payload 的最终校准
 
 ## 本地构建
@@ -71,14 +71,14 @@ npm run clean
 - `src/shared/`
   - 通用类型和协议
 - `samples/`
-  - TFT 的样例 Overwolf payload
+  - TFT 和 LoL 的样例 Overwolf payload，供 provider 联调参考
 
 ## 下一步
 
 1. 在真实 Overwolf 开发环境中加载 app
 2. 检查 `runtime.ts` 收到的真实回调
-3. 根据真实 payload 微调 `tft` provider
-4. 再决定是否启用第二个游戏 provider
+3. 根据真实 payload 微调 `tft` / `lol` provider
+4. 再决定是否启用更多游戏 provider
 
 设计文档见：
 
