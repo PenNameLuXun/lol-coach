@@ -13,6 +13,7 @@ MINIMAL_CONFIG = {
         "rules": {"hybrid_priority_threshold": 88},
     },
     "scheduler": {"interval": 4},
+    "overwolf": {"enabled": False, "host": "127.0.0.1", "port": 7799, "stale_after_seconds": 5},
     "ai": {
         "provider": "claude",
         "decision_memory_size": 4,
@@ -147,6 +148,7 @@ def test_plugin_settings_helpers(config_file):
     assert cfg.plugin_require_game("lol") is True
     assert cfg.plugin_system_prompt("lol") == "lol prompt"
     assert cfg.plugin_analysis_trigger("lol")["force_after_seconds"] == 30
+    assert cfg.overwolf["port"] == 7799
 
 
 def test_update_many_saves_once_with_plugin_settings(config_file):

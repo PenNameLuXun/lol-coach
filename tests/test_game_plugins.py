@@ -1,6 +1,7 @@
 from src.game_plugins import build_default_registry
 from src.analysis_flow import AnalysisSnapshot
 from src.game_plugins.registry import discover_plugins
+from src.game_plugins.tft.plugin import TftPlugin
 from datetime import datetime
 from tests.test_lol_client import LOL_DATA, TFT_DATA
 
@@ -136,6 +137,36 @@ def test_tft_plugin_builds_game_specific_prompts():
     assert "board_strength:" in vision_prompt
     assert "当前云顶摘要" in decision_prompt
     assert "不要猜测具体羁绊" in decision_prompt
+
+
+def test_tft_plugin_supports_overwolf_only_snapshot():
+    plugin = TftPlugin()
+    raw_data = {
+        "_game_type": "tft",
+        "_source": "overwolf",
+        "_overwolf": {
+            "me": {"name": "TestPlayer"},
+            "hp": 72,
+            "gold": 34,
+            "level": 7,
+            "alive_players": 5,
+            "round": "4-2",
+            "mode": "TFT",
+            "game_time": "18:20",
+            "game_time_seconds": 1100,
+            "shop": [{"name": "安妮", "cost": 2}],
+            "traits": [{"name": "法师", "tier_current": 3}],
+        },
+    }
+
+    assert plugin.detect(raw_data, {}) is True
+    state = plugin.extract_state(raw_data, {})
+    payload = plugin.build_ai_payload(state, detail="normal", address_by="summoner")
+
+    assert state.derived["data_source"] == "overwolf"
+    assert "Overwolf" in payload.game_summary
+    assert "安妮(2)" in payload.game_summary
+    assert payload.address == "TestPlayer"
 
 
 def test_dialogue_plugin_builds_reply_prompt(tmp_path, monkeypatch):

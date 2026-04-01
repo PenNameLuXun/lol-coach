@@ -63,7 +63,7 @@ class Config:
         scheduler_cfg = self._data.get("scheduler", {})
         if "interval" in scheduler_cfg:
             return int(scheduler_cfg["interval"])
-        return int(self._data.get("ai", {}).get("interval", 1))
+        return 1
 
     @property
     def capture_interval(self) -> int:

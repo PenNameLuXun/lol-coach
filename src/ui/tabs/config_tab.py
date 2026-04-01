@@ -79,6 +79,28 @@ class ConfigTab(QWidget):
 
         root.addWidget(self._wrap_section("AI 设置", ai_box, collapsed=False))
 
+        # ── Overwolf ──────────────────────────────────────────────────────────
+        ow_box = QGroupBox("Overwolf Bridge")
+        ow_form = QFormLayout(ow_box)
+
+        self._overwolf_enabled_check = QCheckBox()
+        ow_form.addRow("启用 Overwolf:", self._overwolf_enabled_check)
+
+        self._overwolf_host_edit = QLineEdit()
+        ow_form.addRow("Bridge Host:", self._overwolf_host_edit)
+
+        self._overwolf_port_spin = QSpinBox()
+        self._overwolf_port_spin.setRange(1, 65535)
+        ow_form.addRow("Bridge Port:", self._overwolf_port_spin)
+
+        self._overwolf_stale_spin = QSpinBox()
+        self._overwolf_stale_spin.setRange(1, 300)
+        self._overwolf_stale_spin.setSuffix(" 秒")
+        self._overwolf_stale_spin.setToolTip("超过这个时间没有收到新快照，就把 Overwolf 数据视为过期。")
+        ow_form.addRow("过期阈值:", self._overwolf_stale_spin)
+
+        root.addWidget(self._wrap_section("Overwolf Bridge", ow_box, collapsed=True))
+
         # ── TTS ───────────────────────────────────────────────────────────────
         tts_box = QGroupBox("语音输出")
         tts_form = QFormLayout(tts_box)
@@ -241,6 +263,10 @@ class ConfigTab(QWidget):
         provider = self._cfg.ai_provider
         self._api_key_edit.setText(self._cfg.ai_config(provider).get("api_key", ""))
         self._model_edit.setText(self._cfg.ai_config(provider).get("model", ""))
+        self._overwolf_enabled_check.setChecked(bool(self._cfg.overwolf.get("enabled", False)))
+        self._overwolf_host_edit.setText(str(self._cfg.overwolf.get("host", "127.0.0.1")))
+        self._overwolf_port_spin.setValue(int(self._cfg.overwolf.get("port", 7799)))
+        self._overwolf_stale_spin.setValue(int(self._cfg.overwolf.get("stale_after_seconds", 5)))
         self._tts_combo.setCurrentText(self._cfg.tts_backend)
         self._tts_playback_mode_combo.setCurrentText(self._cfg.tts_playback_mode)
         self._tts_windows_rate_spin.setValue(int(self._cfg.tts_config("windows").get("rate", 0)))
@@ -277,6 +303,10 @@ class ConfigTab(QWidget):
             "ai.provider": provider,
             f"ai.{provider}.api_key": self._api_key_edit.text(),
             f"ai.{provider}.model": self._model_edit.text(),
+            "overwolf.enabled": self._overwolf_enabled_check.isChecked(),
+            "overwolf.host": self._overwolf_host_edit.text().strip() or "127.0.0.1",
+            "overwolf.port": self._overwolf_port_spin.value(),
+            "overwolf.stale_after_seconds": self._overwolf_stale_spin.value(),
             "tts.backend": self._tts_combo.currentText(),
             "tts.playback_mode": self._tts_playback_mode_combo.currentText(),
             "tts.windows.rate": self._tts_windows_rate_spin.value(),

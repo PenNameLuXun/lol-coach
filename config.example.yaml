@@ -15,6 +15,13 @@ scheduler:
   # Main decision heartbeat in seconds.
   interval: 3
 
+overwolf:
+  # Enable when you want plugins such as TFT to consume data from a local Overwolf bridge.
+  enabled: false
+  host: 127.0.0.1
+  port: 7799
+  stale_after_seconds: 5
+
 plugin_settings:
   lol:
     # minimal | normal | full
@@ -29,6 +36,9 @@ plugin_settings:
     trigger_cs_delta: 8
     trigger_skip_stable_cycles: true
   tft:
+    # riot_live_client | overwolf | hybrid
+    # overwolf / hybrid require the global overwolf bridge above to be enabled.
+    data_source: riot_live_client
     # minimal | normal | full
     detail: normal
     # champion | summoner | none

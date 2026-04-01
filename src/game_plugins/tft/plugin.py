@@ -21,6 +21,14 @@ class TftPlugin:
         "capabilities": {"ai": True, "rules": True, "visual": True},
         "config_schema": [
             {
+                "key": "data_source",
+                "label": "实时数据源",
+                "type": "select",
+                "options": ["riot_live_client", "overwolf", "hybrid"],
+                "default": "riot_live_client",
+                "help": "riot_live_client 使用官方本地接口；overwolf 仅走 Overwolf bridge；hybrid 优先合并两者。",
+            },
+            {
                 "key": "detail",
                 "label": "数据细节",
                 "type": "select",
@@ -55,12 +63,25 @@ class TftPlugin:
 
     def __init__(self, config=None):
         self._source = TftLiveDataSource()
+        data_source = "riot_live_client"
+        overwolf_enabled = False
+        host = "127.0.0.1"
+        port = 7799
+        stale_after_seconds = 5
         if config is not None:
-            ow_cfg = config.get("overwolf", {}) or {}
-            if ow_cfg.get("enabled", False):
-                host = ow_cfg.get("host", "127.0.0.1")
-                port = int(ow_cfg.get("port", 7799))
-                self._source.enable_overwolf(host=host, port=port)
+            data_source = str(config.plugin_setting(self.id, "data_source", "riot_live_client"))
+            ow_cfg = config.overwolf or {}
+            overwolf_enabled = bool(ow_cfg.get("enabled", False))
+            host = str(ow_cfg.get("host", host))
+            port = int(ow_cfg.get("port", port))
+            stale_after_seconds = int(ow_cfg.get("stale_after_seconds", stale_after_seconds))
+        self._source.configure(
+            data_source=data_source,
+            overwolf_enabled=overwolf_enabled,
+            host=host,
+            port=port,
+            stale_after_seconds=stale_after_seconds,
+        )
 
     def is_available(self) -> bool:
         return self._source.is_available()
@@ -72,10 +93,12 @@ class TftPlugin:
         return self._source.has_seen_activity()
 
     def detect(self, raw_data: dict, metrics: dict[str, int | str]) -> bool:
+        if raw_data.get("_game_type") == "tft":
+            return True
         return detect_game_type(raw_data) == "tft"
 
     def extract_state(self, raw_data: dict, metrics: dict[str, int | str]) -> GameState:
-        metrics = metrics or extract_key_metrics(raw_data)
+        metrics = metrics or _extract_tft_metrics(raw_data)
         active = raw_data.get("activePlayer", {})
         ow = raw_data.get("_overwolf")  # injected by TftLiveDataSource when Overwolf connected
 
@@ -169,6 +192,26 @@ class TftPlugin:
         detail: str = "normal",
         address_by: str = "champion",
     ) -> AiPayload:
+        if state.derived.get("data_source") == "overwolf":
+            hp = state.derived.get("player_hp", "?")
+            gold = state.derived.get("gold", "?")
+            level = state.derived.get("level", "?")
+            alive = state.derived.get("alive_players", "?")
+            round_name = state.derived.get("round", "") or "unknown"
+            summary = (
+                f"云顶之弈实时数据（Overwolf）：血量{hp}，金币{gold}，等级{level}，"
+                f"剩余玩家{alive}，当前回合{round_name}。"
+            )
+            if state.derived.get("shop"):
+                summary += f" 商店：{_render_shop_units(state.derived.get('shop', []))}。"
+            if state.derived.get("traits"):
+                summary += f" 羁绊：{_render_traits(state.derived.get('traits', []))}。"
+            address = state.raw_data.get("_overwolf", {}).get("me", {}).get("name")
+            return AiPayload(
+                game_summary=summary,
+                address=address if address_by != "none" else None,
+                metrics=dict(state.metrics),
+            )
         return AiPayload(
             game_summary=summarize_game_data(state.raw_data, detail=detail),
             address=get_player_address_from_data(state.raw_data, address_by),
@@ -316,3 +359,135 @@ def _count_tft_alive(data: dict) -> int:
 
 def _int(value: int | str | None) -> int:
     return value if isinstance(value, int) else 0
+
+
+def _extract_tft_metrics(raw_data: dict) -> dict[str, int | str]:
+    if raw_data.get("_game_type") == "tft" and raw_data.get("_source") == "overwolf":
+        ow = raw_data.get("_overwolf", {})
+        return {
+            "game_type": "tft",
+            "game_time_seconds": int(ow.get("game_time_seconds", 0) or 0),
+            "game_time": str(ow.get("game_time", "?")),
+            "gold": int(ow.get("gold", 0) or 0),
+            "level": int(ow.get("level", 1) or 1),
+            "hp_pct": int(ow.get("hp", 100) or 0),
+            "mana_pct": 0,
+            "kda": "-",
+            "cs": 0,
+            "champion": "",
+            "position": "",
+            "mode": str(ow.get("mode", "TFT")),
+            "event_signature": str(ow.get("event_signature", "none")),
+            "is_dead": "false",
+        }
+    return extract_key_metrics(raw_data)
+
+
+def _render_shop_units(entries: list[dict]) -> str:
+    units = []
+    for entry in entries[:5]:
+        name = str(entry.get("name", "") or entry.get("championName", "")).strip()
+        cost = entry.get("cost")
+        if not name:
+            continue
+        units.append(f"{name}({cost})" if cost is not None else name)
+    return " | ".join(units) if units else "未知"
+
+
+def _render_traits(entries: list[dict]) -> str:
+    traits = []
+    for entry in entries[:6]:
+        name = str(entry.get("name", "")).strip()
+        tier = entry.get("tier_current")
+        if not name:
+            continue
+        traits.append(f"{name}{tier}" if tier is not None else name)
+    return " | ".join(traits) if traits else "未知"
+
+
+def _extract_tft_metrics(raw_data: dict) -> dict[str, int | str]:
+    if raw_data.get("_game_type") == "tft" and raw_data.get("_source") == "overwolf":
+        ow = raw_data.get("_overwolf", {})
+        return {
+            "game_type": "tft",
+            "game_time_seconds": int(ow.get("game_time_seconds", 0) or 0),
+            "game_time": str(ow.get("game_time", "?")),
+            "gold": int(ow.get("gold", 0) or 0),
+            "level": int(ow.get("level", 1) or 1),
+            "hp_pct": int(ow.get("hp", 100) or 0),
+            "mana_pct": 0,
+            "kda": "-",
+            "cs": 0,
+            "champion": "",
+            "position": "",
+            "mode": str(ow.get("mode", "TFT")),
+            "event_signature": str(ow.get("event_signature", "none")),
+            "is_dead": "false",
+        }
+    return extract_key_metrics(raw_data)
+
+
+def _render_shop_units(entries: list[dict]) -> str:
+    units = []
+    for entry in entries[:5]:
+        name = str(entry.get("name", "") or entry.get("championName", "")).strip()
+        cost = entry.get("cost")
+        if not name:
+            continue
+        units.append(f"{name}({cost})" if cost is not None else name)
+    return " | ".join(units) if units else "未知"
+
+
+def _render_traits(entries: list[dict]) -> str:
+    traits = []
+    for entry in entries[:6]:
+        name = str(entry.get("name", "")).strip()
+        tier = entry.get("tier_current")
+        if not name:
+            continue
+        traits.append(f"{name}{tier}" if tier is not None else name)
+    return " | ".join(traits) if traits else "未知"
+
+
+def _extract_tft_metrics(raw_data: dict) -> dict[str, int | str]:
+    if raw_data.get("_game_type") == "tft" and raw_data.get("_source") == "overwolf":
+        ow = raw_data.get("_overwolf", {})
+        return {
+            "game_type": "tft",
+            "game_time_seconds": int(ow.get("game_time_seconds", 0) or 0),
+            "game_time": str(ow.get("game_time", "?")),
+            "gold": int(ow.get("gold", 0) or 0),
+            "level": int(ow.get("level", 1) or 1),
+            "hp_pct": int(ow.get("hp", 100) or 0),
+            "mana_pct": 0,
+            "kda": "-",
+            "cs": 0,
+            "champion": "",
+            "position": "",
+            "mode": str(ow.get("mode", "TFT")),
+            "event_signature": str(ow.get("event_signature", "none")),
+            "is_dead": "false",
+        }
+    return extract_key_metrics(raw_data)
+
+
+def _render_shop_units(entries: list[dict]) -> str:
+    units = []
+    for entry in entries[:5]:
+        name = str(entry.get("name", "") or entry.get("championName", "")).strip()
+        cost = entry.get("cost")
+        if not name:
+            continue
+        units.append(f"{name}({cost})" if cost is not None else name)
+    return " | ".join(units) if units else "未知"
+
+
+def _render_traits(entries: list[dict]) -> str:
+    traits = []
+    for entry in entries[:6]:
+        name = str(entry.get("name", "")).strip()
+        tier = entry.get("tier_current")
+        if not name:
+            continue
+        traits.append(f"{name}{tier}" if tier is not None else name)
+    return " | ".join(traits) if traits else "未知"
