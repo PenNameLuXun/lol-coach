@@ -1,0 +1,31 @@
+{
+  "type": "WebApp",
+  "meta": {
+    "name": "Overwolf Game Bridge",
+    "author": "PenNa",
+    "version": "0.1.0",
+    "minimum-overwolf-version": "0.250.0"
+  },
+  "data": {
+    "start_window": "background",
+    "game_events": [],
+    "windows": {
+      "background": {
+        "file": "dist/background/index.html",
+        "is_background_page": true
+      },
+      "desktop": {
+        "file": "dist/desktop/index.html",
+        "in_game_only": false,
+        "resizable": true,
+        "size": {
+          "width": 480,
+          "height": 320
+        }
+      }
+    }
+  },
+  "permissions": [
+    "GameInfo"
+  ]
+}

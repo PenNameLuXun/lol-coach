@@ -1,0 +1,8 @@
+{
+  "events": [
+    {
+      "name": "round_start",
+      "data": "PVP"
+    }
+  ]
+}
