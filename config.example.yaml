@@ -15,6 +15,30 @@ scheduler:
   # Main decision heartbeat in seconds.
   interval: 3
 
+launcher:
+  enabled: false
+  poll_interval: 2
+  cooldown_seconds: 60
+  auto_start_overwolf: true
+  auto_start_main: true
+  auto_stop_main: false
+  auto_stop_overwolf: false
+  main_python: ".\\.venv\\Scripts\\python.exe"
+  main_args:
+    - "main.py"
+  overwolf:
+    # auto | path | protocol
+    method: auto
+    path: ""
+    protocol: "overwolf://"
+  watched_games:
+    - id: league
+      # LoL / TFT 当前共用同一套客户端进程，按需自行调整
+      process_names:
+        - "League of Legends.exe"
+        - "LeagueClientUx.exe"
+        - "LeagueClient.exe"
+
 overwolf:
   # Enable when you want plugins such as TFT to consume data from a local Overwolf bridge.
   enabled: false
