@@ -4,7 +4,12 @@
   "private": true,
   "description": "Shared Overwolf bridge app for multiple game providers",
   "scripts": {
-    "build": "echo Build pipeline not wired yet",
-    "dev": "echo Overwolf dev bootstrap not wired yet"
+    "clean": "node scripts/build.mjs --clean",
+    "build": "node scripts/build.mjs",
+    "dev": "node scripts/build.mjs --watch"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.3",
+    "typescript": "^5.8.3"
   }
 }

@@ -12,12 +12,18 @@
     "windows": {
       "background": {
         "file": "dist/background/index.html",
-        "is_background_page": true
+        "is_background_page": true,
+        "in_game_only": false,
+        "resizable": false,
+        "show_in_taskbar": false,
+        "transparent": false
       },
       "desktop": {
         "file": "dist/desktop/index.html",
         "in_game_only": false,
         "resizable": true,
+        "transparent": false,
+        "show_in_taskbar": true,
         "size": {
           "width": 480,
           "height": 320
