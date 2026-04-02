@@ -242,6 +242,11 @@ class ConfigTab(QWidget):
         self._qa_auto_listener_check = QCheckBox()
         qa_form.addRow("自动启动麦克风监听:", self._qa_auto_listener_check)
 
+        self._qa_max_transcript_spin = QSpinBox()
+        self._qa_max_transcript_spin.setRange(1, 100)
+        self._qa_max_transcript_spin.setSuffix(" MB")
+        qa_form.addRow("转写文件最大大小:", self._qa_max_transcript_spin)
+
         self._qa_speaker_edit = QLineEdit()
         qa_form.addRow("提问者:", self._qa_speaker_edit)
 
@@ -312,6 +317,7 @@ class ConfigTab(QWidget):
         self._qa_transcript_file_edit.setText(str(self._cfg.qa_settings.get("transcript_file", "game_qa_mic.txt")))
         self._qa_language_edit.setText(str(self._cfg.qa_settings.get("recognition_language", "zh-CN")))
         self._qa_auto_listener_check.setChecked(bool(self._cfg.qa_settings.get("auto_start_listener", True)))
+        self._qa_max_transcript_spin.setValue(int(self._cfg.qa_settings.get("max_transcript_mb", 10)))
         self._qa_speaker_edit.setText(str(self._cfg.qa_settings.get("speaker", "玩家")))
         self._qa_system_prompt_edit.setPlainText(self._cfg.qa_system_prompt)
         self._tts_combo.setCurrentText(self._cfg.tts_backend)
@@ -361,6 +367,7 @@ class ConfigTab(QWidget):
             "qa.transcript_file": self._qa_transcript_file_edit.text().strip() or "game_qa_mic.txt",
             "qa.recognition_language": self._qa_language_edit.text().strip() or "zh-CN",
             "qa.auto_start_listener": self._qa_auto_listener_check.isChecked(),
+            "qa.max_transcript_mb": self._qa_max_transcript_spin.value(),
             "qa.speaker": self._qa_speaker_edit.text().strip() or "玩家",
             "qa.system_prompt": self._qa_system_prompt_edit.toPlainText().strip(),
             "tts.backend": self._tts_combo.currentText(),

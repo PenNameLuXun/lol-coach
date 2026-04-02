@@ -21,6 +21,7 @@ class DialogueSource:
         self._config_mtime = 0.0
         self._config: dict = {}
         self._line_index_by_path: dict[str, int] = {}
+        self._append_initialized_paths: set[str] = set()
         self._seen_activity = False
         self._microphone_listener = WindowsMicrophoneListener(plugin_id=plugin_id)
 
@@ -82,6 +83,19 @@ class DialogueSource:
         culture = str(cfg.get("recognition_language", "zh-CN"))
         return self._microphone_listener.ensure_running(transcript_file, culture=culture)
 
+    def _prepare_append_only_path(self, path: Path) -> None:
+        if not path.exists():
+            return
+        resolved = os.fspath(path.resolve())
+        if resolved in self._append_initialized_paths:
+            return
+        try:
+            lines = [line.strip() for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+        except Exception:
+            return
+        self._line_index_by_path[resolved] = len(lines)
+        self._append_initialized_paths.add(resolved)
+
     def _read_text_payload(
         self,
         path: Path,
@@ -120,6 +134,7 @@ class DialogueSource:
     ) -> dict | None:
         if not path.exists():
             return None
+        self._trim_append_only_file(path, cfg=self._source_config())
         try:
             lines = [line.strip() for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
         except Exception:
@@ -127,7 +142,13 @@ class DialogueSource:
         if not lines:
             return None
         resolved = os.fspath(path.resolve())
+        if resolved not in self._append_initialized_paths:
+            self._line_index_by_path[resolved] = len(lines)
+            self._append_initialized_paths.add(resolved)
+            return None
         index = self._line_index_by_path.get(resolved, 0)
+        if index > len(lines):
+            index = 0
         if index >= len(lines):
             return None
         text = lines[index]
@@ -142,3 +163,64 @@ class DialogueSource:
                 "line_mode": "append_only",
             }
         }
+
+    def _trim_append_only_file(self, path: Path, cfg: dict) -> None:
+        max_mb = int(cfg.get("max_transcript_mb", 10) or 10)
+        max_bytes = max(1, max_mb) * 1024 * 1024
+        try:
+            size = path.stat().st_size
+        except OSError:
+            return
+        if size <= max_bytes:
+            return
+        try:
+            raw_lines = path.read_text(encoding="utf-8").splitlines()
+        except Exception:
+            return
+        if not raw_lines:
+            return
+
+        resolved = os.fspath(path.resolve())
+        current_index = self._line_index_by_path.get(resolved, 0)
+        unread_lines = raw_lines[current_index:] if current_index < len(raw_lines) else []
+        if not unread_lines:
+            unread_lines = raw_lines[-1:]
+
+        selected: list[str] = []
+        current_bytes = 0
+        for line in reversed(unread_lines):
+            line_bytes = len((line + "\n").encode("utf-8"))
+            if not selected and line_bytes > max_bytes:
+                selected.insert(0, self._tail_fit_utf8(line, max_bytes - 1))
+                current_bytes = len((selected[0] + "\n").encode("utf-8"))
+                break
+            if selected and current_bytes + line_bytes > max_bytes:
+                break
+            selected.insert(0, line)
+            current_bytes += line_bytes
+
+        trimmed_text = "\n".join(selected).strip()
+        if trimmed_text:
+            trimmed_text += "\n"
+        try:
+            path.write_text(trimmed_text, encoding="utf-8")
+        except Exception:
+            return
+        self._line_index_by_path[resolved] = 0
+        self._append_initialized_paths.add(resolved)
+
+    def _tail_fit_utf8(self, text: str, max_bytes: int) -> str:
+        if max_bytes <= 0:
+            return ""
+        if len(text.encode("utf-8")) <= max_bytes:
+            return text
+        low = 0
+        high = len(text)
+        while low < high:
+            mid = (low + high) // 2
+            candidate = text[mid:]
+            if len(candidate.encode("utf-8")) <= max_bytes:
+                high = mid
+            else:
+                low = mid + 1
+        return text[low:]

@@ -234,7 +234,7 @@ def test_dialogue_source_reads_microphone_transcript_incrementally(tmp_path, mon
         ),
         encoding="utf-8",
     )
-    transcript_path.write_text("第一句\n第二句\n", encoding="utf-8")
+    transcript_path.write_text("旧句子\n", encoding="utf-8")
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(
         dialogue_source_module.WindowsMicrophoneListener,
@@ -245,6 +245,10 @@ def test_dialogue_source_reads_microphone_transcript_incrementally(tmp_path, mon
     source = dialogue_source_module.DialogueSource()
 
     assert source.is_available() is True
+    assert source.fetch_live_data() is None
+
+    transcript_path.write_text("旧句子\n第一句\n第二句\n", encoding="utf-8")
+
     first = source.fetch_live_data()
     second = source.fetch_live_data()
     third = source.fetch_live_data()
@@ -256,6 +260,83 @@ def test_dialogue_source_reads_microphone_transcript_incrementally(tmp_path, mon
     assert second["dialogue"]["text"] == "第二句"
     assert first["dialogue"]["line_mode"] == "append_only"
     assert second["dialogue"]["source"] == "microphone"
+
+
+def test_dialogue_source_resets_append_index_after_transcript_trim(tmp_path, monkeypatch):
+    config_path = tmp_path / "config.yaml"
+    transcript_path = tmp_path / "dialogue_mic.txt"
+    config_path.write_text(
+        (
+            "plugin_settings:\n"
+            "  dialogue:\n"
+            "    source: microphone\n"
+            f"    transcript_file: {transcript_path.as_posix()}\n"
+            "    speaker: 测试玩家\n"
+            "    recognition_language: zh-CN\n"
+            "    auto_start_listener: true\n"
+        ),
+        encoding="utf-8",
+    )
+    transcript_path.write_text("历史句\n", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(
+        dialogue_source_module.WindowsMicrophoneListener,
+        "ensure_running",
+        lambda self, transcript_path, culture="zh-CN": True,
+    )
+
+    source = dialogue_source_module.DialogueSource()
+    assert source.fetch_live_data() is None
+
+    transcript_path.write_text("历史句\n第一句\n第二句\n第三句\n", encoding="utf-8")
+    assert source.fetch_live_data()["dialogue"]["text"] == "第一句"
+    assert source.fetch_live_data()["dialogue"]["text"] == "第二句"
+    assert source.fetch_live_data()["dialogue"]["text"] == "第三句"
+
+    transcript_path.write_text("保留句\n新句\n", encoding="utf-8")
+
+    first_after_trim = source.fetch_live_data()
+    second_after_trim = source.fetch_live_data()
+
+    assert first_after_trim is not None
+    assert second_after_trim is not None
+    assert first_after_trim["dialogue"]["text"] == "保留句"
+    assert second_after_trim["dialogue"]["text"] == "新句"
+
+
+def test_dialogue_source_trims_large_transcript_from_reader_side(tmp_path, monkeypatch):
+    config_path = tmp_path / "config.yaml"
+    transcript_path = tmp_path / "dialogue_mic.txt"
+    oversized_line = "超长语音片段" * 120000
+    config_path.write_text(
+        (
+            "plugin_settings:\n"
+            "  dialogue:\n"
+            "    source: microphone\n"
+            f"    transcript_file: {transcript_path.as_posix()}\n"
+            "    speaker: 测试玩家\n"
+            "    recognition_language: zh-CN\n"
+            "    auto_start_listener: true\n"
+            "    max_transcript_mb: 1\n"
+        ),
+        encoding="utf-8",
+    )
+    transcript_path.write_text("历史句\n", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(
+        dialogue_source_module.WindowsMicrophoneListener,
+        "ensure_running",
+        lambda self, transcript_path, culture="zh-CN": True,
+    )
+
+    source = dialogue_source_module.DialogueSource()
+    assert source.fetch_live_data() is None
+    transcript_path.write_text(f"历史句\n{oversized_line}\n最后一句\n", encoding="utf-8")
+    payload = source.fetch_live_data()
+
+    assert payload is not None
+    assert payload["dialogue"]["text"]
+    assert transcript_path.stat().st_size <= 1024 * 1024
 
 
 def test_dialogue_plugin_rules_echo_input(tmp_path, monkeypatch):
@@ -291,26 +372,32 @@ def test_dialogue_plugin_rules_echo_input(tmp_path, monkeypatch):
 def test_qa_channel_reads_question_and_builds_prompt(tmp_path, monkeypatch):
     config_path = tmp_path / "config.yaml"
     input_path = tmp_path / "game_qa_input.txt"
+    transcript_path = tmp_path / "game_qa_mic.txt"
     config_path.write_text(
         (
             "qa:\n"
             "  enabled: true\n"
             "  source: file\n"
             f"  text_file: {input_path.as_posix()}\n"
+            f"  transcript_file: {transcript_path.as_posix()}\n"
             "  speaker: 玩家A\n"
         ),
         encoding="utf-8",
     )
-    input_path.write_text("我玩剑圣怎么对线蛮王？", encoding="utf-8")
+    input_path.write_text("历史问题\n", encoding="utf-8")
     monkeypatch.chdir(tmp_path)
 
     channel = QaChannel(config_path=str(config_path))
     cfg = Config(str(config_path))
+    assert channel.poll_question() is None
+
+    input_path.write_text("历史问题\n我玩剑圣怎么对线蛮王？\n", encoding="utf-8")
     question = channel.poll_question()
 
     assert cfg.qa_enabled is True
     assert question is not None
     assert question.text == "我玩剑圣怎么对线蛮王？"
+    assert "我玩剑圣怎么对线蛮王？" in transcript_path.read_text(encoding="utf-8")
 
     plugin = build_default_registry(enabled_plugin_ids=["lol"]).get("lol")
     assert plugin is not None

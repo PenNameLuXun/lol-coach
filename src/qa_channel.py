@@ -22,12 +22,26 @@ class QaChannel:
             plugin_id="qa",
             settings_path=("qa",),
         )
+        self._input_line_index_by_path: dict[str, int] = {}
+        self._input_initialized_paths: set[str] = set()
 
     def is_enabled(self, config) -> bool:
         return bool(config.qa_enabled)
 
     def poll_question(self) -> QaQuestion | None:
-        raw_data = self._source.fetch_live_data()
+        cfg = self._source._source_config()
+        source_kind = str(cfg.get("source", "file"))
+        if source_kind == "file":
+            transcript_path = self._source._config_path.parent / str(cfg.get("transcript_file", "game_qa_mic.txt"))
+            self._source._prepare_append_only_path(transcript_path)
+            self._ingest_file_questions(cfg, transcript_path)
+            raw_data = self._source._read_append_only_payload(
+                path=transcript_path,
+                speaker=str(cfg.get("speaker", "玩家")),
+                source_kind="file",
+            )
+        else:
+            raw_data = self._source.fetch_live_data()
         if not raw_data:
             return None
         payload = raw_data.get("qa", {})
@@ -40,6 +54,39 @@ class QaChannel:
             source_kind=str(payload.get("source", "file")),
             raw_data=raw_data,
         )
+
+    def _ingest_file_questions(self, cfg: dict, transcript_path) -> None:
+        input_path = self._source._config_path.parent / str(cfg.get("text_file", "game_qa_input.txt"))
+        if not input_path.exists():
+            return
+        try:
+            lines = [line.strip() for line in input_path.read_text(encoding="utf-8").splitlines() if line.strip()]
+        except Exception:
+            return
+        if not lines:
+            return
+
+        resolved = str(input_path.resolve())
+        if resolved not in self._input_initialized_paths:
+            self._input_line_index_by_path[resolved] = len(lines)
+            self._input_initialized_paths.add(resolved)
+            return
+
+        index = self._input_line_index_by_path.get(resolved, 0)
+        if index > len(lines):
+            index = 0
+        new_lines = lines[index:]
+        if not new_lines:
+            return
+
+        transcript_path.parent.mkdir(parents=True, exist_ok=True)
+        if not transcript_path.exists():
+            transcript_path.write_text("", encoding="utf-8")
+        self._source._prepare_append_only_path(transcript_path)
+        with transcript_path.open("a", encoding="utf-8") as handle:
+            for line in new_lines:
+                handle.write(line + "\n")
+        self._input_line_index_by_path[resolved] = len(lines)
 
 
 def build_qa_prompt(

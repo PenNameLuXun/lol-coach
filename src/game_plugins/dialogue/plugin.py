@@ -52,6 +52,15 @@ class DialoguePlugin:
                 "help": "启用 microphone 模式时自动拉起本地语音识别监听器。",
             },
             {
+                "key": "max_transcript_mb",
+                "label": "转写文件最大大小(MB)",
+                "type": "int",
+                "min": 1,
+                "max": 100,
+                "default": 10,
+                "help": "仅 microphone 模式生效。读取侧会在文件超过上限时裁剪旧内容，避免文件无限增长。",
+            },
+            {
                 "key": "speaker",
                 "label": "称呼对象",
                 "type": "string",
