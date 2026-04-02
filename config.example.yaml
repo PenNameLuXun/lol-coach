@@ -82,6 +82,8 @@ plugin_settings:
 
 qa:
   enabled: false
+  # ai
+  mode: ai
   # file | microphone
   source: file
   text_file: game_qa_input.txt

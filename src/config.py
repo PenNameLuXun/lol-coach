@@ -213,6 +213,13 @@ class Config:
         return bool(self.qa_settings.get("enabled", False))
 
     @property
+    def qa_mode(self) -> str:
+        mode = str(self.qa_settings.get("mode", "ai")).strip().lower()
+        if mode in {"ai"}:
+            return mode
+        return "ai"
+
+    @property
     def qa_system_prompt(self) -> str:
         return str(
             self.qa_settings.get(

@@ -221,6 +221,11 @@ class ConfigTab(QWidget):
         self._qa_enabled_check = QCheckBox()
         qa_form.addRow("启用问答:", self._qa_enabled_check)
 
+        self._qa_mode_combo = QComboBox()
+        self._qa_mode_combo.addItems(["ai"])
+        self._qa_mode_combo.setToolTip("当前仅支持 AI 问答，后续可扩展为 rules 或 hybrid。")
+        qa_form.addRow("问答模式:", self._qa_mode_combo)
+
         self._qa_source_combo = QComboBox()
         self._qa_source_combo.addItems(["file", "microphone"])
         qa_form.addRow("输入源:", self._qa_source_combo)
@@ -301,6 +306,7 @@ class ConfigTab(QWidget):
         self._overwolf_port_spin.setValue(int(self._cfg.overwolf.get("port", 7799)))
         self._overwolf_stale_spin.setValue(int(self._cfg.overwolf.get("stale_after_seconds", 5)))
         self._qa_enabled_check.setChecked(bool(self._cfg.qa_enabled))
+        self._qa_mode_combo.setCurrentText(self._cfg.qa_mode)
         self._qa_source_combo.setCurrentText(str(self._cfg.qa_settings.get("source", "file")))
         self._qa_text_file_edit.setText(str(self._cfg.qa_settings.get("text_file", "game_qa_input.txt")))
         self._qa_transcript_file_edit.setText(str(self._cfg.qa_settings.get("transcript_file", "game_qa_mic.txt")))
@@ -349,6 +355,7 @@ class ConfigTab(QWidget):
             "overwolf.port": self._overwolf_port_spin.value(),
             "overwolf.stale_after_seconds": self._overwolf_stale_spin.value(),
             "qa.enabled": self._qa_enabled_check.isChecked(),
+            "qa.mode": self._qa_mode_combo.currentText(),
             "qa.source": self._qa_source_combo.currentText(),
             "qa.text_file": self._qa_text_file_edit.text().strip() or "game_qa_input.txt",
             "qa.transcript_file": self._qa_transcript_file_edit.text().strip() or "game_qa_mic.txt",
