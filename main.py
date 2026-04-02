@@ -550,7 +550,9 @@ def main():
     parser = argparse.ArgumentParser(description="LOL Coach")
     parser.add_argument("--debug", action="store_true", help="save each screenshot to debug_captures/")
     parser.add_argument("--debug-timing", action="store_true", help="print bridge/provider timing for each analyzed cycle")
+    parser.add_argument("--debug-stt", action="store_true", help="print microphone/STT diagnostic logs")
     args = parser.parse_args()
+    os.environ["LOL_COACH_DEBUG_STT"] = "1" if args.debug_stt else "0"
 
     # Bootstrap config
     if not os.path.exists("config.yaml"):
