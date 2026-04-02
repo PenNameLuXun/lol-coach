@@ -5,7 +5,7 @@ from pathlib import Path
 
 import yaml
 
-from src.game_plugins.dialogue.microphone import WindowsMicrophoneListener
+from src.game_plugins.dialogue.microphone import MicrophoneListener, WindowsMicrophoneListener
 
 
 class DialogueSource:
@@ -23,7 +23,7 @@ class DialogueSource:
         self._line_index_by_path: dict[str, int] = {}
         self._append_initialized_paths: set[str] = set()
         self._seen_activity = False
-        self._microphone_listener = WindowsMicrophoneListener(plugin_id=plugin_id)
+        self._microphone_listener = MicrophoneListener(plugin_id=plugin_id)
 
     def is_available(self) -> bool:
         cfg = self._source_config()
@@ -81,7 +81,16 @@ class DialogueSource:
             return False
         transcript_file = Path(str(cfg.get("transcript_file", "dialogue_mic.txt")))
         culture = str(cfg.get("recognition_language", "zh-CN"))
-        return self._microphone_listener.ensure_running(transcript_file, culture=culture)
+        backend = str(cfg.get("microphone_backend", "powershell"))
+        stt_backend = str(cfg.get("stt_backend", "system"))
+        silence_ms = int(cfg.get("silence_ms", 1000) or 1000)
+        return self._microphone_listener.ensure_running(
+            transcript_file,
+            culture=culture,
+            backend=backend,
+            silence_ms=silence_ms,
+            stt_backend=stt_backend,
+        )
 
     def _prepare_append_only_path(self, path: Path) -> None:
         if not path.exists():

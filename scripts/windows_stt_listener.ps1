@@ -1,8 +1,9 @@
 param(
-  [Parameter(Mandatory = $true)]
-  [string]$TranscriptPath,
+  [string]$TranscriptPath = "",
   [string]$Culture = "zh-CN",
-  [double]$MinConfidence = 0.55
+  [double]$MinConfidence = 0.55,
+  [ValidateSet("file", "stdout")]
+  [string]$OutputMode = "file"
 )
 
 Set-StrictMode -Version Latest
@@ -10,12 +11,17 @@ $ErrorActionPreference = "Stop"
 
 Add-Type -AssemblyName System.Speech
 
-$dir = Split-Path -Parent $TranscriptPath
-if ($dir -and -not (Test-Path $dir)) {
-  New-Item -ItemType Directory -Force -Path $dir | Out-Null
-}
-if (-not (Test-Path $TranscriptPath)) {
-  New-Item -ItemType File -Force -Path $TranscriptPath | Out-Null
+if ($OutputMode -eq "file") {
+  if ([string]::IsNullOrWhiteSpace($TranscriptPath)) {
+    throw "TranscriptPath is required when OutputMode=file"
+  }
+  $dir = Split-Path -Parent $TranscriptPath
+  if ($dir -and -not (Test-Path $dir)) {
+    New-Item -ItemType Directory -Force -Path $dir | Out-Null
+  }
+  if (-not (Test-Path $TranscriptPath)) {
+    New-Item -ItemType File -Force -Path $TranscriptPath | Out-Null
+  }
 }
 
 try {
@@ -38,6 +44,11 @@ Register-ObjectEvent -InputObject $recognizer -EventName SpeechRecognized -Actio
     return
   }
   if ($result.Confidence -lt $MinConfidence) {
+    return
+  }
+  if ($OutputMode -eq "stdout") {
+    [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+    Write-Output $result.Text
     return
   }
   Add-Content -Path $TranscriptPath -Value $result.Text -Encoding UTF8

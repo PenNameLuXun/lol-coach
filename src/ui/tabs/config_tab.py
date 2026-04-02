@@ -239,8 +239,23 @@ class ConfigTab(QWidget):
         self._qa_language_edit = QLineEdit()
         qa_form.addRow("识别语言:", self._qa_language_edit)
 
+        self._qa_microphone_backend_combo = QComboBox()
+        self._qa_microphone_backend_combo.addItems(["powershell", "qt"])
+        self._qa_microphone_backend_combo.setToolTip("powershell 为当前可用方案；qt 为主进程内麦克风架构骨架。")
+        qa_form.addRow("麦克风后端:", self._qa_microphone_backend_combo)
+
+        self._qa_stt_backend_combo = QComboBox()
+        self._qa_stt_backend_combo.addItems(["system", "whisper"])
+        self._qa_stt_backend_combo.setToolTip("当前主要为后续 Qt 路线预留。")
+        qa_form.addRow("识别后端:", self._qa_stt_backend_combo)
+
         self._qa_auto_listener_check = QCheckBox()
         qa_form.addRow("自动启动麦克风监听:", self._qa_auto_listener_check)
+
+        self._qa_silence_spin = QSpinBox()
+        self._qa_silence_spin.setRange(200, 5000)
+        self._qa_silence_spin.setSuffix(" ms")
+        qa_form.addRow("静音判句时长:", self._qa_silence_spin)
 
         self._qa_max_transcript_spin = QSpinBox()
         self._qa_max_transcript_spin.setRange(1, 100)
@@ -316,7 +331,10 @@ class ConfigTab(QWidget):
         self._qa_text_file_edit.setText(str(self._cfg.qa_settings.get("text_file", "game_qa_input.txt")))
         self._qa_transcript_file_edit.setText(str(self._cfg.qa_settings.get("transcript_file", "game_qa_mic.txt")))
         self._qa_language_edit.setText(str(self._cfg.qa_settings.get("recognition_language", "zh-CN")))
+        self._qa_microphone_backend_combo.setCurrentText(self._cfg.qa_microphone_backend)
+        self._qa_stt_backend_combo.setCurrentText(self._cfg.qa_stt_backend)
         self._qa_auto_listener_check.setChecked(bool(self._cfg.qa_settings.get("auto_start_listener", True)))
+        self._qa_silence_spin.setValue(int(self._cfg.qa_settings.get("silence_ms", 1000)))
         self._qa_max_transcript_spin.setValue(int(self._cfg.qa_settings.get("max_transcript_mb", 10)))
         self._qa_speaker_edit.setText(str(self._cfg.qa_settings.get("speaker", "玩家")))
         self._qa_system_prompt_edit.setPlainText(self._cfg.qa_system_prompt)
@@ -366,7 +384,10 @@ class ConfigTab(QWidget):
             "qa.text_file": self._qa_text_file_edit.text().strip() or "game_qa_input.txt",
             "qa.transcript_file": self._qa_transcript_file_edit.text().strip() or "game_qa_mic.txt",
             "qa.recognition_language": self._qa_language_edit.text().strip() or "zh-CN",
+            "qa.microphone_backend": self._qa_microphone_backend_combo.currentText(),
+            "qa.stt_backend": self._qa_stt_backend_combo.currentText(),
             "qa.auto_start_listener": self._qa_auto_listener_check.isChecked(),
+            "qa.silence_ms": self._qa_silence_spin.value(),
             "qa.max_transcript_mb": self._qa_max_transcript_spin.value(),
             "qa.speaker": self._qa_speaker_edit.text().strip() or "玩家",
             "qa.system_prompt": self._qa_system_prompt_edit.toPlainText().strip(),

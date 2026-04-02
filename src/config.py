@@ -229,6 +229,20 @@ class Config:
         )
 
     @property
+    def qa_microphone_backend(self) -> str:
+        backend = str(self.qa_settings.get("microphone_backend", "powershell")).strip().lower()
+        if backend in {"powershell", "qt"}:
+            return backend
+        return "powershell"
+
+    @property
+    def qa_stt_backend(self) -> str:
+        backend = str(self.qa_settings.get("stt_backend", "system")).strip().lower()
+        if backend in {"system", "whisper"}:
+            return backend
+        return "system"
+
+    @property
     def overwolf(self) -> dict:
         return self._data.get("overwolf", {})
 

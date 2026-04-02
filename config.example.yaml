@@ -73,10 +73,13 @@ plugin_settings:
     # file | microphone
     source: file
     text_file: dialogue_input.txt
-    transcript_file: dialogue_mic.txt
-    recognition_language: zh-CN
-    auto_start_listener: true
-    max_transcript_mb: 10
+      transcript_file: dialogue_mic.txt
+      recognition_language: zh-CN
+      microphone_backend: powershell
+      stt_backend: system
+      auto_start_listener: true
+      silence_ms: 1000
+      max_transcript_mb: 10
     speaker: 玩家
     clear_after_read: false
     system_prompt: "你是测试助手，会根据用户刚才说的话给出一句自然、简短、适合语音播报的中文回复。"
@@ -90,7 +93,17 @@ qa:
   text_file: game_qa_input.txt
   transcript_file: game_qa_mic.txt
   recognition_language: zh-CN
+  # powershell | qt
+  # powershell: 直接拉起独立 PowerShell 监听脚本，当前最稳定
+  # qt: 由主程序内的 Qt 路线托管系统 STT 进程，便于后续收敛到统一输入架构
+  microphone_backend: powershell
+  # system | whisper
+  # system: 使用 Windows 系统语音识别
+  # whisper: 预留给后续本地/模型识别实现
+  stt_backend: system
   auto_start_listener: true
+  # 预留给 Qt 麦克风架构的判句静音时长
+  silence_ms: 1000
   max_transcript_mb: 10
   speaker: 玩家
   system_prompt: "你是 MOBA 与策略游戏问答助手。用户会在对局中或对局外提出英雄对线、出装、运营、阵容理解等问题。请用简洁、可靠、可执行的中文直接回答，优先给出 2 到 4 个最关键建议；如果信息不够，就明确说明你的假设。"
