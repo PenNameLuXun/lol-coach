@@ -29,6 +29,7 @@ class SearchDocument:
     url: str
     snippet: str
     excerpt: str
+    patch_version: str = ""
 
 
 def should_web_search_question(question: str) -> bool:
@@ -135,11 +136,29 @@ def search_web_for_qa(
                     url=result["url"],
                     snippet=result["snippet"],
                     excerpt=excerpt or result["snippet"],
+                    patch_version=_infer_patch_version(
+                        result["title"],
+                        result["snippet"],
+                        result["url"],
+                        excerpt,
+                    ),
                 )
             )
             if len(docs) >= max_pages:
                 break
-    return docs
+    return sort_search_documents(docs)
+
+
+def sort_search_documents(docs: list[SearchDocument]) -> list[SearchDocument]:
+    return sorted(
+        docs,
+        key=lambda doc: (
+            _patch_sort_key(doc.patch_version),
+            doc.priority,
+            doc.domain,
+        ),
+        reverse=True,
+    )
 
 
 def format_search_documents(docs: list[SearchDocument]) -> str:
@@ -147,8 +166,10 @@ def format_search_documents(docs: list[SearchDocument]) -> str:
         return "无联网搜索结果。"
     lines: list[str] = []
     for index, doc in enumerate(docs, start=1):
+        version_line = f"版本: {doc.patch_version}\n" if doc.patch_version else ""
         lines.append(
             f"[{index}] 站点={doc.domain} 优先级={doc.priority}\n"
+            f"{version_line}"
             f"标题: {doc.title}\n"
             f"链接: {doc.url}\n"
             f"摘要: {doc.snippet}\n"
@@ -237,3 +258,27 @@ def _clean_html_text(value: str) -> str:
 
 def infer_domain_from_url(url: str) -> str:
     return urlparse(url).netloc.lower()
+
+
+def _infer_patch_version(*parts: str) -> str:
+    patterns = [
+        re.compile(r"(?:patch|版本)\s*([0-9]{1,2})[.。]([0-9]{1,2})", re.IGNORECASE),
+        re.compile(r"\b([0-9]{1,2})[.。]([0-9]{1,2})\b"),
+    ]
+    for part in parts:
+        text = str(part or "")
+        for pattern in patterns:
+            match = pattern.search(text)
+            if match:
+                return f"{int(match.group(1))}.{int(match.group(2))}"
+    return ""
+
+
+def _patch_sort_key(version: str) -> tuple[int, int, int]:
+    if not version:
+        return (0, -1, -1)
+    try:
+        major_text, minor_text = version.split(".", 1)
+        return (1, int(major_text), int(minor_text))
+    except Exception:
+        return (0, -1, -1)

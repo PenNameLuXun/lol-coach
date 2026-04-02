@@ -1,5 +1,10 @@
 from src.qa_channel import QaQuestion, build_qa_prompt
-from src.qa_web_search import SearchDocument, merge_search_sites, parse_search_sites_text
+from src.qa_web_search import (
+    SearchDocument,
+    merge_search_sites,
+    parse_search_sites_text,
+    sort_search_documents,
+)
 
 
 def test_parse_search_sites_text_and_merge_priority():
@@ -30,6 +35,7 @@ def test_build_qa_prompt_includes_web_search_context():
                 url="https://www.op.gg/champions/yasuo",
                 snippet="对线需要注意前三级换血。",
                 excerpt="优先处理前三级兵线，避免被阿卡丽 E 命中后持续追击。",
+                patch_version="16.5",
             )
         ],
     )
@@ -37,3 +43,31 @@ def test_build_qa_prompt_includes_web_search_context():
     assert "联网搜索资料" in prompt
     assert "op.gg" in prompt
     assert "前三级" in prompt
+    assert "版本: 16.5" in prompt
+
+
+def test_sort_search_documents_prefers_newer_patch():
+    docs = [
+        SearchDocument(
+            domain="op.gg",
+            priority=100,
+            title="Yasuo Mid Build Patch 15.22",
+            url="https://www.op.gg/champions/yasuo",
+            snippet="Patch 15.22",
+            excerpt="",
+            patch_version="15.22",
+        ),
+        SearchDocument(
+            domain="u.gg",
+            priority=95,
+            title="Yasuo Build Patch 16.5",
+            url="https://u.gg/lol/champions/yasuo/build",
+            snippet="Patch 16.5",
+            excerpt="",
+            patch_version="16.5",
+        ),
+    ]
+
+    ordered = sort_search_documents(docs)
+
+    assert [doc.domain for doc in ordered] == ["u.gg", "op.gg"]
