@@ -204,6 +204,24 @@ class Config:
         return result
 
     @property
+    def qa_settings(self) -> dict:
+        settings = self._data.get("qa", {})
+        return settings if isinstance(settings, dict) else {}
+
+    @property
+    def qa_enabled(self) -> bool:
+        return bool(self.qa_settings.get("enabled", False))
+
+    @property
+    def qa_system_prompt(self) -> str:
+        return str(
+            self.qa_settings.get(
+                "system_prompt",
+                "你是 MOBA 与策略游戏问答助手。用户会在对局中或对局外提出英雄对线、出装、运营、阵容理解等问题。请用简洁、可靠、可执行的中文直接回答，优先给出 2 到 4 个最关键建议；如果信息不够，就明确说明你的假设。",
+            )
+        )
+
+    @property
     def overwolf(self) -> dict:
         return self._data.get("overwolf", {})
 

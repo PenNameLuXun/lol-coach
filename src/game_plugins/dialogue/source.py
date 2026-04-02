@@ -9,9 +9,15 @@ from src.game_plugins.dialogue.microphone import WindowsMicrophoneListener
 
 
 class DialogueSource:
-    def __init__(self, config_path: str = "config.yaml", plugin_id: str = "dialogue"):
+    def __init__(
+        self,
+        config_path: str = "config.yaml",
+        plugin_id: str = "dialogue",
+        settings_path: tuple[str, ...] | None = None,
+    ):
         self._config_path = Path(config_path)
         self._plugin_id = plugin_id
+        self._settings_path = settings_path or ("plugin_settings", plugin_id)
         self._config_mtime = 0.0
         self._config: dict = {}
         self._line_index_by_path: dict[str, int] = {}
@@ -19,7 +25,7 @@ class DialogueSource:
         self._microphone_listener = WindowsMicrophoneListener(plugin_id=plugin_id)
 
     def is_available(self) -> bool:
-        cfg = self._dialogue_config()
+        cfg = self._source_config()
         source_kind = str(cfg.get("source", "file"))
         if source_kind == "file":
             return True
@@ -30,7 +36,7 @@ class DialogueSource:
         return False
 
     def fetch_live_data(self) -> dict | None:
-        cfg = self._dialogue_config()
+        cfg = self._source_config()
         source_kind = str(cfg.get("source", "file"))
         if source_kind == "microphone":
             self._ensure_microphone_listener(cfg)
@@ -49,7 +55,7 @@ class DialogueSource:
     def has_seen_activity(self) -> bool:
         return self._seen_activity
 
-    def _dialogue_config(self) -> dict:
+    def _source_config(self) -> dict:
         if not self._config_path.exists():
             return {}
         try:
@@ -62,8 +68,12 @@ class DialogueSource:
             except Exception:
                 self._config = {}
             self._config_mtime = mtime
-        plugin_settings = self._config.get("plugin_settings", {}).get(self._plugin_id, {})
-        return plugin_settings if isinstance(plugin_settings, dict) else {}
+        node = self._config
+        for key in self._settings_path:
+            if not isinstance(node, dict):
+                return {}
+            node = node.get(key, {})
+        return node if isinstance(node, dict) else {}
 
     def _ensure_microphone_listener(self, cfg: dict) -> bool:
         if not bool(cfg.get("auto_start_listener", True)):

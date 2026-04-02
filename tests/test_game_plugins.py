@@ -1,9 +1,9 @@
 from src.game_plugins import build_default_registry
-from src.analysis_flow import AnalysisSnapshot
+from src.config import Config
 from src.game_plugins.registry import discover_plugins
 from src.game_plugins.dialogue import source as dialogue_source_module
 from src.game_plugins.tft.plugin import TftPlugin
-from datetime import datetime
+from src.qa_channel import QaChannel, build_qa_prompt
 from tests.test_lol_client import LOL_DATA, TFT_DATA
 
 
@@ -24,7 +24,7 @@ def test_registry_detects_tft_plugin():
 def test_discover_plugins_loads_manifests():
     plugins = discover_plugins()
     plugin_ids = {plugin.id for plugin in plugins}
-    assert {"lol", "tft", "dialogue", "game_qa"}.issubset(plugin_ids)
+    assert {"lol", "tft", "dialogue"}.issubset(plugin_ids)
     assert all(isinstance(plugin.manifest, dict) for plugin in plugins)
 
 
@@ -288,36 +288,39 @@ def test_dialogue_plugin_rules_echo_input(tmp_path, monkeypatch):
     assert rules[0].message == "规则模式测试"
 
 
-def test_game_qa_plugin_builds_question_prompt(tmp_path, monkeypatch):
+def test_qa_channel_reads_question_and_builds_prompt(tmp_path, monkeypatch):
     config_path = tmp_path / "config.yaml"
     input_path = tmp_path / "game_qa_input.txt"
     config_path.write_text(
         (
-            "plugin_settings:\n"
-            "  game_qa:\n"
-            "    source: file\n"
-            f"    text_file: {input_path.as_posix()}\n"
-            "    speaker: 玩家A\n"
+            "qa:\n"
+            "  enabled: true\n"
+            "  source: file\n"
+            f"  text_file: {input_path.as_posix()}\n"
+            "  speaker: 玩家A\n"
         ),
         encoding="utf-8",
     )
     input_path.write_text("我玩剑圣怎么对线蛮王？", encoding="utf-8")
     monkeypatch.chdir(tmp_path)
 
-    registry = build_default_registry(enabled_plugin_ids=["game_qa"])
-    plugin = registry.get("game_qa")
-    assert plugin is not None
-    raw_data = plugin.fetch_live_data()
-    assert raw_data is not None
-    state = plugin.extract_state(raw_data, {})
-    assert plugin.wants_visual_context(state) is False
-    assert plugin.evaluate_rules(state) == []
+    channel = QaChannel(config_path=str(config_path))
+    cfg = Config(str(config_path))
+    question = channel.poll_question()
 
-    prompt = plugin.build_decision_prompt(
-        state,
+    assert cfg.qa_enabled is True
+    assert question is not None
+    assert question.text == "我玩剑圣怎么对线蛮王？"
+
+    plugin = build_default_registry(enabled_plugin_ids=["lol"]).get("lol")
+    assert plugin is not None
+    active_context = type("Ctx", (), {"plugin": plugin, "state": plugin.extract_state(LOL_DATA, {})})()
+    prompt = build_qa_prompt(
+        question=question,
         system_prompt="你是游戏问答助手",
-        bridge_facts=None,
+        active_context=active_context,
         snapshots=[],
+        rule_advice=None,
         detail="normal",
         address_by="summoner",
     )
@@ -325,3 +328,4 @@ def test_game_qa_plugin_builds_question_prompt(tmp_path, monkeypatch):
     assert "回答玩家的游戏问题" in prompt
     assert "我玩剑圣怎么对线蛮王？" in prompt
     assert "玩家A" in prompt
+    assert "当前对局摘要" in prompt

@@ -60,6 +60,7 @@ class ConfigTab(QWidget):
 
         root.addWidget(self._wrap_section("决策模式", decision_box, collapsed=False))
         root.addWidget(self._build_plugin_settings_box())
+        root.addWidget(self._build_qa_settings_box())
 
         # ── AI ────────────────────────────────────────────────────────────────
         ai_box = QGroupBox("AI 设置")
@@ -213,6 +214,38 @@ class ConfigTab(QWidget):
         plugin_layout.addStretch(1)
         return self._wrap_section("插件设置", plugin_box, collapsed=True)
 
+    def _build_qa_settings_box(self) -> CollapsibleBox:
+        qa_box = QGroupBox("问答助手")
+        qa_form = QFormLayout(qa_box)
+
+        self._qa_enabled_check = QCheckBox()
+        qa_form.addRow("启用问答:", self._qa_enabled_check)
+
+        self._qa_source_combo = QComboBox()
+        self._qa_source_combo.addItems(["file", "microphone"])
+        qa_form.addRow("输入源:", self._qa_source_combo)
+
+        self._qa_text_file_edit = QLineEdit()
+        qa_form.addRow("文本文件:", self._qa_text_file_edit)
+
+        self._qa_transcript_file_edit = QLineEdit()
+        qa_form.addRow("转写文件:", self._qa_transcript_file_edit)
+
+        self._qa_language_edit = QLineEdit()
+        qa_form.addRow("识别语言:", self._qa_language_edit)
+
+        self._qa_auto_listener_check = QCheckBox()
+        qa_form.addRow("自动启动麦克风监听:", self._qa_auto_listener_check)
+
+        self._qa_speaker_edit = QLineEdit()
+        qa_form.addRow("提问者:", self._qa_speaker_edit)
+
+        self._qa_system_prompt_edit = QTextEdit()
+        self._qa_system_prompt_edit.setMaximumHeight(90)
+        qa_form.addRow("系统提示词:", self._qa_system_prompt_edit)
+
+        return self._wrap_section("问答助手", qa_box, collapsed=True)
+
     def _create_plugin_widget(self, field: dict):
         field_type = field.get("type", "string")
         if field_type == "bool":
@@ -267,6 +300,14 @@ class ConfigTab(QWidget):
         self._overwolf_host_edit.setText(str(self._cfg.overwolf.get("host", "127.0.0.1")))
         self._overwolf_port_spin.setValue(int(self._cfg.overwolf.get("port", 7799)))
         self._overwolf_stale_spin.setValue(int(self._cfg.overwolf.get("stale_after_seconds", 5)))
+        self._qa_enabled_check.setChecked(bool(self._cfg.qa_enabled))
+        self._qa_source_combo.setCurrentText(str(self._cfg.qa_settings.get("source", "file")))
+        self._qa_text_file_edit.setText(str(self._cfg.qa_settings.get("text_file", "game_qa_input.txt")))
+        self._qa_transcript_file_edit.setText(str(self._cfg.qa_settings.get("transcript_file", "game_qa_mic.txt")))
+        self._qa_language_edit.setText(str(self._cfg.qa_settings.get("recognition_language", "zh-CN")))
+        self._qa_auto_listener_check.setChecked(bool(self._cfg.qa_settings.get("auto_start_listener", True)))
+        self._qa_speaker_edit.setText(str(self._cfg.qa_settings.get("speaker", "玩家")))
+        self._qa_system_prompt_edit.setPlainText(self._cfg.qa_system_prompt)
         self._tts_combo.setCurrentText(self._cfg.tts_backend)
         self._tts_playback_mode_combo.setCurrentText(self._cfg.tts_playback_mode)
         self._tts_windows_rate_spin.setValue(int(self._cfg.tts_config("windows").get("rate", 0)))
@@ -307,6 +348,14 @@ class ConfigTab(QWidget):
             "overwolf.host": self._overwolf_host_edit.text().strip() or "127.0.0.1",
             "overwolf.port": self._overwolf_port_spin.value(),
             "overwolf.stale_after_seconds": self._overwolf_stale_spin.value(),
+            "qa.enabled": self._qa_enabled_check.isChecked(),
+            "qa.source": self._qa_source_combo.currentText(),
+            "qa.text_file": self._qa_text_file_edit.text().strip() or "game_qa_input.txt",
+            "qa.transcript_file": self._qa_transcript_file_edit.text().strip() or "game_qa_mic.txt",
+            "qa.recognition_language": self._qa_language_edit.text().strip() or "zh-CN",
+            "qa.auto_start_listener": self._qa_auto_listener_check.isChecked(),
+            "qa.speaker": self._qa_speaker_edit.text().strip() or "玩家",
+            "qa.system_prompt": self._qa_system_prompt_edit.toPlainText().strip(),
             "tts.backend": self._tts_combo.currentText(),
             "tts.playback_mode": self._tts_playback_mode_combo.currentText(),
             "tts.windows.rate": self._tts_windows_rate_spin.value(),

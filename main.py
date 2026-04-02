@@ -39,6 +39,7 @@ from src.ai_provider import get_provider
 from src.tts_engine import get_tts_engine
 from src.game_plugins.base import AiPayload
 from src.rule_engine import RuleEngine
+from src.qa_channel import QaChannel, build_qa_prompt
 from src.ui.main_window import MainWindow
 from src.ui.tray import TrayIcon
 from src.ui.overlay import OverlayWindow
@@ -154,6 +155,7 @@ def ai_worker(
     tts_busy_event: threading.Event,
     tray: TrayIcon,
     capturer,
+    qa_channel: QaChannel | None = None,
     debug: bool = False,
     debug_timing: bool = False,
 ):
@@ -199,8 +201,13 @@ def ai_worker(
                     "[AI worker] matched plugin "
                     f"{active_context.plugin.display_name} ({active_plugin_id})"
                 )
+            rule_advice = rule_engine.evaluate_context(active_context) if active_context else None
+            qa_question = None
+            if qa_channel is not None and qa_channel.is_enabled(config):
+                qa_question = qa_channel.poll_question()
+
             live_data = active_context.state.raw_data if active_context else None
-            if live_data is None and config.plugin_require_game(active_plugin_id):
+            if live_data is None and qa_question is None and config.plugin_require_game(active_plugin_id):
                 candidate_plugin_id = active_plugin_id or previous_plugin_id
                 if candidate_plugin_id == "dialogue" and rule_engine.had_seen_activity():
                     print("[AI worker] waiting for dialogue input")
@@ -228,11 +235,51 @@ def ai_worker(
                 tray.set_state(TrayIcon.STATE_RUNNING)
                 print("[AI worker] waiting for TTS before next cycle")
                 continue
+
+            if qa_question is not None:
+                provider = get_provider(config.ai_provider, config.ai_config(config.ai_provider))
+                prompt = build_qa_prompt(
+                    question=qa_question,
+                    system_prompt=config.qa_system_prompt,
+                    active_context=active_context,
+                    snapshots=context_window.items(),
+                    rule_advice=rule_advice,
+                    detail=config.plugin_detail(active_plugin_id),
+                    address_by=config.plugin_address_by(active_plugin_id),
+                )
+                provider_started_at = time.perf_counter()
+                text = provider.analyze(None, prompt)
+                provider_elapsed_ms = (time.perf_counter() - provider_started_at) * 1000
+                cycle_elapsed_ms = (time.perf_counter() - cycle_started_at) * 1000
+                if debug_timing:
+                    print(
+                        "[timing] "
+                        "reason=qa "
+                        "bridge_ms=0 "
+                        f"provider_ms={provider_elapsed_ms:.0f} "
+                        f"total_ms={cycle_elapsed_ms:.0f}"
+                    )
+                bus.put_advice(text)
+                bus.emit_advice(text)
+                bridge.advice_ready.emit(text)
+                context_window.add(
+                    AnalysisSnapshot(
+                        timestamp=datetime.datetime.now(),
+                        game_summary=game_data,
+                        address=address,
+                        metrics=metrics,
+                        bridge_facts={},
+                        advice=text,
+                        reason="qa",
+                    )
+                )
+                tray.set_state(TrayIcon.STATE_RUNNING)
+                continue
+
             allow_visual = bool(active_context and active_context.plugin.wants_visual_context(active_context.state))
             img = latest_image if config.capture_use_screenshot and allow_visual else None
             bridge_facts: dict[str, str] | None = None
             previous_snapshot = context_window.latest()
-            rule_advice = rule_engine.evaluate_context(active_context) if active_context else None
             decision_mode = config.decision_mode
             hybrid_threshold = int(config.rules_config.get("hybrid_priority_threshold", 85))
             if decision_mode == "rules":
@@ -524,6 +571,7 @@ def main():
     stop_event = threading.Event()
     tts_busy_event = threading.Event()
     running = [False]
+    qa_channel = QaChannel(config_path="config.yaml")
 
     # ── UI ────────────────────────────────────────────────────────────────────
     overlay = None
@@ -588,7 +636,7 @@ def main():
         capturer.start()
         ai_thread = threading.Thread(
             target=ai_worker,
-            args=(bus, config, bridge, stop_event, tts_busy_event, tray, capturer),
+            args=(bus, config, bridge, stop_event, tts_busy_event, tray, capturer, qa_channel),
             kwargs={"debug": args.debug, "debug_timing": args.debug_timing},
             daemon=True,
         )
