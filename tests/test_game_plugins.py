@@ -95,27 +95,6 @@ def test_lol_plugin_builds_decision_prompt():
     assert "视觉核验置信度：high" in prompt
 
 
-def test_lol_plugin_builds_history_context():
-    registry = build_default_registry(enabled_plugin_ids=["lol"])
-    plugin = registry.get("lol")
-    assert plugin is not None
-
-    history = plugin.build_history_context(
-        [
-            AnalysisSnapshot(
-                timestamp=datetime(2026, 1, 1, 12, 0, 0),
-                game_summary="summary",
-                address="Jinx",
-                metrics={"game_time": "12:00", "gold": 1000, "level": 8, "cs": 90, "hp_pct": 70},
-                bridge_facts={"player_risk": "medium", "scene": "river"},
-                advice="补刀",
-            )
-        ]
-    )
-
-    assert "上一条建议：补刀" in history
-
-
 def test_tft_plugin_builds_game_specific_prompts():
     registry = build_default_registry(enabled_plugin_ids=["tft"])
     plugin = registry.get("tft")

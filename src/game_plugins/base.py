@@ -3,9 +3,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Protocol
 
-from src.analysis_flow import AnalysisSnapshot
-
-
 @dataclass(slots=True)
 class GameState:
     plugin_id: str
@@ -57,15 +54,12 @@ class GamePlugin(Protocol):
     def build_vision_prompt(self, state: GameState, detail: str = "normal") -> str:
         return ""
 
-    def build_history_context(self, snapshots: list[AnalysisSnapshot]) -> str:
-        return "无历史上下文。"
-
     def build_decision_prompt(
         self,
         state: GameState,
         system_prompt: str,
         bridge_facts: dict[str, str] | None,
-        snapshots: list[AnalysisSnapshot],
+        snapshots: list,
         rule_hint: str | None = None,
         detail: str = "normal",
         address_by: str = "champion",

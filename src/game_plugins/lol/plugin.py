@@ -1,4 +1,3 @@
-from src.analysis_flow import AnalysisSnapshot
 from src.game_plugins.base import AiPayload, GameState, RuleResult
 from src.game_plugins.league_shared.live_client import (
     detect_game_type,
@@ -158,15 +157,12 @@ class LolPlugin:
         payload = self.build_ai_payload(state, detail=detail)
         return build_bridge_prompt(payload.game_summary, payload.metrics)
 
-    def build_history_context(self, snapshots: list[AnalysisSnapshot]) -> str:
-        return render_history_context(snapshots)
-
     def build_decision_prompt(
         self,
         state: GameState,
         system_prompt: str,
         bridge_facts: dict[str, str] | None,
-        snapshots: list[AnalysisSnapshot],
+        snapshots: list,
         rule_hint: str | None = None,
         detail: str = "normal",
         address_by: str = "champion",
@@ -178,7 +174,7 @@ class LolPlugin:
             address=payload.address,
             metrics=payload.metrics,
             bridge_facts=bridge_facts,
-            historical_context=self.build_history_context(snapshots),
+            historical_context=render_history_context(snapshots),
             rule_hint=rule_hint,
         )
 

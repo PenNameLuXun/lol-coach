@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from src.analysis_flow import AnalysisSnapshot
 from src.game_plugins.base import AiPayload, GameState, RuleResult
 from src.game_plugins.dialogue.source import DialogueSource
 
@@ -136,20 +135,12 @@ class DialoguePlugin:
     def build_vision_prompt(self, state: GameState, detail: str = "normal") -> str:
         return ""
 
-    def build_history_context(self, snapshots: list[AnalysisSnapshot]) -> str:
-        if not snapshots:
-            return "无历史对话。"
-        lines = []
-        for snap in snapshots[-4:]:
-            lines.append(f"上一轮建议：{snap.advice}")
-        return "\n".join(lines)
-
     def build_decision_prompt(
         self,
         state: GameState,
         system_prompt: str,
         bridge_facts: dict[str, str] | None,
-        snapshots: list[AnalysisSnapshot],
+        snapshots: list,
         rule_hint: str | None = None,
         detail: str = "normal",
         address_by: str = "champion",
@@ -167,5 +158,14 @@ class DialoguePlugin:
             f"称呼对象：{payload.address or '不要强行称呼'}\n"
             f"当前输入：{utterance or '无'}\n"
             f"当前摘要：{payload.game_summary}\n"
-            f"历史上下文：\n{self.build_history_context(snapshots)}"
+            f"历史上下文：\n{_render_dialogue_history(snapshots)}"
         )
+
+
+def _render_dialogue_history(snapshots: list) -> str:
+    if not snapshots:
+        return "无历史对话。"
+    lines = []
+    for snap in snapshots[-4:]:
+        lines.append(f"上一轮建议：{snap.advice}")
+    return "\n".join(lines)
