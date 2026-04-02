@@ -39,7 +39,7 @@ from src.ai_provider import get_provider
 from src.tts_engine import get_tts_engine
 from src.game_plugins.base import AiPayload
 from src.rule_engine import RuleEngine
-from src.qa_channel import QaChannel, build_qa_prompt
+from src.qa_channel import QaChannel, build_qa_prompt, run_qa_web_search
 from src.ui.main_window import MainWindow
 from src.ui.tray import TrayIcon
 from src.ui.overlay import OverlayWindow
@@ -238,12 +238,24 @@ def ai_worker(
 
             if qa_question is not None:
                 provider = get_provider(config.ai_provider, config.ai_config(config.ai_provider))
+                web_search_docs = run_qa_web_search(
+                    question=qa_question,
+                    config=config,
+                    active_context=active_context,
+                )
+                if web_search_docs:
+                    print(
+                        "[QA search] "
+                        f"engine={config.qa_web_search_engine} "
+                        f"docs={len(web_search_docs)}"
+                    )
                 prompt = build_qa_prompt(
                     question=qa_question,
                     system_prompt=config.qa_system_prompt,
                     active_context=active_context,
                     snapshots=context_window.items(),
                     rule_advice=rule_advice,
+                    web_search_docs=web_search_docs,
                     detail=config.plugin_detail(active_plugin_id),
                     address_by=config.plugin_address_by(active_plugin_id),
                 )

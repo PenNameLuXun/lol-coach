@@ -38,6 +38,7 @@ MINIMAL_CONFIG = {
             "address_by": "champion",
             "require_game": True,
             "system_prompt": "lol prompt",
+            "qa_search_sites_text": "op.gg,100\nu.gg,95",
             "trigger_force_after_seconds": 30,
             "trigger_hp_drop_pct": 18,
             "trigger_gold_delta": 300,
@@ -149,6 +150,31 @@ def test_plugin_settings_helpers(config_file):
     assert cfg.plugin_system_prompt("lol") == "lol prompt"
     assert cfg.plugin_analysis_trigger("lol")["force_after_seconds"] == 30
     assert cfg.overwolf["port"] == 7799
+
+
+def test_qa_web_search_settings_and_site_merge(config_file):
+    cfg = Config(config_file)
+    cfg.update_many(
+        {
+            "qa.web_search_enabled": True,
+            "qa.web_search_engine": "duckduckgo",
+            "qa.web_search_timeout_seconds": 9,
+            "qa.web_search_max_results_per_site": 2,
+            "qa.web_search_max_pages": 4,
+            "qa.web_search_sites_text": "mobafire.com,70\nu.gg,80",
+        }
+    )
+    cfg2 = Config(config_file)
+    assert cfg2.qa_web_search_enabled is True
+    assert cfg2.qa_web_search_engine == "duckduckgo"
+    assert cfg2.qa_web_search_timeout_seconds == 9
+    assert cfg2.qa_web_search_max_results_per_site == 2
+    assert cfg2.qa_web_search_max_pages == 4
+    assert cfg2.qa_web_search_sites("lol") == [
+        {"domain": "op.gg", "priority": 100},
+        {"domain": "u.gg", "priority": 95},
+        {"domain": "mobafire.com", "priority": 70},
+    ]
 
 
 def test_update_many_saves_once_with_plugin_settings(config_file):

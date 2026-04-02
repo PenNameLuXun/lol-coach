@@ -56,6 +56,13 @@ class LolPlugin:
                 "help": "LoL 插件专属系统提示词。",
             },
             {
+                "key": "qa_search_sites_text",
+                "label": "QA 搜索站点",
+                "type": "text",
+                "default": "op.gg,100\nu.gg,95\nleagueofgraphs.com,90",
+                "help": "每行一个站点，格式：domain,priority。QA 联网搜索时会按优先级优先搜索这些 LoL 站点。",
+            },
+            {
                 "key": "trigger_force_after_seconds",
                 "label": "强制分析秒数",
                 "type": "int",

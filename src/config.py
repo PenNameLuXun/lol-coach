@@ -3,6 +3,8 @@ import threading
 import yaml
 from typing import Any, Callable
 
+from src.qa_web_search import merge_search_sites, parse_search_sites_text
+
 
 class Config:
     def __init__(self, path: str = "config.yaml"):
@@ -241,6 +243,44 @@ class Config:
         if backend in {"system", "whisper"}:
             return backend
         return "system"
+
+    @property
+    def qa_web_search_enabled(self) -> bool:
+        return bool(self.qa_settings.get("web_search_enabled", False))
+
+    @property
+    def qa_web_search_engine(self) -> str:
+        engine = str(self.qa_settings.get("web_search_engine", "duckduckgo")).strip().lower()
+        if engine in {"duckduckgo", "google"}:
+            return engine
+        return "duckduckgo"
+
+    @property
+    def qa_web_search_timeout_seconds(self) -> int:
+        return int(self.qa_settings.get("web_search_timeout_seconds", 8) or 8)
+
+    @property
+    def qa_web_search_max_results_per_site(self) -> int:
+        return int(self.qa_settings.get("web_search_max_results_per_site", 1) or 1)
+
+    @property
+    def qa_web_search_max_pages(self) -> int:
+        return int(self.qa_settings.get("web_search_max_pages", 3) or 3)
+
+    @property
+    def qa_web_search_mode(self) -> str:
+        mode = str(self.qa_settings.get("web_search_mode", "auto")).strip().lower()
+        if mode in {"off", "auto", "always"}:
+            return mode
+        return "auto"
+
+    def qa_web_search_sites(self, plugin_id: str | None = None) -> list[dict[str, int | str]]:
+        global_sites = parse_search_sites_text(str(self.qa_settings.get("web_search_sites_text", "")))
+        plugin_sites = []
+        if plugin_id:
+            plugin_sites = parse_search_sites_text(str(self.plugin_setting(plugin_id, "qa_search_sites_text", "")))
+        merged = merge_search_sites(global_sites, plugin_sites)
+        return [{"domain": site.domain, "priority": site.priority} for site in merged]
 
     @property
     def overwolf(self) -> dict:

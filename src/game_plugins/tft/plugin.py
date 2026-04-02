@@ -64,6 +64,13 @@ class TftPlugin:
                 "default": "你是一个云顶之弈教练，根据当前游戏截图，用简短的中文（不超过50字）给出最重要的一条建议，例如该买什么英雄、阵容方向、经济决策等。",
                 "help": "TFT 插件专属系统提示词。",
             },
+            {
+                "key": "qa_search_sites_text",
+                "label": "QA 搜索站点",
+                "type": "text",
+                "default": "lolchess.gg,100\ntactics.tools,95\nmobalytics.gg,90",
+                "help": "每行一个站点，格式：domain,priority。QA 联网搜索时会按优先级优先搜索这些 TFT 站点。",
+            },
         ],
     }
 

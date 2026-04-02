@@ -4,6 +4,13 @@ from dataclasses import dataclass
 
 from src.analysis_flow import AnalysisSnapshot
 from src.game_plugins.dialogue.source import DialogueSource
+from src.qa_web_search import (
+    SearchDocument,
+    SearchSite,
+    format_search_documents,
+    search_web_for_qa,
+    should_web_search_question,
+)
 from src.rule_engine import ActiveGameContext, RuleAdvice
 
 
@@ -96,6 +103,7 @@ def build_qa_prompt(
     active_context: ActiveGameContext | None,
     snapshots: list[AnalysisSnapshot],
     rule_advice: RuleAdvice | None,
+    web_search_docs: list[SearchDocument] | None = None,
     detail: str = "normal",
     address_by: str = "champion",
 ) -> str:
@@ -115,6 +123,7 @@ def build_qa_prompt(
         rule_hint = "无规则提示。"
 
     history_text = _render_qa_history(snapshots)
+    web_search_text = format_search_documents(web_search_docs or [])
 
     return (
         f"{system_prompt}\n\n"
@@ -130,8 +139,37 @@ def build_qa_prompt(
         f"当前游戏类型：{game_type}\n"
         f"当前对局摘要：{game_summary}\n"
         f"当前规则提示：{rule_hint}\n"
-        f"最近建议历史：\n{history_text}"
+        f"最近建议历史：\n{history_text}\n\n"
+        f"联网搜索资料：\n{web_search_text}"
     )
+
+
+def run_qa_web_search(
+    *,
+    question: QaQuestion,
+    config,
+    active_context: ActiveGameContext | None,
+) -> list[SearchDocument]:
+    if not config.qa_web_search_enabled or config.qa_web_search_mode == "off":
+        return []
+    if config.qa_web_search_mode == "auto" and not should_web_search_question(question.text):
+        return []
+    plugin_id = active_context.plugin.id if active_context else None
+    sites = config.qa_web_search_sites(plugin_id)
+    if not sites:
+        return []
+    try:
+        return search_web_for_qa(
+            question=question.text,
+            engine=config.qa_web_search_engine,
+            sites=[SearchSite(domain=str(site["domain"]), priority=int(site["priority"])) for site in sites],
+            timeout_seconds=config.qa_web_search_timeout_seconds,
+            max_results_per_site=config.qa_web_search_max_results_per_site,
+            max_pages=config.qa_web_search_max_pages,
+        )
+    except Exception as exc:
+        print(f"[QA search error] {exc}")
+        return []
 
 
 def _render_qa_history(snapshots: list[AnalysisSnapshot]) -> str:

@@ -54,6 +54,10 @@ plugin_settings:
     address_by: champion
     require_game: true
     system_prompt: "你是一个英雄联盟教练，根据当前游戏截图，用简短的中文（不超过50字）给出最重要的一条对局建议。"
+    qa_search_sites_text: |
+      op.gg,100
+      u.gg,95
+      leagueofgraphs.com,90
     trigger_force_after_seconds: 45
     trigger_hp_drop_pct: 20
     trigger_gold_delta: 350
@@ -69,17 +73,28 @@ plugin_settings:
     address_by: summoner
     require_game: true
     system_prompt: "你是一个云顶之弈教练，根据当前游戏截图，用简短的中文（不超过50字）给出最重要的一条建议，例如该买什么英雄、阵容方向、经济决策等。"
+    qa_search_sites_text: |
+      lolchess.gg,100
+      tactics.tools,95
+      mobalytics.gg,90
   dialogue:
     # file | microphone
     source: file
     text_file: dialogue_input.txt
-      transcript_file: dialogue_mic.txt
-      recognition_language: zh-CN
-      microphone_backend: powershell
-      stt_backend: system
-      auto_start_listener: true
-      silence_ms: 1000
-      max_transcript_mb: 10
+    transcript_file: dialogue_mic.txt
+    recognition_language: zh-CN
+    # powershell | qt
+    # powershell: 直接拉起独立 PowerShell 监听脚本，当前最稳定
+    # qt: 由主程序内的 Qt 路线托管系统 STT 进程，便于后续收敛到统一输入架构
+    microphone_backend: powershell
+    # system | whisper
+    # system: 使用 Windows 系统语音识别
+    # whisper: 预留给后续本地/模型识别实现
+    stt_backend: system
+    auto_start_listener: true
+    # 预留给 Qt 麦克风架构的判句静音时长
+    silence_ms: 1000
+    max_transcript_mb: 10
     speaker: 玩家
     clear_after_read: false
     system_prompt: "你是测试助手，会根据用户刚才说的话给出一句自然、简短、适合语音播报的中文回复。"
@@ -105,6 +120,22 @@ qa:
   # 预留给 Qt 麦克风架构的判句静音时长
   silence_ms: 1000
   max_transcript_mb: 10
+  # Enable web search before answering, then pass the collected site content to AI.
+  web_search_enabled: false
+  # auto | always | off
+  # auto: 仅当问题看起来需要最新资料时才搜索
+  # always: 每次回答前都先搜索
+  # off: 即使启用了 web_search_enabled 也不实际搜索
+  web_search_mode: auto
+  # duckduckgo | google
+  web_search_engine: duckduckgo
+  web_search_timeout_seconds: 8
+  web_search_max_results_per_site: 1
+  web_search_max_pages: 3
+  # 每行一个站点，格式：domain,priority
+  web_search_sites_text: |
+    leagueofgraphs.com,90
+    mobafire.com,70
   speaker: 玩家
   system_prompt: "你是 MOBA 与策略游戏问答助手。用户会在对局中或对局外提出英雄对线、出装、运营、阵容理解等问题。请用简洁、可靠、可执行的中文直接回答，优先给出 2 到 4 个最关键建议；如果信息不够，就明确说明你的假设。"
 

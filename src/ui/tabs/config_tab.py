@@ -262,6 +262,35 @@ class ConfigTab(QWidget):
         self._qa_max_transcript_spin.setSuffix(" MB")
         qa_form.addRow("转写文件最大大小:", self._qa_max_transcript_spin)
 
+        self._qa_web_search_enabled_check = QCheckBox()
+        qa_form.addRow("启用联网搜索:", self._qa_web_search_enabled_check)
+
+        self._qa_web_search_mode_combo = QComboBox()
+        self._qa_web_search_mode_combo.addItems(["auto", "always", "off"])
+        qa_form.addRow("联网搜索模式:", self._qa_web_search_mode_combo)
+
+        self._qa_web_search_engine_combo = QComboBox()
+        self._qa_web_search_engine_combo.addItems(["duckduckgo", "google"])
+        qa_form.addRow("搜索引擎:", self._qa_web_search_engine_combo)
+
+        self._qa_web_search_timeout_spin = QSpinBox()
+        self._qa_web_search_timeout_spin.setRange(1, 60)
+        self._qa_web_search_timeout_spin.setSuffix(" 秒")
+        qa_form.addRow("搜索超时:", self._qa_web_search_timeout_spin)
+
+        self._qa_web_search_results_spin = QSpinBox()
+        self._qa_web_search_results_spin.setRange(1, 10)
+        qa_form.addRow("每站点结果数:", self._qa_web_search_results_spin)
+
+        self._qa_web_search_pages_spin = QSpinBox()
+        self._qa_web_search_pages_spin.setRange(1, 20)
+        qa_form.addRow("最多抓取页面数:", self._qa_web_search_pages_spin)
+
+        self._qa_web_search_sites_edit = QTextEdit()
+        self._qa_web_search_sites_edit.setMaximumHeight(90)
+        self._qa_web_search_sites_edit.setPlaceholderText("domain,priority")
+        qa_form.addRow("全局搜索站点:", self._qa_web_search_sites_edit)
+
         self._qa_speaker_edit = QLineEdit()
         qa_form.addRow("提问者:", self._qa_speaker_edit)
 
@@ -336,6 +365,13 @@ class ConfigTab(QWidget):
         self._qa_auto_listener_check.setChecked(bool(self._cfg.qa_settings.get("auto_start_listener", True)))
         self._qa_silence_spin.setValue(int(self._cfg.qa_settings.get("silence_ms", 1000)))
         self._qa_max_transcript_spin.setValue(int(self._cfg.qa_settings.get("max_transcript_mb", 10)))
+        self._qa_web_search_enabled_check.setChecked(bool(self._cfg.qa_settings.get("web_search_enabled", False)))
+        self._qa_web_search_mode_combo.setCurrentText(self._cfg.qa_web_search_mode)
+        self._qa_web_search_engine_combo.setCurrentText(str(self._cfg.qa_settings.get("web_search_engine", "duckduckgo")))
+        self._qa_web_search_timeout_spin.setValue(int(self._cfg.qa_settings.get("web_search_timeout_seconds", 8)))
+        self._qa_web_search_results_spin.setValue(int(self._cfg.qa_settings.get("web_search_max_results_per_site", 1)))
+        self._qa_web_search_pages_spin.setValue(int(self._cfg.qa_settings.get("web_search_max_pages", 3)))
+        self._qa_web_search_sites_edit.setPlainText(str(self._cfg.qa_settings.get("web_search_sites_text", "")))
         self._qa_speaker_edit.setText(str(self._cfg.qa_settings.get("speaker", "玩家")))
         self._qa_system_prompt_edit.setPlainText(self._cfg.qa_system_prompt)
         self._tts_combo.setCurrentText(self._cfg.tts_backend)
@@ -389,6 +425,13 @@ class ConfigTab(QWidget):
             "qa.auto_start_listener": self._qa_auto_listener_check.isChecked(),
             "qa.silence_ms": self._qa_silence_spin.value(),
             "qa.max_transcript_mb": self._qa_max_transcript_spin.value(),
+            "qa.web_search_enabled": self._qa_web_search_enabled_check.isChecked(),
+            "qa.web_search_mode": self._qa_web_search_mode_combo.currentText(),
+            "qa.web_search_engine": self._qa_web_search_engine_combo.currentText(),
+            "qa.web_search_timeout_seconds": self._qa_web_search_timeout_spin.value(),
+            "qa.web_search_max_results_per_site": self._qa_web_search_results_spin.value(),
+            "qa.web_search_max_pages": self._qa_web_search_pages_spin.value(),
+            "qa.web_search_sites_text": self._qa_web_search_sites_edit.toPlainText().strip(),
             "qa.speaker": self._qa_speaker_edit.text().strip() or "玩家",
             "qa.system_prompt": self._qa_system_prompt_edit.toPlainText().strip(),
             "tts.backend": self._tts_combo.currentText(),
