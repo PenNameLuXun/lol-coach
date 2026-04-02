@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
+from pathlib import Path
 
 from src.analysis_flow import AnalysisSnapshot
 from src.game_plugins.dialogue.source import DialogueSource
@@ -34,6 +36,34 @@ class QaChannel:
 
     def is_enabled(self, config) -> bool:
         return bool(config.qa_enabled)
+
+    def flush_transcript(self) -> None:
+        """Advance the line index to current end-of-file, discarding lines written during TTS playback."""
+        cfg = self._source._source_config()
+        source_kind = str(cfg.get("source", "file"))
+        if source_kind != "file":
+            return
+        transcript_path = (
+            self._source._config_path.parent
+            / str(cfg.get("transcript_file", "game_qa_mic.txt"))
+        )
+        if not transcript_path.exists():
+            return
+        try:
+            lines = [
+                line.strip()
+                for line in transcript_path.read_text(encoding="utf-8").splitlines()
+                if line.strip()
+            ]
+        except Exception:
+            return
+        resolved = os.fspath(transcript_path.resolve())
+        old_index = self._source._line_index_by_path.get(resolved, len(lines))
+        skipped = max(0, len(lines) - old_index)
+        if skipped:
+            print(f"[QA flush] discarded {skipped} echo line(s) written during TTS")
+        self._source._line_index_by_path[resolved] = len(lines)
+        self._source._append_initialized_paths.add(resolved)
 
     def poll_question(self) -> QaQuestion | None:
         cfg = self._source._source_config()

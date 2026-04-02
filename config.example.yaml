@@ -217,10 +217,10 @@ tts:
   # continue = 不等待也不打断，继续排队
   # fit_wait = 按分析心跳尽量调语速播完，播不完则等待
   # fit_continue = 按分析心跳尽量调语速播完，播不完也继续排队
-  playback_mode: continue
+  playback_mode: wait
 
   windows:
-    rate: 0         # Windows SAPI 相对语速，建议范围 -10 到 10
+    rate: 6         # Windows SAPI 相对语速，建议范围 -10 到 10
     volume: 1.0
 
   edge:

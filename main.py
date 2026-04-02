@@ -164,6 +164,9 @@ def ai_worker(
     retry_after = 0.0
     context_window = ContextWindow(limit=config.decision_memory_size)
     _rule_repeat_count: dict[str, int] = {}
+    _tts_was_busy = False
+    _tts_ended_at: float = 0.0
+    _TTS_ECHO_GRACE = 7.0  # seconds to keep flushing after TTS ends (Whisper latency)
     _RULE_REPEAT_LIMIT = 3
 
     while not stop_event.is_set():
@@ -202,9 +205,23 @@ def ai_worker(
                     f"{active_context.plugin.display_name} ({active_plugin_id})"
                 )
             rule_advice = rule_engine.evaluate_context(active_context) if active_context else None
+            tts_busy_now = tts_busy_event.is_set()
             qa_question = None
             if qa_channel is not None and qa_channel.is_enabled(config):
-                qa_question = qa_channel.poll_question()
+                if tts_busy_now:
+                    # TTS is playing — skip polling so echo lines aren't consumed
+                    _tts_was_busy = True
+                else:
+                    if _tts_was_busy:
+                        # TTS just ended — start grace period
+                        _tts_ended_at = time.perf_counter()
+                        _tts_was_busy = False
+                    if time.perf_counter() - _tts_ended_at < _TTS_ECHO_GRACE:
+                        # Grace period: Whisper may still be transcribing the TTS audio.
+                        # Keep flushing until the echo lines stop arriving.
+                        qa_channel.flush_transcript()
+                    else:
+                        qa_question = qa_channel.poll_question()
 
             live_data = active_context.state.raw_data if active_context else None
             if live_data is None and qa_question is None and config.plugin_require_game(active_plugin_id):
@@ -237,17 +254,27 @@ def ai_worker(
                 continue
 
             if qa_question is not None:
+                _log_with_timestamp("QA", f"question={qa_question.text!r} source={qa_question.source_kind}")
                 provider = get_provider(config.ai_provider, config.ai_config(config.ai_provider))
+                _search_t0 = time.perf_counter()
                 web_search_docs = run_qa_web_search(
                     question=qa_question,
                     config=config,
                     active_context=active_context,
                 )
-                if web_search_docs:
-                    print(
-                        "[QA search] "
-                        f"engine={config.qa_web_search_engine} "
-                        f"docs={len(web_search_docs)}"
+                _search_elapsed_ms = (time.perf_counter() - _search_t0) * 1000
+                _log_with_timestamp(
+                    "QA search",
+                    f"enabled={config.qa_web_search_enabled} "
+                    f"mode={config.qa_web_search_mode} "
+                    f"engine={config.qa_web_search_engine} "
+                    f"docs={len(web_search_docs)} "
+                    f"elapsed_ms={_search_elapsed_ms:.0f}",
+                )
+                for _i, _doc in enumerate(web_search_docs, 1):
+                    _log_with_timestamp(
+                        "QA search result",
+                        f"[{_i}] site={_doc.domain} title={_doc.title!r} url={_doc.url}",
                     )
                 prompt = build_qa_prompt(
                     question=qa_question,
@@ -263,6 +290,12 @@ def ai_worker(
                 text = provider.analyze(None, prompt)
                 provider_elapsed_ms = (time.perf_counter() - provider_started_at) * 1000
                 cycle_elapsed_ms = (time.perf_counter() - cycle_started_at) * 1000
+                _log_with_timestamp(
+                    "QA timing",
+                    f"provider={config.ai_provider} "
+                    f"provider_ms={provider_elapsed_ms:.0f} "
+                    f"total_ms={cycle_elapsed_ms:.0f}",
+                )
                 if debug_timing:
                     print(
                         "[timing] "

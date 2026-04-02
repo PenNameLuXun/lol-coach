@@ -122,6 +122,30 @@ def search_web_for_qa(
             timeout_seconds=timeout_seconds,
             max_results=max_results_per_site,
         )
+        print(f"[web search] site={site.domain} hits={len(results)}")
+        if not results:
+            # Search engine blocked or returned nothing — fall back to direct site fetch.
+            # Stop at the first site that succeeds.
+            fallback_url = f"https://{site.domain}/"
+            excerpt = _fetch_excerpt(
+                session=session, url=fallback_url, timeout_seconds=timeout_seconds
+            )
+            if excerpt:
+                print(f"[web search] site={site.domain} direct_fallback ok len={len(excerpt)}")
+                docs.append(
+                    SearchDocument(
+                        domain=site.domain,
+                        priority=site.priority,
+                        title=f"{site.domain} (direct)",
+                        url=fallback_url,
+                        snippet=excerpt[:200],
+                        excerpt=excerpt,
+                        patch_version=_infer_patch_version(excerpt, fallback_url),
+                    )
+                )
+                break  # got content from this site, no need to try others
+            else:
+                print(f"[web search] site={site.domain} direct_fallback failed")
         for result in results:
             excerpt = _fetch_excerpt(
                 session=session,
@@ -247,7 +271,7 @@ def _fetch_excerpt(*, session: requests.Session, url: str, timeout_seconds: int)
     html = re.sub(r"<script\b[^<]*(?:(?!</script>)<[^<]*)*</script>", " ", html, flags=re.IGNORECASE | re.DOTALL)
     html = re.sub(r"<style\b[^<]*(?:(?!</style>)<[^<]*)*</style>", " ", html, flags=re.IGNORECASE | re.DOTALL)
     text = _clean_html_text(re.sub(r"<[^>]+>", " ", html))
-    return text[:1500]
+    return text[:4000]
 
 
 def _clean_html_text(value: str) -> str:
