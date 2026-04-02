@@ -4,16 +4,16 @@ from src.game_plugins.base import AiPayload, GameState, RuleResult
 from src.game_plugins.dialogue.source import DialogueSource
 
 
-class DialoguePlugin:
-    id = "dialogue"
-    display_name = "Dialogue Test"
+class GameQaPlugin:
+    id = "game_qa"
+    display_name = "Game Q&A"
     manifest = {
-        "id": "dialogue",
-        "display_name": "Dialogue Test",
+        "id": "game_qa",
+        "display_name": "Game Q&A",
         "source": {"kind": "text_or_microphone"},
-        "supports_rules": True,
+        "supports_rules": False,
         "supports_ai_context": True,
-        "capabilities": {"ai": True, "rules": True, "visual": False},
+        "capabilities": {"ai": True, "rules": False, "visual": False},
         "config_schema": [
             {
                 "key": "source",
@@ -27,14 +27,14 @@ class DialoguePlugin:
                 "key": "text_file",
                 "label": "文本文件",
                 "type": "string",
-                "default": "dialogue_input.txt",
-                "help": "file 模式下读取的文本文件路径。",
+                "default": "game_qa_input.txt",
+                "help": "file 模式下读取的问答文本文件路径。",
             },
             {
                 "key": "transcript_file",
                 "label": "转写文件",
                 "type": "string",
-                "default": "dialogue_mic.txt",
+                "default": "game_qa_mic.txt",
                 "help": "microphone 模式下保存转写结果的文本路径。",
             },
             {
@@ -53,30 +53,23 @@ class DialoguePlugin:
             },
             {
                 "key": "speaker",
-                "label": "称呼对象",
+                "label": "提问者",
                 "type": "string",
                 "default": "玩家",
-                "help": "写入 AI 提示词中的说话者名称。",
-            },
-            {
-                "key": "clear_after_read",
-                "label": "保留兼容开关",
-                "type": "bool",
-                "default": False,
-                "help": "当前逐行循环或追加读取模式不会修改文件，该开关仅为兼容旧配置保留。",
+                "help": "写入 AI 提示词中的提问者名称。",
             },
             {
                 "key": "system_prompt",
                 "label": "系统提示词",
                 "type": "text",
-                "default": "你是测试助手，会根据用户刚才说的话给出一句自然、简短、适合语音播报的中文回复。",
-                "help": "Dialogue 插件专属系统提示词。",
+                "default": "你是 MOBA 与策略游戏问答助手。用户会在对局中或对局外提出英雄对线、出装、运营、阵容理解等问题。请用简洁、可靠、可执行的中文直接回答，优先给出 2 到 4 个最关键建议；如果信息不够，就明确说明你的假设。",
+                "help": "Game Q&A 插件专属系统提示词。",
             },
         ],
     }
 
     def __init__(self):
-        self._source = DialogueSource()
+        self._source = DialogueSource(plugin_id=self.id)
 
     def is_available(self) -> bool:
         return self._source.is_available()
@@ -88,42 +81,39 @@ class DialoguePlugin:
         return self._source.has_seen_activity()
 
     def detect(self, raw_data: dict, metrics: dict[str, int | str]) -> bool:
-        return "dialogue" in raw_data
+        return self.id in raw_data
 
     def extract_state(self, raw_data: dict, metrics: dict[str, int | str]) -> GameState:
-        dialogue = raw_data.get("dialogue", {})
-        utterance = str(dialogue.get("text", "")).strip()
-        speaker = str(dialogue.get("speaker", "玩家"))
-        source_kind = str(dialogue.get("source", "file"))
+        payload = raw_data.get(self.id, {})
+        question = str(payload.get("text", "")).strip()
+        speaker = str(payload.get("speaker", "玩家"))
+        source_kind = str(payload.get("source", "file"))
         normalized = metrics or {
-            "game_type": "dialogue",
-            "game_time": "chat",
+            "game_type": self.id,
+            "game_time": "qa",
             "gold": 0,
             "level": 0,
             "hp_pct": 0,
             "mana_pct": 0,
             "kda": "-",
             "cs": 0,
-            "event_signature": utterance[:48] or "none",
+            "event_signature": question[:48] or "none",
             "mode": source_kind,
         }
         return GameState(
             plugin_id=self.id,
-            game_type="dialogue",
+            game_type=self.id,
             raw_data=raw_data,
             metrics=normalized,
             derived={
                 "speaker": speaker,
-                "utterance": utterance,
+                "question": question,
                 "source_kind": source_kind,
             },
         )
 
     def evaluate_rules(self, state: GameState) -> list[RuleResult]:
-        utterance = str(state.derived.get("utterance", "")).strip()
-        if not utterance:
-            return []
-        return [RuleResult("dialogue_echo", 100, utterance, ("echo", "tts_test"))]
+        return []
 
     def build_ai_payload(
         self,
@@ -131,11 +121,11 @@ class DialoguePlugin:
         detail: str = "normal",
         address_by: str = "champion",
     ) -> AiPayload:
-        utterance = str(state.derived.get("utterance", ""))
+        question = str(state.derived.get("question", ""))
         speaker = str(state.derived.get("speaker", "玩家"))
         source_kind = str(state.derived.get("source_kind", "file"))
         return AiPayload(
-            game_summary=f"对话来源：{source_kind}，说话者：{speaker}，输入内容：{utterance}",
+            game_summary=f"问答来源：{source_kind}，提问者：{speaker}，问题：{question}",
             address=speaker if address_by != "none" else None,
             metrics=dict(state.metrics),
         )
@@ -160,26 +150,28 @@ class DialoguePlugin:
         address_by: str = "champion",
     ) -> str:
         payload = self.build_ai_payload(state, detail=detail, address_by=address_by)
-        utterance = str(state.derived.get("utterance", ""))
+        question = str(state.derived.get("question", ""))
         return (
             f"{system_prompt}\n\n"
-            "你现在不在分析游戏，而是在进行语音对话测试。\n"
-            "规则：\n"
-            "1. 根据用户刚才说的话给出一句自然中文回复。\n"
-            "2. 回复要适合直接 TTS 播放，不超过50字。\n"
-            "3. 不要输出分点，不要解释系统设定。\n"
-            "4. 如果用户是在测试，优先给清晰、友好的确认式回复。\n\n"
-            f"称呼对象：{payload.address or '不要强行称呼'}\n"
-            f"当前输入：{utterance or '无'}\n"
-            f"当前摘要：{payload.game_summary}\n"
-            f"历史上下文：\n{_render_dialogue_history(snapshots)}"
+            "当前任务：回答玩家的游戏问题，而不是分析截图。\n"
+            "回答规则：\n"
+            "1. 直接回答问题，不要复述系统设定。\n"
+            "2. 优先给具体、可执行的建议，例如技能换血思路、兵线处理、装备选择、关键 timing。\n"
+            "3. 若问题像“剑圣怎么打蛮王”，优先回答对线期处理、关键技能互动、中期思路。\n"
+            "4. 回答尽量控制在 120 字以内，适合语音播报。\n"
+            "5. 如果问题信息不足，可以先点明默认假设，例如“默认同水平单排”。\n\n"
+            f"提问者：{payload.address or '玩家'}\n"
+            f"当前问题：{question or '无'}\n"
+            f"问题摘要：{payload.game_summary}\n"
+            f"最近问答历史：\n{_render_qa_history(snapshots)}"
         )
 
 
-def _render_dialogue_history(snapshots: list) -> str:
+
+def _render_qa_history(snapshots: list) -> str:
     if not snapshots:
-        return "无历史对话。"
+        return "无历史问答。"
     lines = []
     for snap in snapshots[-4:]:
-        lines.append(f"上一轮建议：{snap.advice}")
+        lines.append(f"上一轮回复：{snap.advice}")
     return "\n".join(lines)

@@ -1,6 +1,7 @@
 from src.game_plugins import build_default_registry
 from src.analysis_flow import AnalysisSnapshot
 from src.game_plugins.registry import discover_plugins
+from src.game_plugins.dialogue import source as dialogue_source_module
 from src.game_plugins.tft.plugin import TftPlugin
 from datetime import datetime
 from tests.test_lol_client import LOL_DATA, TFT_DATA
@@ -23,7 +24,7 @@ def test_registry_detects_tft_plugin():
 def test_discover_plugins_loads_manifests():
     plugins = discover_plugins()
     plugin_ids = {plugin.id for plugin in plugins}
-    assert {"lol", "tft", "dialogue"}.issubset(plugin_ids)
+    assert {"lol", "tft", "dialogue", "game_qa"}.issubset(plugin_ids)
     assert all(isinstance(plugin.manifest, dict) for plugin in plugins)
 
 
@@ -218,6 +219,45 @@ def test_dialogue_source_reads_lines_in_loop_without_mutating_file(tmp_path, mon
     assert input_path.read_text(encoding="utf-8") == "第一行\n\n第二行\n第三行\n"
 
 
+def test_dialogue_source_reads_microphone_transcript_incrementally(tmp_path, monkeypatch):
+    config_path = tmp_path / "config.yaml"
+    transcript_path = tmp_path / "dialogue_mic.txt"
+    config_path.write_text(
+        (
+            "plugin_settings:\n"
+            "  dialogue:\n"
+            "    source: microphone\n"
+            f"    transcript_file: {transcript_path.as_posix()}\n"
+            "    speaker: 测试玩家\n"
+            "    recognition_language: zh-CN\n"
+            "    auto_start_listener: true\n"
+        ),
+        encoding="utf-8",
+    )
+    transcript_path.write_text("第一句\n第二句\n", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(
+        dialogue_source_module.WindowsMicrophoneListener,
+        "ensure_running",
+        lambda self, transcript_path, culture="zh-CN": True,
+    )
+
+    source = dialogue_source_module.DialogueSource()
+
+    assert source.is_available() is True
+    first = source.fetch_live_data()
+    second = source.fetch_live_data()
+    third = source.fetch_live_data()
+
+    assert first is not None
+    assert second is not None
+    assert third is None
+    assert first["dialogue"]["text"] == "第一句"
+    assert second["dialogue"]["text"] == "第二句"
+    assert first["dialogue"]["line_mode"] == "append_only"
+    assert second["dialogue"]["source"] == "microphone"
+
+
 def test_dialogue_plugin_rules_echo_input(tmp_path, monkeypatch):
     config_path = tmp_path / "config.yaml"
     input_path = tmp_path / "dialogue_input.txt"
@@ -246,3 +286,42 @@ def test_dialogue_plugin_rules_echo_input(tmp_path, monkeypatch):
 
     assert len(rules) == 1
     assert rules[0].message == "规则模式测试"
+
+
+def test_game_qa_plugin_builds_question_prompt(tmp_path, monkeypatch):
+    config_path = tmp_path / "config.yaml"
+    input_path = tmp_path / "game_qa_input.txt"
+    config_path.write_text(
+        (
+            "plugin_settings:\n"
+            "  game_qa:\n"
+            "    source: file\n"
+            f"    text_file: {input_path.as_posix()}\n"
+            "    speaker: 玩家A\n"
+        ),
+        encoding="utf-8",
+    )
+    input_path.write_text("我玩剑圣怎么对线蛮王？", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+
+    registry = build_default_registry(enabled_plugin_ids=["game_qa"])
+    plugin = registry.get("game_qa")
+    assert plugin is not None
+    raw_data = plugin.fetch_live_data()
+    assert raw_data is not None
+    state = plugin.extract_state(raw_data, {})
+    assert plugin.wants_visual_context(state) is False
+    assert plugin.evaluate_rules(state) == []
+
+    prompt = plugin.build_decision_prompt(
+        state,
+        system_prompt="你是游戏问答助手",
+        bridge_facts=None,
+        snapshots=[],
+        detail="normal",
+        address_by="summoner",
+    )
+
+    assert "回答玩家的游戏问题" in prompt
+    assert "我玩剑圣怎么对线蛮王？" in prompt
+    assert "玩家A" in prompt
