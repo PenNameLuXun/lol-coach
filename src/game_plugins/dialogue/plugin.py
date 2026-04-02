@@ -112,9 +112,6 @@ class DialoguePlugin:
             return []
         return [RuleResult("dialogue_echo", 100, utterance, ("echo", "tts_test"))]
 
-    def render_advice(self, rule: RuleResult, state: GameState) -> str:
-        return rule.message
-
     def build_ai_payload(
         self,
         state: GameState,
@@ -130,11 +127,8 @@ class DialoguePlugin:
             metrics=dict(state.metrics),
         )
 
-    def build_ai_context(self, state: GameState) -> str:
-        return f"当前模式：对话测试，输入源 {state.derived.get('source_kind', 'file')}。"
-
-    def build_rule_hint(self, rule: RuleResult, state: GameState, rendered_advice: str) -> str:
-        return rendered_advice
+    def build_rule_hint(self, rule: RuleResult, state: GameState) -> str:
+        return rule.message
 
     def wants_visual_context(self, state: GameState) -> bool:
         return False

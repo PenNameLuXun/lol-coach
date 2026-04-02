@@ -85,10 +85,9 @@ class RuleEngine:
         if not candidates:
             return None
         best = max(candidates, key=lambda item: item.priority)
-        rendered = context.plugin.render_advice(best, context.state)
         return RuleAdvice(
-            text=rendered,
-            hint=context.plugin.build_rule_hint(best, context.state, rendered),
+            text=best.message,
+            hint=context.plugin.build_rule_hint(best, context.state),
             priority=best.priority,
             rule_id=best.rule_id,
             game_type=context.state.game_type,

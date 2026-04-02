@@ -41,7 +41,6 @@ class GamePlugin(Protocol):
     def detect(self, raw_data: dict, metrics: dict[str, int | str]) -> bool: ...
     def extract_state(self, raw_data: dict, metrics: dict[str, int | str]) -> GameState: ...
     def evaluate_rules(self, state: GameState) -> list[RuleResult]: ...
-    def render_advice(self, rule: RuleResult, state: GameState) -> str: ...
     def build_ai_payload(
         self,
         state: GameState,
@@ -49,11 +48,8 @@ class GamePlugin(Protocol):
         address_by: str = "champion",
     ) -> AiPayload: ...
 
-    def build_ai_context(self, state: GameState) -> str:
-        return ""
-
-    def build_rule_hint(self, rule: RuleResult, state: GameState, rendered_advice: str) -> str:
-        return rendered_advice
+    def build_rule_hint(self, rule: RuleResult, state: GameState) -> str:
+        return rule.message
 
     def wants_visual_context(self, state: GameState) -> bool:
         return True

@@ -67,7 +67,7 @@ def test_lol_plugin_builds_rule_hint():
     state = plugin.extract_state(LOL_DATA, {"hp_pct": 20, "gold": 1800})
     rule = plugin.evaluate_rules(state)[0]
 
-    hint = plugin.build_rule_hint(rule, state, plugin.render_advice(rule, state))
+    hint = plugin.build_rule_hint(rule, state)
 
     assert "规则观察" in hint
     assert rule.message in hint
