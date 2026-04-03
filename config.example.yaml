@@ -116,6 +116,12 @@ qa:
   # system: 使用 Windows 系统语音识别
   # whisper: 预留给后续本地/模型识别实现
   stt_backend: system
+  # always | hold
+  # always: 始终监听
+  # hold: 只有按住热键时才允许问答文本进入主流程
+  microphone_trigger_mode: always
+  # 当 microphone_trigger_mode=hold 时生效
+  microphone_hotkey: "alt"
   auto_start_listener: true
   # 预留给 Qt 麦克风架构的判句静音时长
   silence_ms: 1000

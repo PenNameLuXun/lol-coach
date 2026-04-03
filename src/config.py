@@ -245,6 +245,17 @@ class Config:
         return "system"
 
     @property
+    def qa_microphone_trigger_mode(self) -> str:
+        mode = str(self.qa_settings.get("microphone_trigger_mode", "always")).strip().lower()
+        if mode in {"always", "hold"}:
+            return mode
+        return "always"
+
+    @property
+    def qa_microphone_hotkey(self) -> str:
+        return str(self.qa_settings.get("microphone_hotkey", "alt")).strip()
+
+    @property
     def qa_web_search_enabled(self) -> bool:
         return bool(self.qa_settings.get("web_search_enabled", False))
 

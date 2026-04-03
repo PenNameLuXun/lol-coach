@@ -145,6 +145,21 @@ def _try_start_overwolf(config: Config) -> None:
         print(f"[startup] failed to start Overwolf: {exc}")
 
 
+def _qa_hotkey_gate_open(config: Config) -> bool:
+    if config.qa_settings.get("source", "file") != "microphone":
+        return True
+    if config.qa_microphone_trigger_mode != "hold":
+        return True
+    hotkey = config.qa_microphone_hotkey
+    if not hotkey:
+        return False
+    try:
+        import keyboard
+        return bool(keyboard.is_pressed(hotkey))
+    except Exception:
+        return False
+
+
 # ── Worker threads ─────────────────────────────────────────────────────────────
 
 def ai_worker(
@@ -164,9 +179,7 @@ def ai_worker(
     retry_after = 0.0
     context_window = ContextWindow(limit=config.decision_memory_size)
     _rule_repeat_count: dict[str, int] = {}
-    _tts_was_busy = False
-    _tts_ended_at: float = 0.0
-    _TTS_ECHO_GRACE = 7.0  # seconds to keep flushing after TTS ends (Whisper latency)
+    _qa_mic_paused_for_tts = False
     _RULE_REPEAT_LIMIT = 3
 
     while not stop_event.is_set():
@@ -209,19 +222,21 @@ def ai_worker(
             qa_question = None
             if qa_channel is not None and qa_channel.is_enabled(config):
                 if tts_busy_now:
-                    # TTS is playing — skip polling so echo lines aren't consumed
-                    _tts_was_busy = True
+                    # TTS is playing — pause microphone capture and flush any already-buffered lines.
+                    if not _qa_mic_paused_for_tts:
+                        qa_channel.pause_microphone()
+                        _qa_mic_paused_for_tts = True
+                    qa_channel.flush_transcript()
+                elif not _qa_hotkey_gate_open(config):
+                    if _qa_mic_paused_for_tts:
+                        qa_channel.resume_microphone()
+                        _qa_mic_paused_for_tts = False
+                    qa_channel.flush_transcript()
                 else:
-                    if _tts_was_busy:
-                        # TTS just ended — start grace period
-                        _tts_ended_at = time.perf_counter()
-                        _tts_was_busy = False
-                    if time.perf_counter() - _tts_ended_at < _TTS_ECHO_GRACE:
-                        # Grace period: Whisper may still be transcribing the TTS audio.
-                        # Keep flushing until the echo lines stop arriving.
-                        qa_channel.flush_transcript()
-                    else:
-                        qa_question = qa_channel.poll_question()
+                    if _qa_mic_paused_for_tts:
+                        qa_channel.resume_microphone()
+                        _qa_mic_paused_for_tts = False
+                    qa_question = qa_channel.poll_question()
 
             live_data = active_context.state.raw_data if active_context else None
             if live_data is None and qa_question is None and config.plugin_require_game(active_plugin_id):

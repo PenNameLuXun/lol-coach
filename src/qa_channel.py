@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import os
+import re
+import time
 from dataclasses import dataclass
-from pathlib import Path
 
 from src.analysis_flow import AnalysisSnapshot
 from src.game_plugins.dialogue.source import DialogueSource
@@ -33,16 +34,22 @@ class QaChannel:
         )
         self._input_line_index_by_path: dict[str, int] = {}
         self._input_initialized_paths: set[str] = set()
+        self._last_question_key = ""
+        self._last_question_at = 0.0
+        self._duplicate_cooldown_seconds = 20.0
 
     def is_enabled(self, config) -> bool:
         return bool(config.qa_enabled)
 
+    def pause_microphone(self) -> None:
+        self._source.pause_microphone()
+
+    def resume_microphone(self) -> bool:
+        return self._source.resume_microphone()
+
     def flush_transcript(self) -> None:
         """Advance the line index to current end-of-file, discarding lines written during TTS playback."""
         cfg = self._source._source_config()
-        source_kind = str(cfg.get("source", "file"))
-        if source_kind != "file":
-            return
         transcript_path = (
             self._source._config_path.parent
             / str(cfg.get("transcript_file", "game_qa_mic.txt"))
@@ -85,6 +92,17 @@ class QaChannel:
         text = str(payload.get("text", "")).strip()
         if not text:
             return None
+        question_key = _normalize_question_text(text)
+        now = time.perf_counter()
+        if (
+            question_key
+            and question_key == self._last_question_key
+            and now - self._last_question_at < self._duplicate_cooldown_seconds
+        ):
+            print(f"[QA] suppressed duplicate question within {self._duplicate_cooldown_seconds:.0f}s: {text}")
+            return None
+        self._last_question_key = question_key
+        self._last_question_at = now
         return QaQuestion(
             speaker=str(payload.get("speaker", "玩家")),
             text=text,
@@ -209,3 +227,8 @@ def _render_qa_history(snapshots: list[AnalysisSnapshot]) -> str:
     for snap in snapshots[-4:]:
         lines.append(f"{snap.timestamp.strftime('%H:%M:%S')} {snap.advice}")
     return "\n".join(lines)
+
+
+def _normalize_question_text(text: str) -> str:
+    normalized = re.sub(r"\s+", "", str(text or "")).strip().lower()
+    return normalized

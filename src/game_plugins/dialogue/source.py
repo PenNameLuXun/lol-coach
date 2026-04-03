@@ -56,6 +56,21 @@ class DialogueSource:
     def has_seen_activity(self) -> bool:
         return self._seen_activity
 
+    def pause_microphone(self) -> None:
+        cfg = self._source_config()
+        if str(cfg.get("source", "file")) != "microphone":
+            return
+        self._microphone_listener.pause()
+
+    def resume_microphone(self) -> bool:
+        cfg = self._source_config()
+        if str(cfg.get("source", "file")) != "microphone":
+            return False
+        resumed = self._microphone_listener.resume()
+        if resumed:
+            return True
+        return self._ensure_microphone_listener(cfg)
+
     def _source_config(self) -> dict:
         if not self._config_path.exists():
             return {}

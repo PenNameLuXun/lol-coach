@@ -416,3 +416,104 @@ def test_qa_channel_reads_question_and_builds_prompt(tmp_path, monkeypatch):
     assert "我玩剑圣怎么对线蛮王？" in prompt
     assert "玩家A" in prompt
     assert "当前对局摘要" in prompt
+
+
+def test_qa_channel_flush_transcript_works_for_microphone_mode(tmp_path, monkeypatch):
+    config_path = tmp_path / "config.yaml"
+    transcript_path = tmp_path / "game_qa_mic.txt"
+    config_path.write_text(
+        (
+            "qa:\n"
+            "  enabled: true\n"
+            "  source: microphone\n"
+            f"  transcript_file: {transcript_path.as_posix()}\n"
+            "  speaker: 玩家A\n"
+        ),
+        encoding="utf-8",
+    )
+    transcript_path.write_text("旧内容\n回声内容\n", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(
+        dialogue_source_module.WindowsMicrophoneListener,
+        "ensure_running",
+        lambda self, transcript_path, culture="zh-CN": True,
+    )
+
+    channel = QaChannel(config_path=str(config_path))
+    channel.flush_transcript()
+
+    transcript_path.write_text("旧内容\n回声内容\n新的问题\n", encoding="utf-8")
+    question = channel.poll_question()
+
+    assert question is not None
+    assert question.text == "新的问题"
+
+
+def test_qa_channel_suppresses_duplicate_questions_within_cooldown(tmp_path, monkeypatch):
+    config_path = tmp_path / "config.yaml"
+    transcript_path = tmp_path / "game_qa_mic.txt"
+    config_path.write_text(
+        (
+            "qa:\n"
+            "  enabled: true\n"
+            "  source: microphone\n"
+            f"  transcript_file: {transcript_path.as_posix()}\n"
+            "  speaker: 玩家A\n"
+        ),
+        encoding="utf-8",
+    )
+    transcript_path.write_text("", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(
+        dialogue_source_module.WindowsMicrophoneListener,
+        "ensure_running",
+        lambda self, transcript_path, culture="zh-CN": True,
+    )
+
+    channel = QaChannel(config_path=str(config_path))
+    channel.flush_transcript()
+
+    transcript_path.write_text("同一句问题\n", encoding="utf-8")
+    first = channel.poll_question()
+    transcript_path.write_text("同一句问题\n同一句问题\n", encoding="utf-8")
+    second = channel.poll_question()
+
+    assert first is not None
+    assert first.text == "同一句问题"
+    assert second is None
+
+
+def test_qa_channel_can_pause_and_resume_microphone(tmp_path, monkeypatch):
+    config_path = tmp_path / "config.yaml"
+    transcript_path = tmp_path / "game_qa_mic.txt"
+    config_path.write_text(
+        (
+            "qa:\n"
+            "  enabled: true\n"
+            "  source: microphone\n"
+            f"  transcript_file: {transcript_path.as_posix()}\n"
+            "  speaker: 玩家A\n"
+        ),
+        encoding="utf-8",
+    )
+    transcript_path.write_text("", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+
+    calls: list[str] = []
+
+    def _pause(self):
+        calls.append("pause")
+
+    def _resume(self):
+        calls.append("resume")
+        return True
+
+    monkeypatch.setattr(dialogue_source_module.MicrophoneListener, "pause", _pause)
+    monkeypatch.setattr(dialogue_source_module.MicrophoneListener, "resume", _resume)
+
+    channel = QaChannel(config_path=str(config_path))
+    channel.pause_microphone()
+    result = channel.resume_microphone()
+
+    assert calls == ["pause", "resume"]
+    assert result is True

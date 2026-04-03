@@ -157,6 +157,8 @@ def test_qa_web_search_settings_and_site_merge(config_file):
     cfg.update_many(
         {
             "qa.web_search_enabled": True,
+            "qa.microphone_trigger_mode": "hold",
+            "qa.microphone_hotkey": "ctrl+space",
             "qa.web_search_engine": "duckduckgo",
             "qa.web_search_timeout_seconds": 9,
             "qa.web_search_max_results_per_site": 2,
@@ -166,6 +168,8 @@ def test_qa_web_search_settings_and_site_merge(config_file):
     )
     cfg2 = Config(config_file)
     assert cfg2.qa_web_search_enabled is True
+    assert cfg2.qa_microphone_trigger_mode == "hold"
+    assert cfg2.qa_microphone_hotkey == "ctrl+space"
     assert cfg2.qa_web_search_engine == "duckduckgo"
     assert cfg2.qa_web_search_timeout_seconds == 9
     assert cfg2.qa_web_search_max_results_per_site == 2

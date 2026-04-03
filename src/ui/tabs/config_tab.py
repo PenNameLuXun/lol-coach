@@ -249,6 +249,15 @@ class ConfigTab(QWidget):
         self._qa_stt_backend_combo.setToolTip("当前主要为后续 Qt 路线预留。")
         qa_form.addRow("识别后端:", self._qa_stt_backend_combo)
 
+        self._qa_mic_trigger_mode_combo = QComboBox()
+        self._qa_mic_trigger_mode_combo.addItems(["always", "hold"])
+        self._qa_mic_trigger_mode_combo.setToolTip("always=始终监听；hold=只有按住热键时才允许问答文本进入主流程。")
+        qa_form.addRow("麦克风触发模式:", self._qa_mic_trigger_mode_combo)
+
+        self._qa_mic_hotkey_edit = QLineEdit()
+        self._qa_mic_hotkey_edit.setPlaceholderText("例如 alt 或 ctrl+space")
+        qa_form.addRow("按住说话热键:", self._qa_mic_hotkey_edit)
+
         self._qa_auto_listener_check = QCheckBox()
         qa_form.addRow("自动启动麦克风监听:", self._qa_auto_listener_check)
 
@@ -362,6 +371,8 @@ class ConfigTab(QWidget):
         self._qa_language_edit.setText(str(self._cfg.qa_settings.get("recognition_language", "zh-CN")))
         self._qa_microphone_backend_combo.setCurrentText(self._cfg.qa_microphone_backend)
         self._qa_stt_backend_combo.setCurrentText(self._cfg.qa_stt_backend)
+        self._qa_mic_trigger_mode_combo.setCurrentText(self._cfg.qa_microphone_trigger_mode)
+        self._qa_mic_hotkey_edit.setText(self._cfg.qa_microphone_hotkey)
         self._qa_auto_listener_check.setChecked(bool(self._cfg.qa_settings.get("auto_start_listener", True)))
         self._qa_silence_spin.setValue(int(self._cfg.qa_settings.get("silence_ms", 1000)))
         self._qa_max_transcript_spin.setValue(int(self._cfg.qa_settings.get("max_transcript_mb", 10)))
@@ -422,6 +433,8 @@ class ConfigTab(QWidget):
             "qa.recognition_language": self._qa_language_edit.text().strip() or "zh-CN",
             "qa.microphone_backend": self._qa_microphone_backend_combo.currentText(),
             "qa.stt_backend": self._qa_stt_backend_combo.currentText(),
+            "qa.microphone_trigger_mode": self._qa_mic_trigger_mode_combo.currentText(),
+            "qa.microphone_hotkey": self._qa_mic_hotkey_edit.text().strip() or "alt",
             "qa.auto_start_listener": self._qa_auto_listener_check.isChecked(),
             "qa.silence_ms": self._qa_silence_spin.value(),
             "qa.max_transcript_mb": self._qa_max_transcript_spin.value(),
