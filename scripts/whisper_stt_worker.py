@@ -31,6 +31,7 @@ def main() -> None:
     parser.add_argument("--backend", default="whisper", choices=["whisper", "funasr"])
     parser.add_argument("--model", default="base")
     parser.add_argument("--silence-ms", type=int, default=1000)
+    parser.add_argument("--pause-flag", default="")
     args = parser.parse_args()
 
     sample_rate = 16000
@@ -119,6 +120,14 @@ def main() -> None:
                     buffer.clear()
                     speaking = False
                     silent_chunks = 0
+                    if args.pause_flag and os.path.exists(args.pause_flag):
+                        if _debug():
+                            print(
+                                "[local_stt_worker] paused, discarding captured clip during TTS",
+                                file=sys.stderr,
+                                flush=True,
+                            )
+                        continue
                     duration = len(pcm_data) / (sample_rate * 2)
                     if duration < min_speech_seconds:
                         if _debug():

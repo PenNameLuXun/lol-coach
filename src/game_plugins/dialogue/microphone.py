@@ -82,6 +82,7 @@ class WhisperSubprocessListener:
         self._last_silence_ms = 1000
         self._last_model = "base"
         self._last_backend = "whisper"
+        self._pause_flag_path: Path | None = None
 
     def ensure_running(
         self,
@@ -97,6 +98,7 @@ class WhisperSubprocessListener:
         self._last_silence_ms = silence_ms
         self._last_model = model
         self._last_backend = backend
+        self._pause_flag_path = transcript_path.with_suffix(transcript_path.suffix + ".paused")
         if self._process is not None and self._process.poll() is None:
             return True
         lang = culture.split("-")[0]
@@ -118,6 +120,7 @@ class WhisperSubprocessListener:
                 "--backend", backend,
                 "--model", model,
                 "--silence-ms", str(silence_ms),
+                "--pause-flag", str(self._pause_flag_path),
             ],
             cwd=str(ROOT),
             creationflags=creationflags,
@@ -134,6 +137,7 @@ class WhisperSubprocessListener:
         return True
 
     def stop(self) -> None:
+        self._clear_pause_flag()
         if self._process is None:
             return
         if self._process.poll() is None:
@@ -147,6 +151,7 @@ class WhisperSubprocessListener:
         self._stdout_thread = None
 
     def resume(self) -> bool:
+        self._clear_pause_flag()
         if self._last_transcript_path is None:
             return False
         return self.ensure_running(
@@ -156,6 +161,29 @@ class WhisperSubprocessListener:
             model=self._last_model,
             backend=self._last_backend,
         )
+
+    def pause(self) -> None:
+        if self._pause_flag_path is None:
+            return
+        try:
+            self._pause_flag_path.write_text("paused\n", encoding="utf-8")
+            if _debug_stt_enabled():
+                print(f"[LocalSTT] pause flag on: {self._pause_flag_path.name}")
+        except Exception as exc:
+            if _debug_stt_enabled():
+                print(f"[LocalSTT] failed to set pause flag: {exc}")
+
+    def _clear_pause_flag(self) -> None:
+        if self._pause_flag_path is None:
+            return
+        try:
+            if self._pause_flag_path.exists():
+                self._pause_flag_path.unlink()
+                if _debug_stt_enabled():
+                    print(f"[LocalSTT] pause flag off: {self._pause_flag_path.name}")
+        except Exception as exc:
+            if _debug_stt_enabled():
+                print(f"[LocalSTT] failed to clear pause flag: {exc}")
 
     def _start_log_pumps(self) -> None:
         process = self._process
@@ -284,7 +312,8 @@ class MicrophoneListener:
 
     def pause(self) -> None:
         if self._active_listener == "whisper":
-            self._whisper.stop()
+            self._whisper.pause()
+            return
         elif self._active_listener == "qt":
             self._qt.stop()
         elif self._active_listener == "windows":
