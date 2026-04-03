@@ -120,10 +120,13 @@ plugin_settings:
     # powershell: 直接拉起独立 PowerShell 监听脚本，当前最稳定
     # qt: 由主程序内的 Qt 路线托管系统 STT 进程，便于后续收敛到统一输入架构
     microphone_backend: powershell
-    # system | whisper
+    # system | whisper | funasr
     # system: 使用 Windows 系统语音识别
-    # whisper: 预留给后续本地/模型识别实现
+    # whisper: 使用 faster-whisper 本地模型
+    # funasr: 使用 FunASR 本地模型
     stt_backend: system
+    # 当 stt_backend=funasr 时使用，例如 paraformer-zh / SenseVoiceSmall
+    funasr_model: paraformer-zh
     auto_start_listener: true
     # 预留给 Qt 麦克风架构的判句静音时长
     silence_ms: 1000
@@ -145,10 +148,13 @@ qa:
   # powershell: 直接拉起独立 PowerShell 监听脚本，当前最稳定
   # qt: 由主程序内的 Qt 路线托管系统 STT 进程，便于后续收敛到统一输入架构
   microphone_backend: powershell
-  # system | whisper
+  # system | whisper | funasr
   # system: 使用 Windows 系统语音识别
-  # whisper: 预留给后续本地/模型识别实现
+  # whisper: 使用 faster-whisper 本地模型
+  # funasr: 使用 FunASR 本地模型
   stt_backend: system
+  # 当 stt_backend=funasr 时使用，例如 paraformer-zh / SenseVoiceSmall
+  funasr_model: paraformer-zh
   # always | hold
   # always: 始终监听
   # hold: 只有按住热键时才允许问答文本进入主流程

@@ -240,9 +240,13 @@ class Config:
     @property
     def qa_stt_backend(self) -> str:
         backend = str(self.qa_settings.get("stt_backend", "system")).strip().lower()
-        if backend in {"system", "whisper"}:
+        if backend in {"system", "whisper", "funasr"}:
             return backend
         return "system"
+
+    @property
+    def qa_funasr_model(self) -> str:
+        return str(self.qa_settings.get("funasr_model", "paraformer-zh")).strip() or "paraformer-zh"
 
     @property
     def qa_microphone_trigger_mode(self) -> str:

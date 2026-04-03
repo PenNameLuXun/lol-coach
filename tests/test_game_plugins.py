@@ -262,6 +262,43 @@ def test_dialogue_source_reads_microphone_transcript_incrementally(tmp_path, mon
     assert second["dialogue"]["source"] == "microphone"
 
 
+def test_dialogue_source_passes_funasr_model_to_microphone_listener(tmp_path, monkeypatch):
+    config_path = tmp_path / "config.yaml"
+    transcript_path = tmp_path / "dialogue_mic.txt"
+    config_path.write_text(
+        (
+            "plugin_settings:\n"
+            "  dialogue:\n"
+            "    source: microphone\n"
+            f"    transcript_file: {transcript_path.as_posix()}\n"
+            "    speaker: 测试玩家\n"
+            "    recognition_language: zh-CN\n"
+            "    microphone_backend: qt\n"
+            "    stt_backend: funasr\n"
+            "    funasr_model: paraformer-zh\n"
+            "    auto_start_listener: true\n"
+        ),
+        encoding="utf-8",
+    )
+    transcript_path.write_text("", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+
+    captured: dict[str, object] = {}
+
+    def fake_ensure_running(self, transcript_path, culture="zh-CN", **kwargs):
+        captured["culture"] = culture
+        captured.update(kwargs)
+        return True
+
+    monkeypatch.setattr(dialogue_source_module.MicrophoneListener, "ensure_running", fake_ensure_running)
+
+    source = dialogue_source_module.DialogueSource()
+    source.is_available()
+
+    assert captured["stt_backend"] == "funasr"
+    assert captured["funasr_model"] == "paraformer-zh"
+
+
 def test_dialogue_source_resets_append_index_after_transcript_trim(tmp_path, monkeypatch):
     config_path = tmp_path / "config.yaml"
     transcript_path = tmp_path / "dialogue_mic.txt"

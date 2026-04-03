@@ -158,6 +158,8 @@ def test_qa_web_search_settings_and_site_merge(config_file):
         {
             "web_knowledge.always_visible": True,
             "qa.web_search_enabled": True,
+            "qa.stt_backend": "funasr",
+            "qa.funasr_model": "paraformer-zh",
             "qa.microphone_trigger_mode": "hold",
             "qa.microphone_hotkey": "ctrl+space",
             "qa.web_search_engine": "duckduckgo",
@@ -170,6 +172,8 @@ def test_qa_web_search_settings_and_site_merge(config_file):
     cfg2 = Config(config_file)
     assert cfg2.web_knowledge_always_visible is True
     assert cfg2.qa_web_search_enabled is True
+    assert cfg2.qa_stt_backend == "funasr"
+    assert cfg2.qa_funasr_model == "paraformer-zh"
     assert cfg2.qa_microphone_trigger_mode == "hold"
     assert cfg2.qa_microphone_hotkey == "ctrl+space"
     assert cfg2.qa_web_search_engine == "duckduckgo"

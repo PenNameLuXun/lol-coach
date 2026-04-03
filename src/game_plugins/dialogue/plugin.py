@@ -56,9 +56,16 @@ class DialoguePlugin:
                 "key": "stt_backend",
                 "label": "语音识别后端",
                 "type": "select",
-                "options": ["system", "whisper"],
+                "options": ["system", "whisper", "funasr"],
                 "default": "system",
-                "help": "当前脚本方案使用 system；qt 架构后续会接 system/whisper 等可插拔识别引擎。",
+                "help": "system 使用 Windows 系统识别；whisper 和 funasr 使用本地模型子进程。",
+            },
+            {
+                "key": "funasr_model",
+                "label": "FunASR 模型",
+                "type": "string",
+                "default": "paraformer-zh",
+                "help": "当 stt_backend=funasr 时使用，例如 paraformer-zh 或 SenseVoiceSmall。",
             },
             {
                 "key": "auto_start_listener",

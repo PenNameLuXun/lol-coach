@@ -297,9 +297,13 @@ class ConfigTab(QWidget):
         qa_form.addRow("麦克风后端:", self._qa_microphone_backend_combo)
 
         self._qa_stt_backend_combo = QComboBox()
-        self._qa_stt_backend_combo.addItems(["system", "whisper"])
-        self._qa_stt_backend_combo.setToolTip("当前主要为后续 Qt 路线预留。")
+        self._qa_stt_backend_combo.addItems(["system", "whisper", "funasr"])
+        self._qa_stt_backend_combo.setToolTip("system=Windows 系统识别；whisper/funasr=本地模型子进程。")
         qa_form.addRow("识别后端:", self._qa_stt_backend_combo)
+
+        self._qa_funasr_model_edit = QLineEdit()
+        self._qa_funasr_model_edit.setPlaceholderText("例如 paraformer-zh / SenseVoiceSmall")
+        qa_form.addRow("FunASR 模型:", self._qa_funasr_model_edit)
 
         self._qa_mic_trigger_mode_combo = QComboBox()
         self._qa_mic_trigger_mode_combo.addItems(["always", "hold"])
@@ -434,6 +438,7 @@ class ConfigTab(QWidget):
         self._qa_language_edit.setText(str(self._cfg.qa_settings.get("recognition_language", "zh-CN")))
         self._qa_microphone_backend_combo.setCurrentText(self._cfg.qa_microphone_backend)
         self._qa_stt_backend_combo.setCurrentText(self._cfg.qa_stt_backend)
+        self._qa_funasr_model_edit.setText(str(self._cfg.qa_settings.get("funasr_model", "paraformer-zh")))
         self._qa_mic_trigger_mode_combo.setCurrentText(self._cfg.qa_microphone_trigger_mode)
         self._qa_mic_hotkey_edit.setText(self._cfg.qa_microphone_hotkey)
         self._qa_auto_listener_check.setChecked(bool(self._cfg.qa_settings.get("auto_start_listener", True)))
@@ -507,6 +512,7 @@ class ConfigTab(QWidget):
             "qa.recognition_language": self._qa_language_edit.text().strip() or "zh-CN",
             "qa.microphone_backend": self._qa_microphone_backend_combo.currentText(),
             "qa.stt_backend": self._qa_stt_backend_combo.currentText(),
+            "qa.funasr_model": self._qa_funasr_model_edit.text().strip() or "paraformer-zh",
             "qa.microphone_trigger_mode": self._qa_mic_trigger_mode_combo.currentText(),
             "qa.microphone_hotkey": self._qa_mic_hotkey_edit.text().strip() or "alt",
             "qa.auto_start_listener": self._qa_auto_listener_check.isChecked(),
