@@ -1,4 +1,5 @@
 from src.game_plugins.base import AiPayload, GameState, RuleResult
+from src.web_knowledge import KnowledgeQuery
 from src.game_plugins.league_shared.live_client import (
     detect_game_type,
     extract_key_metrics,
@@ -10,6 +11,13 @@ from src.game_plugins.tft.prompting import (
     build_tft_vision_prompt,
     render_shop_units,
     render_traits,
+)
+from src.game_plugins.tft.knowledge import (
+    build_tft_web_knowledge_item,
+    build_tft_web_knowledge_queries,
+    build_tft_web_knowledge_summary,
+    collect_tft_web_knowledge_documents,
+    populate_tft_web_knowledge_window,
 )
 from src.game_plugins.tft.rules import build_tft_rule_hint, evaluate_tft_rules
 from src.game_plugins.tft.source import TftLiveDataSource
@@ -70,6 +78,20 @@ class TftPlugin:
                 "type": "text",
                 "default": "lolchess.gg,100\ntactics.tools,95\nmobalytics.gg,90",
                 "help": "每行一个站点，格式：domain,priority。QA 联网搜索时会按优先级优先搜索这些 TFT 站点。",
+            },
+            {
+                "key": "knowledge_enabled",
+                "label": "Web 资料启用",
+                "type": "bool",
+                "default": True,
+                "help": "启用后，框架会为 TFT 自动搜索当前主流阵容资料并显示到独立窗口。",
+            },
+            {
+                "key": "knowledge_search_sites_text",
+                "label": "Web 资料站点",
+                "type": "text",
+                "default": "tactics.tools,100\nlolchess.gg,95\nmobalytics.gg,90",
+                "help": "每行一个站点，格式：domain,priority。用于 TFT Web 资料窗口。",
             },
         ],
     }
@@ -212,6 +234,23 @@ class TftPlugin:
             rule_hint=rule_hint,
         )
 
+
+
+
+    def build_web_knowledge_queries(self, state: GameState, config) -> list[KnowledgeQuery]:
+        return build_tft_web_knowledge_queries(state, config)
+
+    def build_web_knowledge_summary(self, state: GameState, config) -> str:
+        return build_tft_web_knowledge_summary(state, config)
+
+    def build_web_knowledge_item(self, query: KnowledgeQuery, documents, state: GameState, config):
+        return build_tft_web_knowledge_item(query, documents, state, config)
+
+    def collect_web_knowledge_documents(self, query: KnowledgeQuery, state: GameState, config):
+        return collect_tft_web_knowledge_documents(query, state, config)
+
+    def populate_web_knowledge_window(self, window, bundle, state: GameState, config) -> bool:
+        return populate_tft_web_knowledge_window(window, bundle, state, config)
 
 def _find_tft_hp(data: dict, summoner_name: str) -> int:
     for player in data.get("allPlayers", []):

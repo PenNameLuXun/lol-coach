@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from html import unescape
 import re
 from urllib.parse import quote, unquote, urlparse
@@ -30,6 +30,7 @@ class SearchDocument:
     snippet: str
     excerpt: str
     patch_version: str = ""
+    metadata: dict[str, object] = field(default_factory=dict)
 
 
 def should_web_search_question(question: str) -> bool:
@@ -103,6 +104,7 @@ def search_web_for_qa(
     timeout_seconds: int,
     max_results_per_site: int,
     max_pages: int,
+    stop_after_first_site_success: bool = False,
 ) -> list[SearchDocument]:
     docs: list[SearchDocument] = []
     if not question.strip() or not sites or max_pages <= 0:
@@ -124,28 +126,17 @@ def search_web_for_qa(
         )
         print(f"[web search] site={site.domain} hits={len(results)}")
         if not results:
-            # Search engine blocked or returned nothing — fall back to direct site fetch.
-            # Stop at the first site that succeeds.
-            fallback_url = f"https://{site.domain}/"
-            excerpt = _fetch_excerpt(
-                session=session, url=fallback_url, timeout_seconds=timeout_seconds
+            fallback_docs = _direct_fallback_documents(
+                session=session,
+                site=site,
+                question=question,
+                timeout_seconds=timeout_seconds,
             )
-            if excerpt:
-                print(f"[web search] site={site.domain} direct_fallback ok len={len(excerpt)}")
-                docs.append(
-                    SearchDocument(
-                        domain=site.domain,
-                        priority=site.priority,
-                        title=f"{site.domain} (direct)",
-                        url=fallback_url,
-                        snippet=excerpt[:200],
-                        excerpt=excerpt,
-                        patch_version=_infer_patch_version(excerpt, fallback_url),
-                    )
-                )
-                break  # got content from this site, no need to try others
-            else:
-                print(f"[web search] site={site.domain} direct_fallback failed")
+            if fallback_docs:
+                docs.extend(fallback_docs[: max_pages - len(docs)])
+                if stop_after_first_site_success:
+                    break
+                continue
         for result in results:
             excerpt = _fetch_excerpt(
                 session=session,
@@ -170,7 +161,39 @@ def search_web_for_qa(
             )
             if len(docs) >= max_pages:
                 break
+        if stop_after_first_site_success and results:
+            break
     return sort_search_documents(docs)
+
+
+def _direct_fallback_documents(
+    *,
+    session: requests.Session,
+    site: SearchSite,
+    question: str,
+    timeout_seconds: int,
+) -> list[SearchDocument]:
+    docs: list[SearchDocument] = []
+    for candidate in _direct_content_candidates(site.domain, question):
+        excerpt = _fetch_excerpt(session=session, url=candidate["url"], timeout_seconds=timeout_seconds)
+        if not excerpt:
+            continue
+        print(f"[web search] site={site.domain} direct_fallback ok url={candidate['url']}")
+        docs.append(
+            SearchDocument(
+                domain=site.domain,
+                priority=site.priority,
+                title=candidate["title"],
+                url=candidate["url"],
+                snippet=excerpt[:200],
+                excerpt=excerpt,
+                patch_version=_infer_patch_version(candidate["title"], excerpt, candidate["url"]),
+            )
+        )
+        break
+    if not docs:
+        print(f"[web search] site={site.domain} direct_fallback failed")
+    return docs
 
 
 def sort_search_documents(docs: list[SearchDocument]) -> list[SearchDocument]:
@@ -200,6 +223,39 @@ def format_search_documents(docs: list[SearchDocument]) -> str:
             f"正文摘录: {doc.excerpt[:1200]}"
         )
     return "\n\n".join(lines)
+
+
+def fetch_page_html(*, url: str, timeout_seconds: int, session: requests.Session | None = None) -> str:
+    own_session = session is None
+    session = session or requests.Session()
+    if own_session:
+        session.headers.update({"User-Agent": USER_AGENT})
+    try:
+        response = session.get(url, timeout=timeout_seconds)
+    except Exception:
+        return ""
+    response.encoding = response.encoding or response.apparent_encoding or "utf-8"
+    return response.text
+
+
+def sanitize_content_html(html: str) -> str:
+    return _strip_non_content_tags(html)
+
+
+def extract_meta_description(html: str) -> str:
+    return _extract_meta_description(html)
+
+
+def extract_heading_texts(html: str, *, max_items: int = 4) -> list[str]:
+    return _extract_heading_texts(html, max_items=max_items)
+
+
+def extract_visible_text_excerpt(html: str) -> str:
+    return _extract_visible_text_excerpt(html)
+
+
+def infer_patch_version(*parts: str) -> str:
+    return _infer_patch_version(*parts)
 
 
 def _search_site(
@@ -263,15 +319,170 @@ def _parse_google_results(html: str, *, max_results: int) -> list[dict[str, str]
     return results
 
 
+def _direct_content_candidates(domain: str, question: str) -> list[dict[str, str]]:
+    normalized = domain.lower()
+    if normalized.startswith("www."):
+        normalized = normalized[4:]
+
+    champion = _infer_lol_champion_from_question(question)
+    champion_slug = _slugify_name(champion)
+
+    if champion_slug:
+        if normalized == "op.gg":
+            return [
+                {"title": f"{champion} Build", "url": f"https://www.op.gg/champions/{champion_slug}/build"},
+                {"title": f"{champion} Counters", "url": f"https://www.op.gg/champions/{champion_slug}/counters"},
+            ]
+        if normalized == "u.gg":
+            return [
+                {"title": f"{champion} Build", "url": f"https://u.gg/lol/champions/{champion_slug}/build"},
+                {"title": f"{champion} Counters", "url": f"https://u.gg/lol/champions/{champion_slug}/counter"},
+            ]
+        if normalized == "leagueofgraphs.com":
+            return [
+                {"title": f"{champion} Builds", "url": f"https://www.leagueofgraphs.com/champions/builds/{champion_slug}"},
+            ]
+        if normalized == "mobalytics.gg":
+            return [
+                {"title": f"{champion} Build", "url": f"https://mobalytics.gg/lol/champions/{champion_slug}/build"},
+            ]
+
+    if "tft" in question.lower() or "meta comps" in question.lower() or "阵容" in question:
+        if normalized == "tactics.tools":
+            return [{"title": "TFT Meta Comps", "url": "https://tactics.tools/team-comps"}]
+        if normalized == "lolchess.gg":
+            return [{"title": "TFT Meta", "url": "https://lolchess.gg/meta"}]
+        if normalized == "mobalytics.gg":
+            return [{"title": "TFT Team Comps", "url": "https://mobalytics.gg/tft/team-comps"}]
+
+    return []
+
+
 def _fetch_excerpt(*, session: requests.Session, url: str, timeout_seconds: int) -> str:
     try:
-        html = session.get(url, timeout=timeout_seconds).text
+        response = session.get(url, timeout=timeout_seconds)
     except Exception:
         return ""
+    response.encoding = response.encoding or response.apparent_encoding or "utf-8"
+    html = response.text
+    return _extract_excerpt_from_html(url=url, html=html)
+
+
+def _extract_excerpt_from_html(*, url: str, html: str) -> str:
+    domain = infer_domain_from_url(url)
+    html = _strip_non_content_tags(html)
+
+    site_excerpt = _extract_site_specific_excerpt(domain=domain, html=html)
+    if site_excerpt:
+        return site_excerpt[:4000]
+
+    meta_excerpt = _extract_meta_description(html)
+    if meta_excerpt:
+        text_excerpt = _extract_visible_text_excerpt(html)
+        if text_excerpt and text_excerpt not in meta_excerpt:
+            return f"{meta_excerpt} {text_excerpt[:1600]}".strip()[:4000]
+        return meta_excerpt[:4000]
+
+    return _extract_visible_text_excerpt(html)[:4000]
+
+
+def _strip_non_content_tags(html: str) -> str:
     html = re.sub(r"<script\b[^<]*(?:(?!</script>)<[^<]*)*</script>", " ", html, flags=re.IGNORECASE | re.DOTALL)
     html = re.sub(r"<style\b[^<]*(?:(?!</style>)<[^<]*)*</style>", " ", html, flags=re.IGNORECASE | re.DOTALL)
+    html = re.sub(r"<noscript\b[^<]*(?:(?!</noscript>)<[^<]*)*</noscript>", " ", html, flags=re.IGNORECASE | re.DOTALL)
+    return html
+
+
+def _extract_site_specific_excerpt(*, domain: str, html: str) -> str:
+    normalized = domain.lower()
+    if normalized.startswith("www."):
+        normalized = normalized[4:]
+
+    if normalized in {"op.gg", "u.gg", "leagueofgraphs.com", "mobafire.com", "mobalytics.gg"}:
+        return _extract_curated_excerpt(html, include_visible_text=False, text_limit=600)
+    if normalized in {"tactics.tools", "lolchess.gg"}:
+        return _extract_curated_excerpt(html, include_visible_text=True, text_limit=1000)
+    return ""
+
+
+def _extract_curated_excerpt(html: str, *, include_visible_text: bool, text_limit: int) -> str:
+    pieces: list[str] = []
+    meta = _extract_meta_description(html)
+    if meta:
+        pieces.append(meta)
+
+    headings = _extract_heading_texts(html, max_items=4)
+    if headings:
+        pieces.append(" / ".join(headings))
+
+    if include_visible_text:
+        visible = _extract_visible_text_excerpt(html)
+        if visible:
+            pieces.append(visible[:text_limit])
+
+    return _dedupe_joined_text(" ".join(pieces))
+
+
+def _extract_meta_description(html: str) -> str:
+    patterns = [
+        re.compile(
+            r'<meta[^>]+name=["\']description["\'][^>]+content=["\'](?P<content>[^"\']+)["\']',
+            re.IGNORECASE,
+        ),
+        re.compile(
+            r'<meta[^>]+property=["\']og:description["\'][^>]+content=["\'](?P<content>[^"\']+)["\']',
+            re.IGNORECASE,
+        ),
+        re.compile(
+            r'<meta[^>]+content=["\'](?P<content>[^"\']+)["\'][^>]+name=["\']description["\']',
+            re.IGNORECASE,
+        ),
+        re.compile(
+            r'<meta[^>]+content=["\'](?P<content>[^"\']+)["\'][^>]+property=["\']og:description["\']',
+            re.IGNORECASE,
+        ),
+    ]
+    for pattern in patterns:
+        match = pattern.search(html)
+        if match:
+            return _clean_html_text(match.group("content"))
+    return ""
+
+
+def _extract_heading_texts(html: str, *, max_items: int) -> list[str]:
+    pattern = re.compile(r"<h[1-3][^>]*>(?P<text>.*?)</h[1-3]>", re.IGNORECASE | re.DOTALL)
+    headings: list[str] = []
+    for match in pattern.finditer(html):
+        text = _clean_html_text(re.sub(r"<[^>]+>", " ", match.group("text")))
+        if text and text not in headings:
+            headings.append(text)
+        if len(headings) >= max_items:
+            break
+    return headings
+
+
+def _extract_visible_text_excerpt(html: str) -> str:
     text = _clean_html_text(re.sub(r"<[^>]+>", " ", html))
-    return text[:4000]
+    return _dedupe_joined_text(text)
+
+
+def _dedupe_joined_text(text: str) -> str:
+    cleaned = _clean_html_text(text)
+    if not cleaned:
+        return ""
+    tokens = re.split(r"(?<=[。.!?])\s+|\s{2,}", cleaned)
+    seen: set[str] = set()
+    kept: list[str] = []
+    for token in tokens:
+        token = token.strip()
+        if not token:
+            continue
+        key = token.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        kept.append(token)
+    return " ".join(kept)
 
 
 def _clean_html_text(value: str) -> str:
@@ -282,6 +493,18 @@ def _clean_html_text(value: str) -> str:
 
 def infer_domain_from_url(url: str) -> str:
     return urlparse(url).netloc.lower()
+
+
+def _infer_lol_champion_from_question(question: str) -> str:
+    match = re.search(r"League of Legends\s+(.+?)\s+build", question, re.IGNORECASE)
+    if match:
+        return match.group(1).strip()
+    return ""
+
+
+def _slugify_name(text: str) -> str:
+    slug = re.sub(r"[^a-z0-9]+", "-", str(text or "").strip().lower())
+    return slug.strip("-")
 
 
 def _infer_patch_version(*parts: str) -> str:

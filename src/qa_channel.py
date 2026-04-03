@@ -47,6 +47,9 @@ class QaChannel:
     def resume_microphone(self) -> bool:
         return self._source.resume_microphone()
 
+    def stop(self) -> None:
+        self._source.stop()
+
     def flush_transcript(self) -> None:
         """Advance the line index to current end-of-file, discarding lines written during TTS playback."""
         cfg = self._source._source_config()

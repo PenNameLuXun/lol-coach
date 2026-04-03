@@ -39,6 +39,27 @@ launcher:
         - "LeagueClientUx.exe"
         - "LeagueClient.exe"
 
+web_knowledge:
+  enabled: true
+  # duckduckgo | google
+  search_engine: google
+  refresh_interval_seconds: 300
+  timeout_seconds: 8
+  max_results_per_site: 1
+  max_pages: 6
+  # 单屏时是否默认常驻显示；关闭时可通过下面的热键按住临时显示
+  always_visible: false
+  # 如果没有副屏，则按住这个热键时显示 Web 资料窗口
+  hotkey: "alt+`"
+  window_width: 560
+  window_height: 900
+  # 每行一个站点，格式：domain,priority
+  default_sites_text: |
+    op.gg,100
+    u.gg,95
+    tactics.tools,100
+    lolchess.gg,95
+
 overwolf:
   # Enable when you want plugins such as TFT to consume data from a local Overwolf bridge.
   enabled: false
@@ -55,6 +76,13 @@ plugin_settings:
     require_game: true
     system_prompt: "你是一个英雄联盟教练，根据当前游戏截图，用简短的中文（不超过50字）给出最重要的一条对局建议。"
     qa_search_sites_text: |
+      op.gg,100
+      u.gg,95
+      leagueofgraphs.com,90
+    knowledge_enabled: true
+    knowledge_max_champions: 5
+    knowledge_include_enemy_champions: false
+    knowledge_search_sites_text: |
       op.gg,100
       u.gg,95
       leagueofgraphs.com,90
@@ -76,6 +104,11 @@ plugin_settings:
     qa_search_sites_text: |
       lolchess.gg,100
       tactics.tools,95
+      mobalytics.gg,90
+    knowledge_enabled: true
+    knowledge_search_sites_text: |
+      tactics.tools,100
+      lolchess.gg,95
       mobalytics.gg,90
   dialogue:
     # file | microphone

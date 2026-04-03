@@ -11,6 +11,7 @@ Wires all components together:
 """
 
 import argparse
+import copy
 import datetime
 import queue
 import shutil
@@ -39,16 +40,97 @@ from src.ai_provider import get_provider
 from src.tts_engine import get_tts_engine
 from src.game_plugins.base import AiPayload
 from src.rule_engine import RuleEngine
+from src.rule_engine import ActiveGameContext
 from src.qa_channel import QaChannel, build_qa_prompt, run_qa_web_search
+from src.web_knowledge import WebKnowledgeManager
+from src.ui.knowledge_window import KnowledgeWindow
 from src.ui.main_window import MainWindow
 from src.ui.tray import TrayIcon
 from src.ui.overlay import OverlayWindow
+
+
+_DEBUG_FAKE_LOL_DATA = {
+    "activePlayer": {
+        "summonerName": "DebugPlayer",
+        "level": 12,
+        "currentGold": 1350,
+        "championStats": {
+            "currentHealth": 800,
+            "maxHealth": 1200,
+            "resourceValue": 300,
+            "resourceMax": 600,
+        },
+        "fullRunes": {"keystone": {"displayName": "Conqueror"}},
+    },
+    "allPlayers": [
+        {
+            "summonerName": "DebugPlayer",
+            "championName": "Jinx",
+            "team": "ORDER",
+            "items": [
+                {"displayName": "Kraken Slayer"},
+                {"displayName": "Runaan's Hurricane"},
+            ],
+            "scores": {"kills": 3, "deaths": 1, "assists": 5, "creepScore": 120, "wardScore": 22},
+            "summonerSpells": {
+                "summonerSpellOne": {"displayName": "Flash"},
+                "summonerSpellTwo": {"displayName": "Heal"},
+            },
+            "isDead": False,
+            "respawnTimer": 0.0,
+        },
+        {
+            "summonerName": "Ally1",
+            "championName": "Thresh",
+            "team": "ORDER",
+            "scores": {"kills": 1, "deaths": 2, "assists": 8, "creepScore": 20, "wardScore": 40},
+            "isDead": False,
+            "respawnTimer": 0.0,
+            "items": [],
+        },
+        {
+            "summonerName": "Ally2",
+            "championName": "Orianna",
+            "team": "ORDER",
+            "scores": {"kills": 2, "deaths": 2, "assists": 4, "creepScore": 138, "wardScore": 11},
+            "isDead": False,
+            "respawnTimer": 0.0,
+            "items": [],
+        },
+        {
+            "summonerName": "Enemy1",
+            "championName": "Zed",
+            "team": "CHAOS",
+            "scores": {"kills": 5, "deaths": 1, "assists": 2, "creepScore": 150, "wardScore": 15},
+            "isDead": True,
+            "respawnTimer": 12.0,
+            "items": [],
+        },
+        {
+            "summonerName": "Enemy2",
+            "championName": "Nautilus",
+            "team": "CHAOS",
+            "scores": {"kills": 0, "deaths": 3, "assists": 6, "creepScore": 28, "wardScore": 36},
+            "isDead": False,
+            "respawnTimer": 0.0,
+            "items": [],
+        },
+    ],
+    "gameData": {"gameTime": 725, "gameMode": "CLASSIC"},
+    "events": {
+        "Events": [
+            {"EventName": "DragonKill", "DragonType": "Fire"},
+            {"EventName": "ChampionKill"},
+        ]
+    },
+}
 
 
 # ── Qt Signal bridge from worker threads to UI ────────────────────────────────
 
 class SignalBridge(QObject):
     advice_ready = pyqtSignal(str)
+    knowledge_ready = pyqtSignal(object)
 
 
 def _log_with_timestamp(tag: str, message: str):
@@ -153,6 +235,15 @@ def _qa_hotkey_gate_open(config: Config) -> bool:
     hotkey = config.qa_microphone_hotkey
     if not hotkey:
         return False
+
+
+def _build_debug_fake_lol_context(rule_engine):
+    plugin = rule_engine.registry.get("lol")
+    if plugin is None:
+        return None
+    raw_data = copy.deepcopy(_DEBUG_FAKE_LOL_DATA)
+    state = plugin.extract_state(raw_data, {})
+    return ActiveGameContext(plugin=plugin, state=state)
     try:
         import keyboard
         return bool(keyboard.is_pressed(hotkey))
@@ -173,11 +264,14 @@ def ai_worker(
     qa_channel: QaChannel | None = None,
     debug: bool = False,
     debug_timing: bool = False,
+    debug_fake_lol_info: bool = False,
 ):
     rule_engine = RuleEngine(enabled_plugin_ids=config.enabled_plugins, config=config)
     latest_image: bytes | None = None
     retry_after = 0.0
     context_window = ContextWindow(limit=config.decision_memory_size)
+    knowledge_manager = WebKnowledgeManager()
+    last_emitted_knowledge_bundle = None
     _rule_repeat_count: dict[str, int] = {}
     _qa_mic_paused_for_tts = False
     _RULE_REPEAT_LIMIT = 3
@@ -211,6 +305,10 @@ def ai_worker(
             tray.set_state(TrayIcon.STATE_BUSY)
             previous_plugin_id = rule_engine.bound_plugin_id
             active_context = rule_engine.discover_active_context()
+            if active_context is None and debug_fake_lol_info:
+                active_context = _build_debug_fake_lol_context(rule_engine)
+                if active_context is not None:
+                    print("[debug] using fake LoL live data context")
             active_plugin_id = active_context.plugin.id if active_context else None
             if active_context and active_plugin_id != previous_plugin_id:
                 print(
@@ -251,6 +349,21 @@ def ai_worker(
                 tray.set_state(TrayIcon.STATE_RUNNING)
                 continue
             capturer.resume()
+            if active_context is not None and config.web_knowledge_enabled:
+                try:
+                    knowledge_bundle = knowledge_manager.collect_for_context(active_context, config)
+                    if knowledge_bundle is not None and knowledge_bundle is not last_emitted_knowledge_bundle:
+                        bridge.knowledge_ready.emit(
+                            {
+                                "plugin": active_context.plugin,
+                                "state": active_context.state,
+                                "bundle": knowledge_bundle,
+                            }
+                        )
+                        last_emitted_knowledge_bundle = knowledge_bundle
+                except Exception as exc:
+                    print(f"[WebKnowledge error] {exc}")
+
             payload = (
                 active_context.plugin.build_ai_payload(
                     active_context.state,
@@ -611,6 +724,7 @@ def main():
     parser.add_argument("--debug", action="store_true", help="save each screenshot to debug_captures/")
     parser.add_argument("--debug-timing", action="store_true", help="print bridge/provider timing for each analyzed cycle")
     parser.add_argument("--debug-stt", action="store_true", help="print microphone/STT diagnostic logs")
+    parser.add_argument("--debug-fake-lol-info", action="store_true", help="pretend a fake LoL match is active for UI/web-knowledge testing")
     args = parser.parse_args()
     os.environ["LOL_COACH_DEBUG_STT"] = "1" if args.debug_stt else "0"
 
@@ -637,9 +751,23 @@ def main():
 
     # ── UI ────────────────────────────────────────────────────────────────────
     overlay = None
+    knowledge_window = None
     if config.overlay.get("enabled", True):
         overlay = OverlayWindow(fade_after=config.overlay.get("fade_after", 8))
         overlay.move_to(config.overlay.get("x", 100), config.overlay.get("y", 100))
+
+    if config.web_knowledge_enabled:
+        knowledge_window = KnowledgeWindow(
+            width=config.web_knowledge_window_width,
+            height=config.web_knowledge_window_height,
+        )
+        screens = app.screens()
+        if len(screens) > 1:
+            geo = screens[1].availableGeometry()
+            knowledge_window.move(geo.x(), geo.y())
+            knowledge_window.show()
+        elif config.web_knowledge_always_visible:
+            knowledge_window.show()
 
     window: MainWindow | None = None
     tray = TrayIcon("assets/icon.png")
@@ -664,6 +792,27 @@ def main():
         history.add_advice(text, "timer", session_id=session_id)
 
     bridge.advice_ready.connect(on_advice)
+
+    def on_knowledge(payload):
+        if knowledge_window is None:
+            return
+        if not isinstance(payload, dict):
+            knowledge_window.update_bundle(payload)
+            return
+        plugin = payload.get("plugin")
+        state = payload.get("state")
+        bundle = payload.get("bundle")
+        if plugin is None or bundle is None:
+            knowledge_window.update_bundle(bundle)
+            return
+        populate = getattr(plugin, "populate_web_knowledge_window", None)
+        if callable(populate):
+            handled = bool(populate(knowledge_window, bundle, state, config))
+            if handled:
+                return
+        knowledge_window.update_bundle(bundle)
+
+    bridge.knowledge_ready.connect(on_knowledge)
 
     # ── Capturer ──────────────────────────────────────────────────────────────
     capturer = Capturer(
@@ -699,7 +848,11 @@ def main():
         ai_thread = threading.Thread(
             target=ai_worker,
             args=(bus, config, bridge, stop_event, tts_busy_event, tray, capturer, qa_channel),
-            kwargs={"debug": args.debug, "debug_timing": args.debug_timing},
+            kwargs={
+                "debug": args.debug,
+                "debug_timing": args.debug_timing,
+                "debug_fake_lol_info": args.debug_fake_lol_info,
+            },
             daemon=True,
         )
         tts_thread = threading.Thread(target=tts_worker, args=(bus, config, stop_event, tts_busy_event), daemon=True)
@@ -709,10 +862,12 @@ def main():
 
     def pause_analysis():
         if not running[0]:
+            qa_channel.stop()
             return
         running[0] = False
         capturer.stop()
         stop_event.set()
+        qa_channel.stop()
         tray.set_state(TrayIcon.STATE_PAUSED)
 
     def toggle():
@@ -740,6 +895,35 @@ def main():
         app.quit()
 
     signal.signal(signal.SIGINT, _handle_sigint)
+    if knowledge_window is not None and len(app.screens()) <= 1:
+        _knowledge_hotkey_timer = QTimer()
+        _knowledge_hotkey_timer.start(120)
+
+        def _update_knowledge_visibility():
+            hotkey = config.web_knowledge_hotkey
+            always_visible = config.web_knowledge_always_visible
+            visible = False
+            try:
+                import keyboard
+                visible = bool(hotkey and keyboard.is_pressed(hotkey))
+            except Exception:
+                visible = False
+
+            if always_visible:
+                if knowledge_window.is_dismissed:
+                    if visible:
+                        knowledge_window.revive()
+                elif not knowledge_window.isVisible():
+                    knowledge_window.show()
+                return
+
+            if visible and not knowledge_window.isVisible():
+                knowledge_window.revive()
+            elif not visible and knowledge_window.isVisible():
+                knowledge_window.hide()
+
+        _knowledge_hotkey_timer.timeout.connect(_update_knowledge_visibility)
+
     _sigint_timer = QTimer()
     _sigint_timer.start(500)
     _sigint_timer.timeout.connect(lambda: None)  # wake Python every 500ms

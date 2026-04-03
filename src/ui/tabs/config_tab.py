@@ -60,6 +60,7 @@ class ConfigTab(QWidget):
 
         root.addWidget(self._wrap_section("决策模式", decision_box, collapsed=False))
         root.addWidget(self._build_plugin_settings_box())
+        root.addWidget(self._build_web_knowledge_settings_box())
         root.addWidget(self._build_qa_settings_box())
 
         # ── AI ────────────────────────────────────────────────────────────────
@@ -214,6 +215,57 @@ class ConfigTab(QWidget):
         plugin_layout.addStretch(1)
         return self._wrap_section("插件设置", plugin_box, collapsed=True)
 
+    def _build_web_knowledge_settings_box(self) -> CollapsibleBox:
+        wk_box = QGroupBox("Web 资料")
+        wk_form = QFormLayout(wk_box)
+
+        self._wk_enabled_check = QCheckBox()
+        wk_form.addRow("启用 Web 资料:", self._wk_enabled_check)
+
+        self._wk_engine_combo = QComboBox()
+        self._wk_engine_combo.addItems(["duckduckgo", "google"])
+        wk_form.addRow("搜索引擎:", self._wk_engine_combo)
+
+        self._wk_refresh_spin = QSpinBox()
+        self._wk_refresh_spin.setRange(10, 3600)
+        self._wk_refresh_spin.setSuffix(" 秒")
+        wk_form.addRow("刷新间隔:", self._wk_refresh_spin)
+
+        self._wk_timeout_spin = QSpinBox()
+        self._wk_timeout_spin.setRange(1, 60)
+        self._wk_timeout_spin.setSuffix(" 秒")
+        wk_form.addRow("请求超时:", self._wk_timeout_spin)
+
+        self._wk_results_spin = QSpinBox()
+        self._wk_results_spin.setRange(1, 10)
+        wk_form.addRow("每站点结果数:", self._wk_results_spin)
+
+        self._wk_pages_spin = QSpinBox()
+        self._wk_pages_spin.setRange(1, 20)
+        wk_form.addRow("最多抓取页面数:", self._wk_pages_spin)
+
+        self._wk_always_visible_check = QCheckBox()
+        wk_form.addRow("单屏时常驻显示:", self._wk_always_visible_check)
+
+        self._wk_hotkey_edit = QLineEdit()
+        self._wk_hotkey_edit.setPlaceholderText("例如 alt+`")
+        wk_form.addRow("临时显示热键:", self._wk_hotkey_edit)
+
+        self._wk_width_spin = QSpinBox()
+        self._wk_width_spin.setRange(320, 2000)
+        wk_form.addRow("窗口宽度:", self._wk_width_spin)
+
+        self._wk_height_spin = QSpinBox()
+        self._wk_height_spin.setRange(320, 2000)
+        wk_form.addRow("窗口高度:", self._wk_height_spin)
+
+        self._wk_sites_edit = QTextEdit()
+        self._wk_sites_edit.setMaximumHeight(90)
+        self._wk_sites_edit.setPlaceholderText("domain,priority")
+        wk_form.addRow("默认搜索站点:", self._wk_sites_edit)
+
+        return self._wrap_section("Web 资料", wk_box, collapsed=True)
+
     def _build_qa_settings_box(self) -> CollapsibleBox:
         qa_box = QGroupBox("问答助手")
         qa_form = QFormLayout(qa_box)
@@ -363,6 +415,17 @@ class ConfigTab(QWidget):
         self._overwolf_host_edit.setText(str(self._cfg.overwolf.get("host", "127.0.0.1")))
         self._overwolf_port_spin.setValue(int(self._cfg.overwolf.get("port", 7799)))
         self._overwolf_stale_spin.setValue(int(self._cfg.overwolf.get("stale_after_seconds", 5)))
+        self._wk_enabled_check.setChecked(bool(self._cfg.web_knowledge_enabled))
+        self._wk_engine_combo.setCurrentText(self._cfg.web_knowledge_search_engine)
+        self._wk_refresh_spin.setValue(self._cfg.web_knowledge_refresh_interval_seconds)
+        self._wk_timeout_spin.setValue(self._cfg.web_knowledge_timeout_seconds)
+        self._wk_results_spin.setValue(self._cfg.web_knowledge_max_results_per_site)
+        self._wk_pages_spin.setValue(self._cfg.web_knowledge_max_pages)
+        self._wk_always_visible_check.setChecked(bool(self._cfg.web_knowledge_always_visible))
+        self._wk_hotkey_edit.setText(self._cfg.web_knowledge_hotkey)
+        self._wk_width_spin.setValue(self._cfg.web_knowledge_window_width)
+        self._wk_height_spin.setValue(self._cfg.web_knowledge_window_height)
+        self._wk_sites_edit.setPlainText(str(self._cfg.web_knowledge_settings.get("default_sites_text", "")))
         self._qa_enabled_check.setChecked(bool(self._cfg.qa_enabled))
         self._qa_mode_combo.setCurrentText(self._cfg.qa_mode)
         self._qa_source_combo.setCurrentText(str(self._cfg.qa_settings.get("source", "file")))
@@ -425,6 +488,17 @@ class ConfigTab(QWidget):
             "overwolf.host": self._overwolf_host_edit.text().strip() or "127.0.0.1",
             "overwolf.port": self._overwolf_port_spin.value(),
             "overwolf.stale_after_seconds": self._overwolf_stale_spin.value(),
+            "web_knowledge.enabled": self._wk_enabled_check.isChecked(),
+            "web_knowledge.search_engine": self._wk_engine_combo.currentText(),
+            "web_knowledge.refresh_interval_seconds": self._wk_refresh_spin.value(),
+            "web_knowledge.timeout_seconds": self._wk_timeout_spin.value(),
+            "web_knowledge.max_results_per_site": self._wk_results_spin.value(),
+            "web_knowledge.max_pages": self._wk_pages_spin.value(),
+            "web_knowledge.always_visible": self._wk_always_visible_check.isChecked(),
+            "web_knowledge.hotkey": self._wk_hotkey_edit.text().strip() or "alt+`",
+            "web_knowledge.window_width": self._wk_width_spin.value(),
+            "web_knowledge.window_height": self._wk_height_spin.value(),
+            "web_knowledge.default_sites_text": self._wk_sites_edit.toPlainText().strip(),
             "qa.enabled": self._qa_enabled_check.isChecked(),
             "qa.mode": self._qa_mode_combo.currentText(),
             "qa.source": self._qa_source_combo.currentText(),

@@ -1,6 +1,8 @@
 from src.qa_channel import QaQuestion, build_qa_prompt
 from src.qa_web_search import (
+    _direct_content_candidates,
     SearchDocument,
+    _extract_excerpt_from_html,
     merge_search_sites,
     parse_search_sites_text,
     sort_search_documents,
@@ -71,3 +73,57 @@ def test_sort_search_documents_prefers_newer_patch():
     ordered = sort_search_documents(docs)
 
     assert [doc.domain for doc in ordered] == ["u.gg", "op.gg"]
+
+
+def test_extract_excerpt_prefers_meta_description_for_lol_sites():
+    html = """
+    <html>
+      <head>
+        <meta name="description" content="Yasuo build guide for current patch with runes and items.">
+      </head>
+      <body>
+        <h1>Yasuo Build</h1>
+        <p>Some long generic body text.</p>
+      </body>
+    </html>
+    """
+
+    excerpt = _extract_excerpt_from_html(url="https://www.op.gg/champions/yasuo/build", html=html)
+
+    assert "Yasuo build guide for current patch" in excerpt
+    assert "Yasuo Build" in excerpt
+
+
+def test_extract_excerpt_uses_headings_and_body_for_tft_sites():
+    html = """
+    <html>
+      <head>
+        <meta property="og:description" content="Best TFT comps for the current patch.">
+      </head>
+      <body>
+        <h1>TFT Meta Comps</h1>
+        <h2>Fast 8 Flex</h2>
+        <p>Play strongest board early and pivot into capped four-cost carries.</p>
+      </body>
+    </html>
+    """
+
+    excerpt = _extract_excerpt_from_html(url="https://tactics.tools/team-comps", html=html)
+
+    assert "Best TFT comps for the current patch" in excerpt
+    assert "Fast 8 Flex" in excerpt
+    assert "pivot into capped four-cost carries" in excerpt
+
+
+def test_direct_content_candidates_for_lol_sites_prefer_champion_pages():
+    candidates = _direct_content_candidates("op.gg", "League of Legends Jinx build guide combos lane tips current patch")
+
+    assert candidates
+    assert candidates[0]["url"].endswith("/champions/jinx/build")
+
+
+def test_direct_content_candidates_for_tft_sites_prefer_meta_pages():
+    candidates = _direct_content_candidates("tactics.tools", "current TFT meta comps patch set guide")
+
+    assert candidates
+    assert candidates[0]["url"] == "https://tactics.tools/team-comps"

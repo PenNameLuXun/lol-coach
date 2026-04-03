@@ -294,6 +294,62 @@ class Config:
         return [{"domain": site.domain, "priority": site.priority} for site in merged]
 
     @property
+    def web_knowledge_settings(self) -> dict:
+        settings = self._data.get("web_knowledge", {})
+        return settings if isinstance(settings, dict) else {}
+
+    @property
+    def web_knowledge_enabled(self) -> bool:
+        return bool(self.web_knowledge_settings.get("enabled", False))
+
+    @property
+    def web_knowledge_refresh_interval_seconds(self) -> int:
+        return int(self.web_knowledge_settings.get("refresh_interval_seconds", 300) or 300)
+
+    @property
+    def web_knowledge_search_engine(self) -> str:
+        engine = str(self.web_knowledge_settings.get("search_engine", "duckduckgo")).strip().lower()
+        if engine in {"duckduckgo", "google"}:
+            return engine
+        return "duckduckgo"
+
+    @property
+    def web_knowledge_timeout_seconds(self) -> int:
+        return int(self.web_knowledge_settings.get("timeout_seconds", 8) or 8)
+
+    @property
+    def web_knowledge_max_results_per_site(self) -> int:
+        return int(self.web_knowledge_settings.get("max_results_per_site", 1) or 1)
+
+    @property
+    def web_knowledge_max_pages(self) -> int:
+        return int(self.web_knowledge_settings.get("max_pages", 6) or 6)
+
+    @property
+    def web_knowledge_always_visible(self) -> bool:
+        return bool(self.web_knowledge_settings.get("always_visible", False))
+
+    @property
+    def web_knowledge_hotkey(self) -> str:
+        return str(self.web_knowledge_settings.get("hotkey", "alt+`")).strip() or "alt+`"
+
+    @property
+    def web_knowledge_window_width(self) -> int:
+        return int(self.web_knowledge_settings.get("window_width", 560) or 560)
+
+    @property
+    def web_knowledge_window_height(self) -> int:
+        return int(self.web_knowledge_settings.get("window_height", 900) or 900)
+
+    def plugin_web_knowledge_enabled(self, plugin_id: str | None) -> bool:
+        if not plugin_id:
+            return False
+        value = self.plugin_setting(plugin_id, "knowledge_enabled")
+        if value is None:
+            return False
+        return bool(value)
+
+    @property
     def overwolf(self) -> dict:
         return self._data.get("overwolf", {})
 

@@ -71,6 +71,9 @@ class DialogueSource:
             return True
         return self._ensure_microphone_listener(cfg)
 
+    def stop(self) -> None:
+        self._microphone_listener.stop()
+
     def _source_config(self) -> dict:
         if not self._config_path.exists():
             return {}

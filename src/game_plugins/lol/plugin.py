@@ -1,4 +1,5 @@
 from src.game_plugins.base import AiPayload, GameState, RuleResult
+from src.web_knowledge import KnowledgeQuery
 from src.game_plugins.league_shared.live_client import (
     detect_game_type,
     extract_key_metrics,
@@ -9,6 +10,13 @@ from src.game_plugins.lol.prompting import (
     build_bridge_prompt,
     build_decision_prompt,
     render_history_context,
+)
+from src.game_plugins.lol.knowledge import (
+    build_lol_web_knowledge_item,
+    build_lol_web_knowledge_queries,
+    build_lol_web_knowledge_summary,
+    collect_lol_web_knowledge_documents,
+    populate_lol_web_knowledge_window,
 )
 from src.game_plugins.lol.rules import build_lol_rule_hint, evaluate_lol_rules
 from src.game_plugins.lol.source import LolLiveDataSource
@@ -61,6 +69,36 @@ class LolPlugin:
                 "type": "text",
                 "default": "op.gg,100\nu.gg,95\nleagueofgraphs.com,90",
                 "help": "每行一个站点，格式：domain,priority。QA 联网搜索时会按优先级优先搜索这些 LoL 站点。",
+            },
+            {
+                "key": "knowledge_enabled",
+                "label": "Web 资料启用",
+                "type": "bool",
+                "default": True,
+                "help": "启用后，框架会为 LoL 自动搜索英雄玩法资料并显示到独立窗口。",
+            },
+            {
+                "key": "knowledge_max_champions",
+                "label": "资料英雄数量",
+                "type": "int",
+                "default": 5,
+                "min": 1,
+                "max": 10,
+                "help": "控制 Web 资料窗口中最多展示多少个英雄的玩法资料。默认只统计自己和队友。",
+            },
+            {
+                "key": "knowledge_include_enemy_champions",
+                "label": "包含敌方英雄",
+                "type": "bool",
+                "default": False,
+                "help": "关闭时默认只查询自己和队友英雄资料；开启后会把敌方英雄也加入资料列表。",
+            },
+            {
+                "key": "knowledge_search_sites_text",
+                "label": "Web 资料站点",
+                "type": "text",
+                "default": "op.gg,100\nu.gg,95\nleagueofgraphs.com,90",
+                "help": "每行一个站点，格式：domain,priority。用于 LoL Web 资料窗口。",
             },
             {
                 "key": "trigger_force_after_seconds",
@@ -186,11 +224,27 @@ class LolPlugin:
         )
 
 
+
+
+    def build_web_knowledge_queries(self, state: GameState, config) -> list[KnowledgeQuery]:
+        return build_lol_web_knowledge_queries(state, config)
+
+    def build_web_knowledge_summary(self, state: GameState, config) -> str:
+        return build_lol_web_knowledge_summary(state, config)
+
+    def build_web_knowledge_item(self, query: KnowledgeQuery, documents, state: GameState, config):
+        return build_lol_web_knowledge_item(query, documents, state, config)
+
+    def collect_web_knowledge_documents(self, query: KnowledgeQuery, state: GameState, config):
+        return collect_lol_web_knowledge_documents(query, state, config)
+
+    def populate_web_knowledge_window(self, window, bundle, state: GameState, config) -> bool:
+        return populate_lol_web_knowledge_window(window, bundle, state, config)
+
 def _get_my_player(data: dict) -> dict:
     active = data.get("activePlayer", {})
     my_name = active.get("summonerName", "")
     return next((p for p in data.get("allPlayers", []) if p.get("summonerName") == my_name), {})
-
 
 def _team_death_counts(data: dict, my_team: str, my_name: str) -> tuple[int, int]:
     ally_dead = 0
