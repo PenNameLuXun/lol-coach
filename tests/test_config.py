@@ -157,6 +157,7 @@ def test_qa_web_search_settings_and_site_merge(config_file):
     cfg.update_many(
         {
             "web_knowledge.always_visible": True,
+            "web_knowledge.accept_language": "zh-CN,zh;q=0.95,en;q=0.7",
             "qa.web_search_enabled": True,
             "qa.stt_backend": "funasr",
             "qa.funasr_model": "paraformer-zh",
@@ -167,6 +168,7 @@ def test_qa_web_search_settings_and_site_merge(config_file):
             "qa.wakeword_ack_texts_text": "你说\n在",
             "qa.web_search_engine": "duckduckgo",
             "qa.web_search_timeout_seconds": 9,
+            "qa.web_search_accept_language": "zh-CN,zh;q=0.95,en;q=0.7",
             "qa.web_search_max_results_per_site": 2,
             "qa.web_search_max_pages": 4,
             "qa.web_search_sites_text": "mobafire.com,70\nu.gg,80",
@@ -174,6 +176,7 @@ def test_qa_web_search_settings_and_site_merge(config_file):
     )
     cfg2 = Config(config_file)
     assert cfg2.web_knowledge_always_visible is True
+    assert cfg2.web_knowledge_accept_language == "zh-CN,zh;q=0.95,en;q=0.7"
     assert cfg2.qa_web_search_enabled is True
     assert cfg2.qa_stt_backend == "funasr"
     assert cfg2.qa_funasr_model == "paraformer-zh"
@@ -184,6 +187,7 @@ def test_qa_web_search_settings_and_site_merge(config_file):
     assert cfg2.qa_wakeword_ack_texts == ["你说", "在"]
     assert cfg2.qa_web_search_engine == "duckduckgo"
     assert cfg2.qa_web_search_timeout_seconds == 9
+    assert cfg2.qa_web_search_accept_language == "zh-CN,zh;q=0.95,en;q=0.7"
     assert cfg2.qa_web_search_max_results_per_site == 2
     assert cfg2.qa_web_search_max_pages == 4
     assert cfg2.qa_web_search_sites("lol") == [

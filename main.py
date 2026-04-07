@@ -126,6 +126,40 @@ _DEBUG_FAKE_LOL_DATA = {
     },
 }
 
+_DEBUG_FAKE_TFT_DATA = {
+    "_game_type": "tft",
+    "_source": "overwolf",
+    "_overwolf": {
+        "me": {"name": "DebugTFTPlayer"},
+        "hp": 72,
+        "gold": 34,
+        "level": 7,
+        "alive_players": 5,
+        "round": "4-2",
+        "mode": "TFT",
+        "game_time": "18:20",
+        "game_time_seconds": 1100,
+        "shop": [
+            {"name": "安妮", "cost": 2},
+            {"name": "阿木木", "cost": 1},
+            {"name": "厄斐琉斯", "cost": 4},
+        ],
+        "board": [
+            {"name": "安妮", "stars": 2},
+            {"name": "璐璐", "stars": 2},
+            {"name": "厄斐琉斯", "stars": 1},
+        ],
+        "bench": [
+            {"name": "阿木木", "stars": 2},
+            {"name": "莫甘娜", "stars": 1},
+        ],
+        "traits": [
+            {"name": "法师", "tier_current": 3},
+            {"name": "哨兵", "tier_current": 2},
+        ],
+    },
+}
+
 
 # ── Qt Signal bridge from worker threads to UI ────────────────────────────────
 
@@ -276,6 +310,15 @@ def _build_debug_fake_lol_context(rule_engine):
     return ActiveGameContext(plugin=plugin, state=state)
 
 
+def _build_debug_fake_tft_context(rule_engine):
+    plugin = rule_engine.registry.get("tft")
+    if plugin is None:
+        return None
+    raw_data = copy.deepcopy(_DEBUG_FAKE_TFT_DATA)
+    state = plugin.extract_state(raw_data, {})
+    return ActiveGameContext(plugin=plugin, state=state)
+
+
 # ── Worker threads ─────────────────────────────────────────────────────────────
 
 def ai_worker(
@@ -291,6 +334,7 @@ def ai_worker(
     debug: bool = False,
     debug_timing: bool = False,
     debug_fake_lol_info: bool = False,
+    debug_fake_tft_info: bool = False,
 ):
     rule_engine = RuleEngine(enabled_plugin_ids=config.enabled_plugins, config=config)
     latest_image: bytes | None = None
@@ -330,10 +374,15 @@ def ai_worker(
             tray.set_state(TrayIcon.STATE_BUSY)
             previous_plugin_id = rule_engine.bound_plugin_id
             active_context = rule_engine.discover_active_context()
-            if active_context is None and debug_fake_lol_info:
-                active_context = _build_debug_fake_lol_context(rule_engine)
-                if active_context is not None:
-                    print("[debug] using fake LoL live data context")
+            if active_context is None:
+                if debug_fake_lol_info:
+                    active_context = _build_debug_fake_lol_context(rule_engine)
+                    if active_context is not None:
+                        print("[debug] using fake LoL live data context")
+                elif debug_fake_tft_info:
+                    active_context = _build_debug_fake_tft_context(rule_engine)
+                    if active_context is not None:
+                        print("[debug] using fake TFT live data context")
             active_plugin_id = active_context.plugin.id if active_context else None
             if active_context and active_plugin_id != previous_plugin_id:
                 print(
@@ -871,6 +920,7 @@ def main():
     parser.add_argument("--debug-timing", action="store_true", help="print bridge/provider timing for each analyzed cycle")
     parser.add_argument("--debug-stt", action="store_true", help="print microphone/STT diagnostic logs")
     parser.add_argument("--debug-fake-lol-info", action="store_true", help="pretend a fake LoL match is active for UI/web-knowledge testing")
+    parser.add_argument("--debug-fake-tft-info", action="store_true", help="pretend a fake TFT match is active for UI/web-knowledge testing")
     args = parser.parse_args()
     os.environ["LOL_COACH_DEBUG_STT"] = "1" if args.debug_stt else "0"
 
@@ -1003,6 +1053,7 @@ def main():
                 "debug": args.debug,
                 "debug_timing": args.debug_timing,
                 "debug_fake_lol_info": args.debug_fake_lol_info,
+                "debug_fake_tft_info": args.debug_fake_tft_info,
             },
             daemon=True,
         )

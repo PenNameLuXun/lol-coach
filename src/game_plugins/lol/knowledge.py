@@ -21,6 +21,86 @@ from src.qa_web_search import (
 from src.web_knowledge import KnowledgeItem, KnowledgeQuery
 
 
+_SUMMONER_SPELL_TRANSLATIONS = {
+    "Flash": "闪现",
+    "Heal": "治疗",
+    "Barrier": "屏障",
+    "Ghost": "疾跑",
+    "Ignite": "点燃",
+    "Teleport": "传送",
+    "Exhaust": "虚弱",
+    "Cleanse": "净化",
+    "Smite": "惩戒",
+}
+
+_RUNE_STYLE_TRANSLATIONS = {
+    "Precision": "精密",
+    "Domination": "主宰",
+    "Sorcery": "巫术",
+    "Resolve": "坚决",
+    "Inspiration": "启迪",
+}
+
+_RUNE_PERK_TRANSLATIONS = {
+    "Lethal Tempo": "致命节奏",
+    "Fleet Footwork": "迅捷步法",
+    "Conqueror": "征服者",
+    "Press the Attack": "强攻",
+    "Electrocute": "电刑",
+    "Hail of Blades": "丛刃",
+    "Arcane Comet": "奥术彗星",
+    "Phase Rush": "相位猛冲",
+    "Grasp of the Undying": "不灭之握",
+    "Aftershock": "余震",
+    "First Strike": "先攻",
+    "Triple Tonic": "三重药剂",
+    "Cash Back": "回本",
+    "Presence of Mind": "气定神闲",
+    "Cut Down": "砍倒",
+    "Legend: Bloodline": "传说：血统",
+}
+
+_LOL_ROLE_TRANSLATIONS = {
+    "Top": "上单",
+    "Jungle": "打野",
+    "Mid": "中单",
+    "ADC": "下路",
+    "Support": "辅助",
+}
+
+_WZSTATS_PHRASE_TRANSLATIONS = {
+    "Steady": "平稳成型",
+    "Early": "前期强势",
+    "Mid Game": "中期发力",
+    "Late Game": "后期大核",
+    "High Elo": "高分段更强",
+    "All Elo": "全分段通用",
+    "Low Elo": "低分段更容易发挥",
+    "Moderate": "中等难度",
+    "Hard": "上手较难",
+    "Easy": "容易上手",
+    "Consistent win rate across all game lengths": "各个时长段表现都比较稳定",
+    "Thrives in Diamond+": "在钻石以上分段更容易发挥",
+    "Rewards mechanical skill and game knowledge": "更吃熟练度和操作理解",
+    "Performs equally well across all ranks": "不同分段都能稳定发挥",
+    "Rewards some practice": "需要一定练习后效果更好",
+    "noticeable improvement after a few games": "熟练几局后胜率提升明显",
+    "Punish": "抓他失误",
+    "Avoid": "需要避免",
+    "Respect": "重点提防",
+    "Attack after": "在……之后反打",
+    "and force short trades": "并尽量打短换血",
+    "around his cooldowns": "围绕他的技能冷却做消耗",
+    "long extended fights": "长时间拉扯战",
+    "once": "一旦",
+    "has his first crit item": "做出第一件暴击装",
+    "level 6 all-in": "六级一套爆发",
+    "when the wave is on his side": "当兵线在他那边时",
+    "Wind Wall": "风墙",
+    "crit item": "暴击装",
+}
+
+
 def build_lol_web_knowledge_queries(state, config) -> list[KnowledgeQuery]:
     include_enemy = bool(config.plugin_setting("lol", "knowledge_include_enemy_champions", False))
     champions = _knowledge_champions(state.raw_data, include_enemy=include_enemy)
@@ -72,7 +152,12 @@ def collect_lol_web_knowledge_documents(query: KnowledgeQuery, state, config) ->
 
     for site in sites:
         site_started_at = time.perf_counter()
-        doc = _collect_from_known_site(champion, site, timeout_seconds)
+        doc = _collect_from_known_site(
+            champion,
+            site,
+            timeout_seconds,
+            accept_language=config.web_knowledge_accept_language,
+        )
         if debug_timing:
             elapsed_ms = (time.perf_counter() - site_started_at) * 1000
             print(
@@ -100,6 +185,7 @@ def collect_lol_web_knowledge_documents(query: KnowledgeQuery, state, config) ->
             max_results_per_site=1,
             max_pages=1,
             stop_after_first_site_success=True,
+            accept_language=config.web_knowledge_accept_language,
         )
         if debug_timing:
             elapsed_ms = (time.perf_counter() - site_started_at) * 1000
@@ -155,7 +241,13 @@ def populate_lol_web_knowledge_window(window, bundle, state, config) -> bool:
     return True
 
 
-def _collect_from_known_site(champion: str, site: SearchSite, timeout_seconds: int) -> SearchDocument | None:
+def _collect_from_known_site(
+    champion: str,
+    site: SearchSite,
+    timeout_seconds: int,
+    *,
+    accept_language: str,
+) -> SearchDocument | None:
     domain = site.domain.lower().removeprefix("www.")
     slug = _slugify_name(champion)
     candidates: list[str] = []
@@ -167,11 +259,20 @@ def _collect_from_known_site(champion: str, site: SearchSite, timeout_seconds: i
         candidates = [f"https://www.leagueofgraphs.com/champions/builds/{slug}"]
     elif domain == "mobalytics.gg":
         candidates = [f"https://mobalytics.gg/lol/champions/{slug}/build"]
+    elif domain == "origin-lol.wzstats.gg":
+        candidates = [
+            f"https://origin-lol.wzstats.gg/en/champions/{slug}/performance",
+            f"https://origin-lol.wzstats.gg/en/champions/{slug}/against",
+        ]
     else:
         return None
 
     for url in candidates:
-        html = fetch_page_html(url=url, timeout_seconds=timeout_seconds)
+        html = fetch_page_html(
+            url=url,
+            timeout_seconds=timeout_seconds,
+            accept_language=accept_language,
+        )
         if not html:
             continue
         title, snippet, excerpt, metadata = _parse_lol_site_html(domain, champion, html)
@@ -224,6 +325,10 @@ def _parse_lol_site_html(domain: str, champion: str, html: str) -> tuple[str, st
         structured = _parse_ugg_structured(champion, html)
         if structured is not None:
             return structured
+    if domain == "origin-lol.wzstats.gg":
+        structured = _parse_wzstats_structured(champion, html)
+        if structured is not None:
+            return structured
 
     clean_html = sanitize_content_html(html)
     title = _extract_title(html) or f"{champion} Build"
@@ -239,6 +344,12 @@ def _parse_lol_site_html(domain: str, champion: str, html: str) -> tuple[str, st
         excerpt = _join_excerpt_parts(meta, _pick_heading_block(headings, ("Build", "Skill", "Counters", "Spells")), visible[:500])
     elif domain == "mobalytics.gg":
         excerpt = _join_excerpt_parts(meta, _pick_heading_block(headings, ("Build", "Runes", "Combos", "Tips")))
+    elif domain == "origin-lol.wzstats.gg":
+        excerpt = _join_excerpt_parts(
+            meta,
+            _pick_heading_block(headings, ("出装", "符文", "Counter", "Build", "Tier", "技能")),
+            visible[:600],
+        )
     else:
         excerpt = _join_excerpt_parts(meta, " / ".join(headings[:4]), visible[:500])
     metadata = {
@@ -247,6 +358,79 @@ def _parse_lol_site_html(domain: str, champion: str, html: str) -> tuple[str, st
         "quality": 30 if excerpt else 10,
     }
     return title, meta, excerpt, metadata
+
+
+def _parse_wzstats_structured(champion: str, html: str) -> tuple[str, str, str, dict[str, object]] | None:
+    clean_html = sanitize_content_html(html)
+    title = _extract_title(html) or f"{champion} Performance"
+    visible = _compact_text(extract_visible_text_excerpt(clean_html))
+    if "How to Counter" in visible or "Against" in title or "Counter" in title or "Playing Against" in visible:
+        title = f"{champion} Against Guide"
+    elif "Performance" not in title:
+        title = f"{champion} Performance"
+    meta = extract_meta_description(html) or extract_meta_description(clean_html)
+    if not visible:
+        return None
+
+    sections: list[tuple[str, str]] = []
+
+    overall = _match_text(visible, rf"{re.escape(champion)} Overall Performance in ([A-Za-z]+)")
+    if overall:
+        sections.append(("推荐位置", _translate_lol_term(overall)))
+
+    power_spike = _match_block(visible, "Power Spike", ("Elo", "Skill Curve", "Win Rate by Game Length"))
+    if power_spike:
+        sections.append(("强势期", _translate_wzstats_phrase(power_spike)))
+
+    elo_fit = _match_block(visible, "Elo", ("Skill Curve", "Win Rate by Game Length", "Role Performance"))
+    if elo_fit:
+        sections.append(("适合分段", _translate_wzstats_phrase(elo_fit)))
+
+    skill_curve = _match_block(
+        visible,
+        "Skill Curve",
+        ("Win Rate by Game Length", "Role Performance", "Performance"),
+        from_end=True,
+    )
+    if skill_curve:
+        sections.append(("上手难度", _translate_wzstats_phrase(skill_curve)))
+
+    performance = _collect_named_metrics(visible, ("Win Rate", "Carry Score"))
+    combat = _collect_named_metrics(visible, ("KDA", "Kills/game", "Deaths/game", "Assists/game", "Damage/game"))
+    economy = _collect_named_metrics(visible, ("CS/min", "Gold/min", "Vision Score"))
+    if performance:
+        sections.append(("核心数据", performance))
+    if combat:
+        sections.append(("战斗表现", combat))
+    if economy:
+        sections.append(("经济与视野", economy))
+
+    if "Against" in title or "Counter" in title or "Playing Against" in title:
+        punish = _match_block(visible, "Punish", ("Avoid", "Respect", "Summary", "Tips"))
+        avoid = _match_block(visible, "Avoid", ("Respect", "Summary", "Tips"))
+        respect = _match_block(visible, "Respect", ("Summary", "Tips"))
+        if punish:
+            sections.append(("对线提醒", _translate_wzstats_phrase(punish)))
+        if avoid:
+            sections.append(("需要避免", _translate_wzstats_phrase(avoid)))
+        if respect:
+            sections.append(("关键时机", _translate_wzstats_phrase(respect)))
+
+    if not sections:
+        return None
+
+    patch = infer_patch_version(title, meta, visible)
+    snippet = meta or "；".join(body for _, body in sections[:2])
+    excerpt = " | ".join(f"{name}: {body}" for name, body in sections)
+    metadata = {
+        "sections": sections,
+        "fallback_text": snippet or title,
+        "quality": 90,
+        "source": "wzstats",
+        "patch_version": patch,
+        "champion": champion,
+    }
+    return title, snippet, excerpt, metadata
 
 
 def _parse_ugg_structured(champion: str, html: str) -> tuple[str, str, str, dict[str, object]] | None:
@@ -412,14 +596,15 @@ def _knowledge_sites(config) -> list[SearchSite]:
     text = ""
     if config is not None:
         text = str(config.plugin_setting("lol", "knowledge_search_sites_text", ""))
-    allowed = {"u.gg", "op.gg", "leagueofgraphs.com", "mobalytics.gg"}
+    allowed = {"u.gg", "op.gg", "leagueofgraphs.com", "mobalytics.gg", "origin-lol.wzstats.gg"}
     sites = parse_search_sites_text(text)
     filtered = [site for site in sites if site.domain.lower().removeprefix("www.") in allowed]
     domain_rank = {
-        "u.gg": 0,
-        "leagueofgraphs.com": 1,
-        "op.gg": 2,
-        "mobalytics.gg": 3,
+        "origin-lol.wzstats.gg": 0,
+        "u.gg": 1,
+        "leagueofgraphs.com": 2,
+        "op.gg": 3,
+        "mobalytics.gg": 4,
     }
     filtered.sort(
         key=lambda site: (
@@ -428,6 +613,7 @@ def _knowledge_sites(config) -> list[SearchSite]:
         )
     )
     return filtered or [
+        SearchSite(domain="origin-lol.wzstats.gg", priority=110),
         SearchSite(domain="u.gg", priority=100),
         SearchSite(domain="leagueofgraphs.com", priority=80),
         SearchSite(domain="op.gg", priority=70),
@@ -672,7 +858,7 @@ def _map_ids_to_names(ids: object, mapping: object) -> list[str]:
         if isinstance(item, dict):
             name = str(item.get("name") or item.get("title") or "").strip()
             if name:
-                names.append(name)
+                names.append(_translate_lol_term(name))
     return names
 
 
@@ -698,7 +884,7 @@ def _rune_style_names(runes_tree: list[object]) -> dict[str, str]:
             style_id = tree.get("id")
             name = str(tree.get("name") or "").strip()
             if style_id is not None and name:
-                names[str(style_id)] = name
+                names[str(style_id)] = _translate_lol_term(name)
     return names
 
 
@@ -716,7 +902,7 @@ def _rune_perk_names(runes_tree: list[object]) -> dict[str, str]:
                 perk_id = perk.get("id")
                 name = str(perk.get("name") or "").strip()
                 if perk_id is not None and name:
-                    names[str(perk_id)] = name
+                    names[str(perk_id)] = _translate_lol_term(name)
     return names
 
 
@@ -925,3 +1111,123 @@ def _build_lol_hero_summary(sections: list[tuple[str, str]]) -> str:
     if section_map.get("对线提醒"):
         pieces.append(f"<b>对线：</b>{_escape_html(section_map['对线提醒'])}")
     return "<br>".join(pieces[:3])
+
+
+def _translate_lol_term(text: str) -> str:
+    value = str(text or "").strip()
+    if not value:
+        return ""
+    if value in _SUMMONER_SPELL_TRANSLATIONS:
+        return _SUMMONER_SPELL_TRANSLATIONS[value]
+    if value in _LOL_ROLE_TRANSLATIONS:
+        return _LOL_ROLE_TRANSLATIONS[value]
+    if value in _RUNE_STYLE_TRANSLATIONS:
+        return _RUNE_STYLE_TRANSLATIONS[value]
+    if value in _RUNE_PERK_TRANSLATIONS:
+        return _RUNE_PERK_TRANSLATIONS[value]
+    return value
+
+
+def _translate_wzstats_phrase(text: str) -> str:
+    value = _compact_text(text)
+    if not value:
+        return ""
+    translated = value
+    translated = re.sub(
+        r"Attack after (.+?) is down and force short trades around his cooldowns\.?",
+        r"\1进入冷却后立刻反打，并围绕他的技能冷却打短换血。",
+        translated,
+        flags=re.IGNORECASE,
+    )
+    translated = re.sub(
+        r"Avoid long extended fights once (.+?) has his first crit item\.?",
+        r"一旦\1做出第一件暴击装，避免和他打长时间拉扯战。",
+        translated,
+        flags=re.IGNORECASE,
+    )
+    translated = re.sub(
+        r"Respect his level 6 all-in when the wave is on his side\.?",
+        "兵线在他那边时，要重点提防他的六级一套爆发。",
+        translated,
+        flags=re.IGNORECASE,
+    )
+    translated = re.sub(
+        r"Thrives in Diamond\+\s*[—-]\s*rewards mechanical skill and game knowledge",
+        "在钻石以上分段更容易发挥，也更吃熟练度和操作理解。",
+        translated,
+        flags=re.IGNORECASE,
+    )
+    translated = re.sub(
+        r"Rewards some practice\s*[—-]\s*noticeable improvement after a few games",
+        "需要一定练习后效果更好，熟练几局后胜率提升明显。",
+        translated,
+        flags=re.IGNORECASE,
+    )
+    translated = re.sub(
+        r"Thrives in Diamond\+\s+and rewards mechanical skill and game knowledge\.?",
+        "在钻石以上分段更容易发挥，也更吃熟练度和操作理解。",
+        translated,
+        flags=re.IGNORECASE,
+    )
+    for english, chinese in _WZSTATS_PHRASE_TRANSLATIONS.items():
+        translated = translated.replace(english, chinese)
+    translated = translated.replace("  ", " ")
+    return translated
+
+
+def _compact_text(text: str) -> str:
+    cleaned = str(text or "")
+    cleaned = re.sub(r"<[^>]+>", " ", cleaned)
+    cleaned = re.sub(r"\s+", " ", cleaned)
+    return cleaned.strip()
+
+
+def _match_text(text: str, pattern: str) -> str:
+    match = re.search(pattern, text, re.IGNORECASE)
+    if not match:
+        return ""
+    return _compact_text(match.group(1))
+
+
+def _match_block(text: str, start_label: str, end_labels: tuple[str, ...], *, from_end: bool = False) -> str:
+    start = text.rfind(start_label) if from_end else text.find(start_label)
+    if start < 0:
+        return ""
+    content = text[start + len(start_label):]
+    end_positions = [content.find(label) for label in end_labels if content.find(label) >= 0]
+    if end_positions:
+        content = content[: min(end_positions)]
+    return _compact_text(content)[:220]
+
+
+def _collect_named_metrics(text: str, metric_names: tuple[str, ...]) -> str:
+    pairs: list[str] = []
+    for metric in metric_names:
+        value = _match_metric_value(text, metric)
+        if value:
+            pairs.append(f"{_translate_metric_name(metric)} {value}")
+    return " · ".join(pairs)
+
+
+def _match_metric_value(text: str, metric_name: str) -> str:
+    pattern = rf"{re.escape(metric_name)}\s+([0-9.,%]+)"
+    match = re.search(pattern, text, re.IGNORECASE)
+    if not match:
+        return ""
+    return _compact_text(match.group(1))
+
+
+def _translate_metric_name(name: str) -> str:
+    mapping = {
+        "Win Rate": "胜率",
+        "Carry Score": "C位评分",
+        "KDA": "KDA",
+        "Kills/game": "场均击杀",
+        "Deaths/game": "场均死亡",
+        "Assists/game": "场均助攻",
+        "Damage/game": "场均伤害",
+        "CS/min": "每分钟补刀",
+        "Gold/min": "每分钟经济",
+        "Vision Score": "视野得分",
+    }
+    return mapping.get(name, name)

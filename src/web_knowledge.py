@@ -87,6 +87,7 @@ class WebKnowledgeManager:
                     max_results_per_site=config.web_knowledge_max_results_per_site,
                     max_pages=config.web_knowledge_max_pages,
                     stop_after_first_site_success=True,
+                    accept_language=config.web_knowledge_accept_language,
                 )
             query_elapsed_ms = (time.perf_counter() - query_started_at) * 1000
             return query, documents, query_elapsed_ms

@@ -98,6 +98,7 @@ def test_lol_knowledge_sites_prefer_ugg_even_if_config_lists_opgg_first(tmp_path
         '  lol:\n'
         '    knowledge_search_sites_text: |\n'
         '      op.gg,100\n'
+        '      origin-lol.wzstats.gg,105\n'
         '      u.gg,95\n'
         '      leagueofgraphs.com,90\n',
         encoding='utf-8',
@@ -105,7 +106,7 @@ def test_lol_knowledge_sites_prefer_ugg_even_if_config_lists_opgg_first(tmp_path
     cfg = Config(str(cfg_path))
     sites = _knowledge_sites(cfg)
 
-    assert [site.domain for site in sites[:3]] == ["u.gg", "leagueofgraphs.com", "op.gg"]
+    assert [site.domain for site in sites[:4]] == ["origin-lol.wzstats.gg", "u.gg", "leagueofgraphs.com", "op.gg"]
 
 
 def test_tft_plugin_builds_web_knowledge_queries(tmp_path):
@@ -122,6 +123,25 @@ def test_tft_plugin_builds_web_knowledge_queries(tmp_path):
     queries = plugin.build_web_knowledge_queries(state, cfg)
     assert len(queries) == 1
     assert 'meta comps' in queries[0].query
+
+
+def test_tft_knowledge_sites_prefer_mobalytics_even_if_config_lists_tactics_first(tmp_path):
+    from src.game_plugins.tft.knowledge import _knowledge_sites
+
+    cfg_path = tmp_path / 'config.yaml'
+    cfg_path.write_text(
+        'plugin_settings:\n'
+        '  tft:\n'
+        '    knowledge_search_sites_text: |\n'
+        '      tactics.tools,100\n'
+        '      lolchess.gg,95\n'
+        '      mobalytics.gg,90\n',
+        encoding='utf-8',
+    )
+    cfg = Config(str(cfg_path))
+    sites = _knowledge_sites(cfg)
+
+    assert [site.domain for site in sites[:3]] == ["mobalytics.gg", "tactics.tools", "lolchess.gg"]
 
 
 def test_web_knowledge_manager_collects_without_signature_method_regression(tmp_path, monkeypatch):
@@ -302,6 +322,47 @@ def test_render_knowledge_item_builds_tft_sections():
     assert "站位要点" in rendered
 
 
+def test_tft_collect_parser_extracts_mobalytics_comps():
+    from src.game_plugins.tft.knowledge import _parse_tft_site_html
+
+    html = """
+    <html>
+      <head>
+        <title>TFT Meta Comps in Set 16</title>
+        <meta name="description" content="Find out the strongest and most reliable meta Teamfight Tactics comps and builds.">
+      </head>
+      <body>
+        <h1>TFT Meta Comps in Set 16</h1>
+        <div>Create comp</div>
+        <div>Bruiser Bear</div>
+        <div>16.8</div>
+        <div>Fast 8</div>
+        <div>Medium</div>
+        <div>Ryze Volibear Lissandra Wukong Taric Kennen Kobuko & Yuumi Sejuani Shen</div>
+        <div>Copy team code</div>
+        <div>Total Targon</div>
+        <div>16.8</div>
+        <div>Fast 8</div>
+        <div>Medium</div>
+        <div>Aurelion Sol Taric Seraphine Sylas Azir Shyvana Xerath Swain Vi</div>
+        <div>Copy team code</div>
+      </body>
+    </html>
+    """
+
+    title, snippet, excerpt, sections, patch_version = _parse_tft_site_html("mobalytics.gg", "TFT Team Comps", html)
+
+    assert title in {"TFT Meta Comps in Set 16", "TFT Team Comps"}
+    assert "strongest and most reliable" in snippet
+    assert patch_version == "16.8"
+    rendered_sections = dict(sections)
+    assert "Bruiser Bear" in rendered_sections["主流阵容概览"]
+    assert "速8" in rendered_sections["推荐阵容 1"]
+    assert "中等" in rendered_sections["推荐阵容 1"]
+    assert "Ryze" in rendered_sections["推荐阵容 1"]
+    assert "Total Targon" in rendered_sections["推荐阵容 2"]
+
+
 def test_render_knowledge_item_skips_sections_for_noisy_text():
     plugin = LolPlugin()
     state = plugin.extract_state(LOL_DATA, {})
@@ -462,9 +523,100 @@ def test_lol_collect_parser_extracts_structured_ugg_sections():
     assert "Doran's Blade" in sections["出门装"]
     assert "Yun Tal Wildarrows" in sections["核心三件"]
     assert "Infinity Edge" in sections["可选装备"]
-    assert "Precision" in sections["符文"]
-    assert "Flash + Heal" == sections["召唤师技能"]
+    assert "精密" in sections["符文"]
+    assert "启迪" in sections["符文"]
+    assert "闪现 + 治疗" == sections["召唤师技能"]
     assert "Q > W > E" == sections["技能加点"]
     assert "Tristana" in sections["对线提醒"]
     assert "Jhin" in sections["优势对线"]
     assert "胜率 51.7%" in sections["数据概览"]
+
+
+def test_lol_collect_parser_extracts_wzstats_sections():
+    from src.game_plugins.lol.knowledge import _parse_lol_site_html
+
+    html = """
+    <html>
+      <head>
+        <title>Yasuo Performance - Win Rate, Stats & Skill Curve | Patch 26.5 | LoLStats</title>
+        <meta name="description" content="Yasuo has a consistent win rate across all game lengths. Thrives in Diamond+ and rewards mechanical skill and game knowledge.">
+      </head>
+      <body>
+        <h1>Yasuo Overall Performance in Mid</h1>
+        <div>Power Spike</div>
+        <div>Steady</div>
+        <div>Consistent win rate across all game lengths</div>
+        <div>Elo</div>
+        <div>High Elo</div>
+        <div>Thrives in Diamond+ — rewards mechanical skill and game knowledge</div>
+        <div>Skill Curve</div>
+        <div>Moderate</div>
+        <div>Rewards some practice — noticeable improvement after a few games</div>
+        <div>Performance</div>
+        <div>Win Rate</div>
+        <div>50.1%</div>
+        <div>Carry Score</div>
+        <div>4.14</div>
+        <div>Combat</div>
+        <div>KDA</div>
+        <div>1.65</div>
+        <div>Kills/game</div>
+        <div>6.6</div>
+        <div>Deaths/game</div>
+        <div>7.5</div>
+        <div>Assists/game</div>
+        <div>5.7</div>
+        <div>Economy & Vision</div>
+        <div>CS/min</div>
+        <div>7.6</div>
+        <div>Gold/min</div>
+        <div>430</div>
+        <div>Vision Score</div>
+        <div>20.6</div>
+      </body>
+    </html>
+    """
+
+    title, snippet, excerpt, metadata = _parse_lol_site_html("origin-lol.wzstats.gg", "Yasuo", html)
+
+    assert "Yasuo Performance" in title
+    assert metadata["source"] == "wzstats"
+    sections = dict(metadata["sections"])
+    assert sections["推荐位置"] == "中单"
+    assert "平稳成型" in sections["强势期"]
+    assert "高分段更强" in sections["适合分段"]
+    assert "操作理解" in sections["适合分段"]
+    assert "熟练几局后胜率提升明显" in sections["上手难度"]
+    assert "胜率 50.1%" in sections["核心数据"]
+    assert "每分钟补刀 7.6" in sections["经济与视野"]
+
+
+def test_lol_collect_parser_extracts_wzstats_against_sections():
+    from src.game_plugins.lol.knowledge import _parse_lol_site_html
+
+    html = """
+    <html>
+      <head>
+        <title>Yasuo Against Guide | LoLStats</title>
+        <meta name="description" content="Punish Yasuo when Wind Wall is down and avoid long trades after his item spike.">
+      </head>
+      <body>
+        <h1>How to Counter Yasuo</h1>
+        <div>Punish</div>
+        <div>Attack after Wind Wall is down and force short trades around his cooldowns.</div>
+        <div>Avoid</div>
+        <div>Avoid long extended fights once Yasuo has his first crit item.</div>
+        <div>Respect</div>
+        <div>Respect his level 6 all-in when the wave is on his side.</div>
+      </body>
+    </html>
+    """
+
+    title, snippet, excerpt, metadata = _parse_lol_site_html("origin-lol.wzstats.gg", "Yasuo", html)
+
+    assert "Yasuo" in title
+    assert metadata["source"] == "wzstats"
+    sections = dict(metadata["sections"])
+    assert "风墙进入冷却后立刻反打" in sections["对线提醒"]
+    assert "暴击装" in sections["需要避免"]
+    assert "六级一套爆发" in sections["关键时机"]

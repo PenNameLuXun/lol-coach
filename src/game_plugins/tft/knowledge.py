@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import time
 
 from PyQt6.QtWidgets import QTextBrowser, QVBoxLayout, QWidget
 
@@ -17,6 +18,21 @@ from src.qa_web_search import (
     search_web_for_qa,
 )
 from src.web_knowledge import KnowledgeItem, KnowledgeQuery
+
+
+_TFT_TEMPO_TRANSLATIONS = {
+    "Fast 8": "速8",
+    "Fast 9": "速9",
+    "Fast 10": "速10",
+    "Slow Roll": "慢D",
+    "Reroll": "赌狗追三",
+}
+
+_TFT_DIFFICULTY_TRANSLATIONS = {
+    "Easy": "简单",
+    "Medium": "中等",
+    "Hard": "困难",
+}
 
 
 def build_tft_web_knowledge_queries(state, config) -> list[KnowledgeQuery]:
@@ -52,12 +68,25 @@ def build_tft_web_knowledge_item(query: KnowledgeQuery, documents: list[SearchDo
 def collect_tft_web_knowledge_documents(query: KnowledgeQuery, state, config) -> list[SearchDocument]:
     timeout_seconds = int(getattr(config, "web_knowledge_timeout_seconds", 8))
     engine = str(getattr(config, "web_knowledge_search_engine", "google"))
+    debug_timing = bool(getattr(config, "_debug_timing", False))
     sites = _knowledge_sites(config)
 
     for site in sites:
-        doc = _collect_from_known_site(site, timeout_seconds)
+        started_at = time.perf_counter()
+        doc = _collect_from_known_site(
+            site,
+            timeout_seconds,
+            accept_language=config.web_knowledge_accept_language,
+        )
+        elapsed_ms = (time.perf_counter() - started_at) * 1000
+        if debug_timing:
+            print(
+                f"[WebKnowledge site] plugin=tft site={site.domain} mode=direct "
+                f"ok={doc is not None} elapsed_ms={elapsed_ms:.0f}"
+            )
         if doc is not None:
             return [doc]
+        search_started_at = time.perf_counter()
         fallback = search_web_for_qa(
             question=query.query,
             engine=engine,
@@ -66,7 +95,14 @@ def collect_tft_web_knowledge_documents(query: KnowledgeQuery, state, config) ->
             max_results_per_site=1,
             max_pages=1,
             stop_after_first_site_success=True,
+            accept_language=config.web_knowledge_accept_language,
         )
+        search_elapsed_ms = (time.perf_counter() - search_started_at) * 1000
+        if debug_timing:
+            print(
+                f"[WebKnowledge site] plugin=tft site={site.domain} mode=search "
+                f"docs={len(fallback)} elapsed_ms={search_elapsed_ms:.0f}"
+            )
         if fallback:
             return fallback[:1]
     return []
@@ -91,7 +127,12 @@ def populate_tft_web_knowledge_window(window, bundle, state, config) -> bool:
     return True
 
 
-def _collect_from_known_site(site: SearchSite, timeout_seconds: int) -> SearchDocument | None:
+def _collect_from_known_site(
+    site: SearchSite,
+    timeout_seconds: int,
+    *,
+    accept_language: str,
+) -> SearchDocument | None:
     domain = site.domain.lower().removeprefix("www.")
     if domain == "tactics.tools":
         candidates = [("TFT Meta Comps", "https://tactics.tools/team-comps")]
@@ -99,14 +140,20 @@ def _collect_from_known_site(site: SearchSite, timeout_seconds: int) -> SearchDo
         candidates = [("TFT Meta", "https://lolchess.gg/meta")]
     elif domain == "mobalytics.gg":
         candidates = [("TFT Team Comps", "https://mobalytics.gg/tft/team-comps")]
+    elif domain == "tft.vinky.cn":
+        candidates = [("TFT 阵容", "https://tft.vinky.cn/")]
     else:
         return None
 
     for title_hint, url in candidates:
-        html = fetch_page_html(url=url, timeout_seconds=timeout_seconds)
+        html = fetch_page_html(
+            url=url,
+            timeout_seconds=timeout_seconds,
+            accept_language=accept_language,
+        )
         if not html:
             continue
-        title, snippet, excerpt = _parse_tft_site_html(domain, title_hint, html)
+        title, snippet, excerpt, sections, patch_version = _parse_tft_site_html(domain, title_hint, html)
         if not excerpt and not snippet:
             continue
         return SearchDocument(
@@ -116,7 +163,11 @@ def _collect_from_known_site(site: SearchSite, timeout_seconds: int) -> SearchDo
             url=url,
             snippet=snippet,
             excerpt=excerpt or snippet,
-            patch_version=infer_patch_version(title, snippet, excerpt, url),
+            patch_version=patch_version or infer_patch_version(title, snippet, excerpt, url),
+            metadata={
+                "sections": sections,
+                "fallback_text": snippet or title or title_hint,
+            },
         )
     return None
 
@@ -125,6 +176,12 @@ def _build_tft_sections(documents: list[SearchDocument]) -> tuple[list[tuple[str
     if not documents:
         return [], ""
     doc = documents[0]
+    metadata = doc.metadata or {}
+    structured_sections = metadata.get("sections")
+    if isinstance(structured_sections, list) and structured_sections:
+        fallback = str(metadata.get("fallback_text") or doc.snippet or doc.title).strip()
+        return [(str(title), str(body)) for title, body in structured_sections if str(body).strip()], fallback
+
     cleaned = _clean_source_text(doc.excerpt or doc.snippet)
     if not _looks_readable_text(cleaned):
         fallback = _clean_source_text(doc.snippet or doc.title)
@@ -144,11 +201,15 @@ def _build_tft_sections(documents: list[SearchDocument]) -> tuple[list[tuple[str
     return sections[:3], fallback
 
 
-def _parse_tft_site_html(domain: str, title_hint: str, html: str) -> tuple[str, str, str]:
+def _parse_tft_site_html(
+    domain: str,
+    title_hint: str,
+    html: str,
+) -> tuple[str, str, str, list[tuple[str, str]], str]:
     clean_html = sanitize_content_html(html)
     title = _extract_title(html) or title_hint
     meta = extract_meta_description(html) or extract_meta_description(clean_html)
-    headings = extract_heading_texts(clean_html, max_items=6)
+    headings = extract_heading_texts(clean_html, max_items=8)
     visible = _safe_visible_excerpt(clean_html)
 
     if domain == "tactics.tools":
@@ -156,10 +217,19 @@ def _parse_tft_site_html(domain: str, title_hint: str, html: str) -> tuple[str, 
     elif domain == "lolchess.gg":
         excerpt = _join_excerpt_parts(meta, _pick_heading_block(headings, ("Meta", "Comps", "Items", "Placement")), visible[:650])
     elif domain == "mobalytics.gg":
+        comps = _extract_mobalytics_comps(clean_html)
+        if comps:
+            patch = _infer_common_patch(comps)
+            sections = _build_mobalytics_sections(comps)
+            summary = _compact_text(meta or " / ".join(headings[:3]) or title)
+            excerpt = "\n".join(
+                [summary] + [f"{name}: {body}" for name, body in sections[:4]]
+            ).strip()
+            return title, summary, excerpt, sections, patch
         excerpt = _join_excerpt_parts(meta, _pick_heading_block(headings, ("Comps", "Items", "Positioning", "Guide")), visible[:650])
     else:
         excerpt = _join_excerpt_parts(meta, " / ".join(headings[:4]), visible[:650])
-    return title, meta, excerpt
+    return title, meta, excerpt, [], infer_patch_version(title, meta, excerpt)
 
 
 def _render_tft_bundle(bundle) -> str:
@@ -253,7 +323,133 @@ def _knowledge_sites(config) -> list[SearchSite]:
     text = ""
     if config is not None:
         text = str(config.plugin_setting("tft", "knowledge_search_sites_text", ""))
-    return parse_search_sites_text(text)
+    sites = parse_search_sites_text(text)
+    preferred_order = {
+        "mobalytics.gg": 0,
+        "tactics.tools": 1,
+        "lolchess.gg": 2,
+    }
+    ordered = sorted(
+        sites,
+        key=lambda site: (
+            preferred_order.get(site.domain.lower().removeprefix("www."), 99),
+            -site.priority,
+            site.domain,
+        ),
+    )
+    return ordered
+
+
+def _extract_mobalytics_comps(html: str) -> list[dict[str, str]]:
+    visible = _compact_text(extract_visible_text_excerpt(html))
+    if not visible:
+        return []
+
+    anchor = visible.find("TFT Meta Comps in Set")
+    if anchor >= 0:
+        visible = visible[anchor:]
+
+    start = visible.find("Create comp")
+    if start >= 0:
+        visible = visible[start + len("Create comp") :].strip()
+
+    comps: list[dict[str, str]] = []
+    for chunk in visible.split("Copy team code"):
+        cleaned_chunk = _compact_text(chunk)
+        if not cleaned_chunk:
+            continue
+        match = re.match(
+            r"(?P<name>.+?)\s+"
+            r"(?P<patch>\d{2}\.\d)\s+"
+            r"(?P<tempo>(?:Fast \d+|Slow Roll|Reroll|Fast 9|Fast 10|Level \d+))\s+"
+            r"(?P<difficulty>Easy|Medium|Hard)\s+"
+            r"(?P<units>.+)$",
+            cleaned_chunk,
+            re.IGNORECASE,
+        )
+        if not match:
+            continue
+        units_text = _compact_text(match.group("units"))
+        normalized_units = _normalize_unit_line(units_text)
+        if len(normalized_units) < 12:
+            continue
+        comps.append(
+            {
+                "name": _translate_tft_term(_compact_text(match.group("name"))),
+                "patch": _compact_text(match.group("patch")),
+                "tempo": _translate_tft_term(_compact_text(match.group("tempo"))),
+                "difficulty": _translate_tft_term(_compact_text(match.group("difficulty"))),
+                "units": _translate_tft_units(normalized_units),
+            }
+        )
+        if len(comps) >= 5:
+            break
+    return comps
+
+
+def _normalize_unit_line(text: str) -> str:
+    cleaned = _compact_text(text).replace(" & ", " / ")
+    cleaned = re.sub(r"\bCopy team code\b.*$", "", cleaned, flags=re.IGNORECASE)
+    return cleaned.strip()
+
+
+def _build_mobalytics_sections(comps: list[dict[str, str]]) -> list[tuple[str, str]]:
+    if not comps:
+        return []
+
+    top_names = " / ".join(comp["name"] for comp in comps[:3])
+    sections: list[tuple[str, str]] = [("主流阵容概览", f"当前优先关注：{top_names}")]
+    for index, comp in enumerate(comps[:4], start=1):
+        sections.append(
+            (
+                f"推荐阵容 {index}",
+                (
+                    f"{comp['name']}\n"
+                    f"版本：{comp['patch']}\n"
+                    f"节奏：{comp['tempo']}\n"
+                    f"难度：{comp['difficulty']}\n"
+                    f"完整阵容：{comp['units']}"
+                ),
+            )
+        )
+    return sections
+
+
+def _infer_common_patch(comps: list[dict[str, str]]) -> str:
+    counts: dict[str, int] = {}
+    for comp in comps:
+        patch = comp.get("patch", "")
+        if not patch:
+            continue
+        counts[patch] = counts.get(patch, 0) + 1
+    if not counts:
+        return ""
+    return max(counts.items(), key=lambda item: (item[1], item[0]))[0]
+
+
+def _compact_text(text: str) -> str:
+    cleaned = str(text or "")
+    cleaned = re.sub(r"<[^>]+>", " ", cleaned)
+    cleaned = re.sub(r"\s+", " ", cleaned)
+    return cleaned.strip()
+
+
+def _translate_tft_term(text: str) -> str:
+    value = str(text or "").strip()
+    if not value:
+        return ""
+    if value in _TFT_TEMPO_TRANSLATIONS:
+        return _TFT_TEMPO_TRANSLATIONS[value]
+    if value in _TFT_DIFFICULTY_TRANSLATIONS:
+        return _TFT_DIFFICULTY_TRANSLATIONS[value]
+    return value
+
+
+def _translate_tft_units(text: str) -> str:
+    value = str(text or "").strip()
+    if not value:
+        return ""
+    return value.replace(" / ", " / ")
 
 
 def _extract_title(html: str) -> str:

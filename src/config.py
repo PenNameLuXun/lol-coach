@@ -317,6 +317,12 @@ class Config:
             return mode
         return "auto"
 
+    @property
+    def qa_web_search_accept_language(self) -> str:
+        return str(
+            self.qa_settings.get("web_search_accept_language", "zh-CN,zh;q=0.9,en;q=0.7")
+        ).strip() or "zh-CN,zh;q=0.9,en;q=0.7"
+
     def qa_web_search_sites(self, plugin_id: str | None = None) -> list[dict[str, int | str]]:
         global_sites = parse_search_sites_text(str(self.qa_settings.get("web_search_sites_text", "")))
         plugin_sites = []
@@ -348,6 +354,12 @@ class Config:
     @property
     def web_knowledge_timeout_seconds(self) -> int:
         return int(self.web_knowledge_settings.get("timeout_seconds", 8) or 8)
+
+    @property
+    def web_knowledge_accept_language(self) -> str:
+        return str(
+            self.web_knowledge_settings.get("accept_language", "zh-CN,zh;q=0.9,en;q=0.7")
+        ).strip() or "zh-CN,zh;q=0.9,en;q=0.7"
 
     @property
     def web_knowledge_max_results_per_site(self) -> int:

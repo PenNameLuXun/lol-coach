@@ -253,6 +253,7 @@ def run_qa_web_search(
             timeout_seconds=config.qa_web_search_timeout_seconds,
             max_results_per_site=config.qa_web_search_max_results_per_site,
             max_pages=config.qa_web_search_max_pages,
+            accept_language=config.qa_web_search_accept_language,
         )
     except Exception as exc:
         print(f"[QA search error] {exc}")

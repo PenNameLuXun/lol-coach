@@ -236,6 +236,10 @@ class ConfigTab(QWidget):
         self._wk_timeout_spin.setSuffix(" 秒")
         wk_form.addRow("请求超时:", self._wk_timeout_spin)
 
+        self._wk_accept_language_edit = QLineEdit()
+        self._wk_accept_language_edit.setPlaceholderText("例如 zh-CN,zh;q=0.9,en;q=0.7")
+        wk_form.addRow("语言偏好:", self._wk_accept_language_edit)
+
         self._wk_results_spin = QSpinBox()
         self._wk_results_spin.setRange(1, 10)
         wk_form.addRow("每站点结果数:", self._wk_results_spin)
@@ -356,6 +360,10 @@ class ConfigTab(QWidget):
         self._qa_web_search_timeout_spin.setSuffix(" 秒")
         qa_form.addRow("搜索超时:", self._qa_web_search_timeout_spin)
 
+        self._qa_web_search_accept_language_edit = QLineEdit()
+        self._qa_web_search_accept_language_edit.setPlaceholderText("例如 zh-CN,zh;q=0.9,en;q=0.7")
+        qa_form.addRow("网页语言偏好:", self._qa_web_search_accept_language_edit)
+
         self._qa_web_search_results_spin = QSpinBox()
         self._qa_web_search_results_spin.setRange(1, 10)
         qa_form.addRow("每站点结果数:", self._qa_web_search_results_spin)
@@ -436,6 +444,7 @@ class ConfigTab(QWidget):
         self._wk_engine_combo.setCurrentText(self._cfg.web_knowledge_search_engine)
         self._wk_refresh_spin.setValue(self._cfg.web_knowledge_refresh_interval_seconds)
         self._wk_timeout_spin.setValue(self._cfg.web_knowledge_timeout_seconds)
+        self._wk_accept_language_edit.setText(self._cfg.web_knowledge_accept_language)
         self._wk_results_spin.setValue(self._cfg.web_knowledge_max_results_per_site)
         self._wk_pages_spin.setValue(self._cfg.web_knowledge_max_pages)
         self._wk_always_visible_check.setChecked(bool(self._cfg.web_knowledge_always_visible))
@@ -464,6 +473,7 @@ class ConfigTab(QWidget):
         self._qa_web_search_mode_combo.setCurrentText(self._cfg.qa_web_search_mode)
         self._qa_web_search_engine_combo.setCurrentText(str(self._cfg.qa_settings.get("web_search_engine", "duckduckgo")))
         self._qa_web_search_timeout_spin.setValue(int(self._cfg.qa_settings.get("web_search_timeout_seconds", 8)))
+        self._qa_web_search_accept_language_edit.setText(self._cfg.qa_web_search_accept_language)
         self._qa_web_search_results_spin.setValue(int(self._cfg.qa_settings.get("web_search_max_results_per_site", 1)))
         self._qa_web_search_pages_spin.setValue(int(self._cfg.qa_settings.get("web_search_max_pages", 3)))
         self._qa_web_search_sites_edit.setPlainText(str(self._cfg.qa_settings.get("web_search_sites_text", "")))
@@ -513,6 +523,7 @@ class ConfigTab(QWidget):
             "web_knowledge.search_engine": self._wk_engine_combo.currentText(),
             "web_knowledge.refresh_interval_seconds": self._wk_refresh_spin.value(),
             "web_knowledge.timeout_seconds": self._wk_timeout_spin.value(),
+            "web_knowledge.accept_language": self._wk_accept_language_edit.text().strip() or "zh-CN,zh;q=0.9,en;q=0.7",
             "web_knowledge.max_results_per_site": self._wk_results_spin.value(),
             "web_knowledge.max_pages": self._wk_pages_spin.value(),
             "web_knowledge.always_visible": self._wk_always_visible_check.isChecked(),
@@ -541,6 +552,7 @@ class ConfigTab(QWidget):
             "qa.web_search_mode": self._qa_web_search_mode_combo.currentText(),
             "qa.web_search_engine": self._qa_web_search_engine_combo.currentText(),
             "qa.web_search_timeout_seconds": self._qa_web_search_timeout_spin.value(),
+            "qa.web_search_accept_language": self._qa_web_search_accept_language_edit.text().strip() or "zh-CN,zh;q=0.9,en;q=0.7",
             "qa.web_search_max_results_per_site": self._qa_web_search_results_spin.value(),
             "qa.web_search_max_pages": self._qa_web_search_pages_spin.value(),
             "qa.web_search_sites_text": self._qa_web_search_sites_edit.toPlainText().strip(),

@@ -13,6 +13,7 @@ USER_AGENT = (
     "AppleWebKit/537.36 (KHTML, like Gecko) "
     "Chrome/124.0.0.0 Safari/537.36"
 )
+DEFAULT_ACCEPT_LANGUAGE = "zh-CN,zh;q=0.9,en;q=0.7"
 
 
 @dataclass(slots=True)
@@ -105,13 +106,14 @@ def search_web_for_qa(
     max_results_per_site: int,
     max_pages: int,
     stop_after_first_site_success: bool = False,
+    accept_language: str = DEFAULT_ACCEPT_LANGUAGE,
 ) -> list[SearchDocument]:
     docs: list[SearchDocument] = []
     if not question.strip() or not sites or max_pages <= 0:
         return docs
 
     session = requests.Session()
-    session.headers.update({"User-Agent": USER_AGENT})
+    session.headers.update(_default_headers(accept_language))
 
     for site in sites:
         if len(docs) >= max_pages:
@@ -123,6 +125,7 @@ def search_web_for_qa(
             domain=site.domain,
             timeout_seconds=timeout_seconds,
             max_results=max_results_per_site,
+            accept_language=accept_language,
         )
         print(f"[web search] site={site.domain} hits={len(results)}")
         if not results:
@@ -225,11 +228,17 @@ def format_search_documents(docs: list[SearchDocument]) -> str:
     return "\n\n".join(lines)
 
 
-def fetch_page_html(*, url: str, timeout_seconds: int, session: requests.Session | None = None) -> str:
+def fetch_page_html(
+    *,
+    url: str,
+    timeout_seconds: int,
+    session: requests.Session | None = None,
+    accept_language: str = DEFAULT_ACCEPT_LANGUAGE,
+) -> str:
     own_session = session is None
     session = session or requests.Session()
     if own_session:
-        session.headers.update({"User-Agent": USER_AGENT})
+        session.headers.update(_default_headers(accept_language))
     try:
         response = session.get(url, timeout=timeout_seconds)
     except Exception:
@@ -266,11 +275,12 @@ def _search_site(
     domain: str,
     timeout_seconds: int,
     max_results: int,
+    accept_language: str,
 ) -> list[dict[str, str]]:
     query = f"{question} site:{domain}"
     engine_name = str(engine).strip().lower()
     if engine_name == "google":
-        url = f"https://www.google.com/search?q={quote(query)}&hl=zh-CN"
+        url = f"https://www.google.com/search?q={quote(query)}&hl={quote(_primary_language_code(accept_language))}"
         html = session.get(url, timeout=timeout_seconds).text
         return _parse_google_results(html, max_results=max_results)
     url = f"https://html.duckduckgo.com/html/?q={quote(query)}"
@@ -346,6 +356,10 @@ def _direct_content_candidates(domain: str, question: str) -> list[dict[str, str
             return [
                 {"title": f"{champion} Build", "url": f"https://mobalytics.gg/lol/champions/{champion_slug}/build"},
             ]
+        if normalized == "origin-lol.wzstats.gg":
+            return [
+                {"title": f"{champion} Build", "url": f"https://origin-lol.wzstats.gg/zh/champions/{champion_slug}"},
+            ]
 
     if "tft" in question.lower() or "meta comps" in question.lower() or "阵容" in question:
         if normalized == "tactics.tools":
@@ -354,6 +368,8 @@ def _direct_content_candidates(domain: str, question: str) -> list[dict[str, str
             return [{"title": "TFT Meta", "url": "https://lolchess.gg/meta"}]
         if normalized == "mobalytics.gg":
             return [{"title": "TFT Team Comps", "url": "https://mobalytics.gg/tft/team-comps"}]
+        if normalized == "tft.vinky.cn":
+            return [{"title": "TFT 阵容", "url": "https://tft.vinky.cn/"}]
 
     return []
 
@@ -489,6 +505,22 @@ def _clean_html_text(value: str) -> str:
     text = unescape(value or "")
     text = re.sub(r"\s+", " ", text)
     return text.strip()
+
+
+def _default_headers(accept_language: str) -> dict[str, str]:
+    language = str(accept_language or "").strip() or DEFAULT_ACCEPT_LANGUAGE
+    return {
+        "User-Agent": USER_AGENT,
+        "Accept-Language": language,
+    }
+
+
+def _primary_language_code(accept_language: str) -> str:
+    language = str(accept_language or "").strip()
+    if not language:
+        return "zh-CN"
+    first = language.split(",", 1)[0].strip()
+    return first or "zh-CN"
 
 
 def infer_domain_from_url(url: str) -> str:

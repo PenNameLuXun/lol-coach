@@ -45,6 +45,8 @@ web_knowledge:
   search_engine: google
   refresh_interval_seconds: 300
   timeout_seconds: 8
+  # 请求网页时优先声明的语言，尽量争取拿到中文页面
+  accept_language: "zh-CN,zh;q=0.9,en;q=0.7"
   max_results_per_site: 1
   max_pages: 6
   # 单屏时是否默认常驻显示；关闭时可通过下面的热键按住临时显示
@@ -76,6 +78,7 @@ plugin_settings:
     require_game: true
     system_prompt: "你是一个英雄联盟教练，根据当前游戏截图，用简短的中文（不超过50字）给出最重要的一条对局建议。"
     qa_search_sites_text: |
+      origin-lol.wzstats.gg,105
       op.gg,100
       u.gg,95
       leagueofgraphs.com,90
@@ -83,6 +86,7 @@ plugin_settings:
     knowledge_max_champions: 5
     knowledge_include_enemy_champions: false
     knowledge_search_sites_text: |
+      origin-lol.wzstats.gg,105
       op.gg,100
       u.gg,95
       leagueofgraphs.com,90
@@ -105,11 +109,13 @@ plugin_settings:
       lolchess.gg,100
       tactics.tools,95
       mobalytics.gg,90
+      tft.vinky.cn,75
     knowledge_enabled: true
     knowledge_search_sites_text: |
       tactics.tools,100
       lolchess.gg,95
       mobalytics.gg,90
+      tft.vinky.cn,75
   dialogue:
     # file | microphone
     source: file
@@ -187,6 +193,8 @@ qa:
   # duckduckgo | google
   web_search_engine: duckduckgo
   web_search_timeout_seconds: 8
+  # 请求网页时优先声明的语言，尽量争取拿到中文页面
+  web_search_accept_language: "zh-CN,zh;q=0.9,en;q=0.7"
   web_search_max_results_per_site: 1
   web_search_max_pages: 3
   # 每行一个站点，格式：domain,priority
