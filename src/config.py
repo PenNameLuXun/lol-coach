@@ -260,6 +260,22 @@ class Config:
         return str(self.qa_settings.get("microphone_hotkey", "alt")).strip()
 
     @property
+    def qa_wakeword_enabled(self) -> bool:
+        return bool(self.qa_settings.get("wakeword_enabled", False))
+
+    @property
+    def qa_wakeword_keywords(self) -> list[str]:
+        raw = str(self.qa_settings.get("wakeword_keywords_text", "")).strip()
+        if not raw:
+            return []
+        keywords: list[str] = []
+        for line in raw.splitlines():
+            value = line.strip()
+            if value:
+                keywords.append(value)
+        return keywords
+
+    @property
     def qa_web_search_enabled(self) -> bool:
         return bool(self.qa_settings.get("web_search_enabled", False))
 

@@ -161,6 +161,13 @@ qa:
   microphone_trigger_mode: always
   # 当 microphone_trigger_mode=hold 时生效
   microphone_hotkey: "alt"
+  # 是否要求先说唤醒词，命中后才会把后续内容作为 QA 问题处理
+  wakeword_enabled: false
+  # 每行一个唤醒词，例如：
+  # 小助手
+  # 教练
+  wakeword_keywords_text: |
+    小助手
   auto_start_listener: true
   # 预留给 Qt 麦克风架构的判句静音时长
   silence_ms: 1000

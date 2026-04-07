@@ -133,6 +133,30 @@ class SignalBridge(QObject):
     knowledge_ready = pyqtSignal(object)
 
 
+class QaRuntimeContext:
+    def __init__(self):
+        self._lock = threading.Lock()
+        self._active_context: ActiveGameContext | None = None
+        self._rule_advice = None
+        self._snapshots: list[AnalysisSnapshot] = []
+
+    def update(
+        self,
+        *,
+        active_context: ActiveGameContext | None,
+        rule_advice,
+        snapshots: list[AnalysisSnapshot],
+    ) -> None:
+        with self._lock:
+            self._active_context = active_context
+            self._rule_advice = rule_advice
+            self._snapshots = list(snapshots)
+
+    def snapshot(self) -> tuple[ActiveGameContext | None, object, list[AnalysisSnapshot]]:
+        with self._lock:
+            return self._active_context, self._rule_advice, list(self._snapshots)
+
+
 def _log_with_timestamp(tag: str, message: str):
     ts = datetime.datetime.now().strftime("%H:%M:%S.%f")[:-3]
     print(f"[{ts}] [{tag}] {message}")
@@ -235,6 +259,11 @@ def _qa_hotkey_gate_open(config: Config) -> bool:
     hotkey = config.qa_microphone_hotkey
     if not hotkey:
         return False
+    try:
+        import keyboard
+        return bool(keyboard.is_pressed(hotkey))
+    except Exception:
+        return False
 
 
 def _build_debug_fake_lol_context(rule_engine):
@@ -244,11 +273,6 @@ def _build_debug_fake_lol_context(rule_engine):
     raw_data = copy.deepcopy(_DEBUG_FAKE_LOL_DATA)
     state = plugin.extract_state(raw_data, {})
     return ActiveGameContext(plugin=plugin, state=state)
-    try:
-        import keyboard
-        return bool(keyboard.is_pressed(hotkey))
-    except Exception:
-        return False
 
 
 # ── Worker threads ─────────────────────────────────────────────────────────────
@@ -261,6 +285,7 @@ def ai_worker(
     tts_busy_event: threading.Event,
     tray: TrayIcon,
     capturer,
+    qa_runtime: QaRuntimeContext,
     qa_channel: QaChannel | None = None,
     debug: bool = False,
     debug_timing: bool = False,
@@ -273,7 +298,6 @@ def ai_worker(
     knowledge_manager = WebKnowledgeManager()
     last_emitted_knowledge_bundle = None
     _rule_repeat_count: dict[str, int] = {}
-    _qa_mic_paused_for_tts = False
     _RULE_REPEAT_LIMIT = 3
 
     while not stop_event.is_set():
@@ -316,28 +340,14 @@ def ai_worker(
                     f"{active_context.plugin.display_name} ({active_plugin_id})"
                 )
             rule_advice = rule_engine.evaluate_context(active_context) if active_context else None
-            tts_busy_now = tts_busy_event.is_set()
-            qa_question = None
-            if qa_channel is not None and qa_channel.is_enabled(config):
-                if tts_busy_now:
-                    # TTS is playing — pause microphone capture and flush any already-buffered lines.
-                    if not _qa_mic_paused_for_tts:
-                        qa_channel.pause_microphone()
-                        _qa_mic_paused_for_tts = True
-                    qa_channel.flush_transcript()
-                elif not _qa_hotkey_gate_open(config):
-                    if _qa_mic_paused_for_tts:
-                        qa_channel.resume_microphone()
-                        _qa_mic_paused_for_tts = False
-                    qa_channel.flush_transcript()
-                else:
-                    if _qa_mic_paused_for_tts:
-                        qa_channel.resume_microphone()
-                        _qa_mic_paused_for_tts = False
-                    qa_question = qa_channel.poll_question()
+            qa_runtime.update(
+                active_context=active_context,
+                rule_advice=rule_advice,
+                snapshots=context_window.items(),
+            )
 
             live_data = active_context.state.raw_data if active_context else None
-            if live_data is None and qa_question is None and config.plugin_require_game(active_plugin_id):
+            if live_data is None and config.plugin_require_game(active_plugin_id):
                 candidate_plugin_id = active_plugin_id or previous_plugin_id
                 if candidate_plugin_id == "dialogue" and rule_engine.had_seen_activity():
                     print("[AI worker] waiting for dialogue input")
@@ -381,74 +391,6 @@ def ai_worker(
                 print("[AI worker] waiting for TTS before next cycle")
                 continue
 
-            if qa_question is not None:
-                _log_with_timestamp("QA", f"question={qa_question.text!r} source={qa_question.source_kind}")
-                provider = get_provider(config.ai_provider, config.ai_config(config.ai_provider))
-                _search_t0 = time.perf_counter()
-                web_search_docs = run_qa_web_search(
-                    question=qa_question,
-                    config=config,
-                    active_context=active_context,
-                )
-                _search_elapsed_ms = (time.perf_counter() - _search_t0) * 1000
-                _log_with_timestamp(
-                    "QA search",
-                    f"enabled={config.qa_web_search_enabled} "
-                    f"mode={config.qa_web_search_mode} "
-                    f"engine={config.qa_web_search_engine} "
-                    f"docs={len(web_search_docs)} "
-                    f"elapsed_ms={_search_elapsed_ms:.0f}",
-                )
-                for _i, _doc in enumerate(web_search_docs, 1):
-                    _log_with_timestamp(
-                        "QA search result",
-                        f"[{_i}] site={_doc.domain} title={_doc.title!r} url={_doc.url}",
-                    )
-                prompt = build_qa_prompt(
-                    question=qa_question,
-                    system_prompt=config.qa_system_prompt,
-                    active_context=active_context,
-                    snapshots=context_window.items(),
-                    rule_advice=rule_advice,
-                    web_search_docs=web_search_docs,
-                    detail=config.plugin_detail(active_plugin_id),
-                    address_by=config.plugin_address_by(active_plugin_id),
-                )
-                provider_started_at = time.perf_counter()
-                text = provider.analyze(None, prompt)
-                provider_elapsed_ms = (time.perf_counter() - provider_started_at) * 1000
-                cycle_elapsed_ms = (time.perf_counter() - cycle_started_at) * 1000
-                _log_with_timestamp(
-                    "QA timing",
-                    f"provider={config.ai_provider} "
-                    f"provider_ms={provider_elapsed_ms:.0f} "
-                    f"total_ms={cycle_elapsed_ms:.0f}",
-                )
-                if debug_timing:
-                    print(
-                        "[timing] "
-                        "reason=qa "
-                        "bridge_ms=0 "
-                        f"provider_ms={provider_elapsed_ms:.0f} "
-                        f"total_ms={cycle_elapsed_ms:.0f}"
-                    )
-                bus.put_advice(text)
-                bus.emit_advice(text)
-                bridge.advice_ready.emit(text)
-                context_window.add(
-                    AnalysisSnapshot(
-                        timestamp=datetime.datetime.now(),
-                        game_summary=game_data,
-                        address=address,
-                        metrics=metrics,
-                        bridge_facts={},
-                        advice=text,
-                        reason="qa",
-                    )
-                )
-                tray.set_state(TrayIcon.STATE_RUNNING)
-                continue
-
             allow_visual = bool(active_context and active_context.plugin.wants_visual_context(active_context.state))
             img = latest_image if config.capture_use_screenshot and allow_visual else None
             bridge_facts: dict[str, str] | None = None
@@ -480,7 +422,12 @@ def ai_worker(
                         "provider_ms=0 "
                         f"total_ms={cycle_elapsed_ms:.0f}"
                     )
-                bus.put_advice(text)
+                bus.put_advice(
+                    text,
+                    source="rule",
+                    dedupe_key=f"rule:{rule_advice.rule_id}",
+                    interruptible=False,
+                )
                 bus.emit_advice(text)
                 bridge.advice_ready.emit(text)
                 context_window.add(
@@ -493,6 +440,11 @@ def ai_worker(
                         advice=text,
                         reason=f"rule:{rule_advice.rule_id}",
                     )
+                )
+                qa_runtime.update(
+                    active_context=active_context,
+                    rule_advice=rule_advice,
+                    snapshots=context_window.items(),
                 )
                 tray.set_state(TrayIcon.STATE_RUNNING)
                 continue
@@ -508,7 +460,12 @@ def ai_worker(
                         "provider_ms=0 "
                         f"total_ms={cycle_elapsed_ms:.0f}"
                     )
-                bus.put_advice(text)
+                bus.put_advice(
+                    text,
+                    source="hybrid_rule",
+                    dedupe_key=f"rule:{rule_advice.rule_id}",
+                    interruptible=False,
+                )
                 bus.emit_advice(text)
                 bridge.advice_ready.emit(text)
                 context_window.add(
@@ -521,6 +478,11 @@ def ai_worker(
                         advice=text,
                         reason=f"hybrid_rule:{rule_advice.rule_id}",
                     )
+                )
+                qa_runtime.update(
+                    active_context=active_context,
+                    rule_advice=rule_advice,
+                    snapshots=context_window.items(),
                 )
                 tray.set_state(TrayIcon.STATE_RUNNING)
                 continue
@@ -611,7 +573,12 @@ def ai_worker(
                     f"provider_ms={provider_elapsed_ms:.0f} "
                     f"total_ms={cycle_elapsed_ms:.0f}"
                 )
-            bus.put_advice(text)
+            bus.put_advice(
+                text,
+                source="qa",
+                expires_after_seconds=45.0,
+                interruptible=False,
+            )
             bus.emit_advice(text)
             bridge.advice_ready.emit(text)
             context_window.add(
@@ -625,6 +592,11 @@ def ai_worker(
                     reason=plan.reason,
                 )
             )
+            qa_runtime.update(
+                active_context=active_context,
+                rule_advice=rule_advice,
+                snapshots=context_window.items(),
+            )
             tray.set_state(TrayIcon.STATE_RUNNING)
         except Exception as e:
             msg = str(e)
@@ -637,6 +609,116 @@ def ai_worker(
             elif "Connection error" in msg or "connect" in msg.lower():
                 retry_after = 15
                 print("[AI worker] connection failed, retrying in 15s — is Ollama running? (`ollama serve`)")
+
+
+def qa_worker(
+    bus: EventBus,
+    config: Config,
+    bridge: SignalBridge,
+    stop_event: threading.Event,
+    tts_busy_event: threading.Event,
+    qa_channel: QaChannel,
+    qa_runtime: QaRuntimeContext,
+    debug_timing: bool = False,
+):
+    mic_paused_for_tts = False
+    poll_interval_seconds = 0.2
+
+    while not stop_event.is_set():
+        stop_event.wait(timeout=poll_interval_seconds)
+        if stop_event.is_set():
+            break
+        if not qa_channel.is_enabled(config):
+            continue
+
+        tts_busy_now = tts_busy_event.is_set()
+        if tts_busy_now:
+            if not mic_paused_for_tts:
+                qa_channel.pause_microphone()
+                mic_paused_for_tts = True
+            qa_channel.flush_transcript()
+            continue
+
+        if not _qa_hotkey_gate_open(config):
+            if mic_paused_for_tts:
+                qa_channel.resume_microphone()
+                mic_paused_for_tts = False
+            qa_channel.flush_transcript()
+            continue
+
+        if mic_paused_for_tts:
+            qa_channel.resume_microphone()
+            mic_paused_for_tts = False
+
+        question = qa_channel.poll_question()
+        if question is None:
+            continue
+
+        active_context, rule_advice, snapshots = qa_runtime.snapshot()
+        active_plugin_id = active_context.plugin.id if active_context else None
+        cycle_started_at = time.perf_counter()
+        _log_with_timestamp("QA", f"question={question.text!r} source={question.source_kind}")
+
+        try:
+            provider = get_provider(config.ai_provider, config.ai_config(config.ai_provider))
+            search_started_at = time.perf_counter()
+            web_search_docs = run_qa_web_search(
+                question=question,
+                config=config,
+                active_context=active_context,
+            )
+            search_elapsed_ms = (time.perf_counter() - search_started_at) * 1000
+            _log_with_timestamp(
+                "QA search",
+                f"enabled={config.qa_web_search_enabled} "
+                f"mode={config.qa_web_search_mode} "
+                f"engine={config.qa_web_search_engine} "
+                f"docs={len(web_search_docs)} "
+                f"elapsed_ms={search_elapsed_ms:.0f}",
+            )
+            for i, doc in enumerate(web_search_docs, 1):
+                _log_with_timestamp(
+                    "QA search result",
+                    f"[{i}] site={doc.domain} title={doc.title!r} url={doc.url}",
+                )
+
+            prompt = build_qa_prompt(
+                question=question,
+                system_prompt=config.qa_system_prompt,
+                active_context=active_context,
+                snapshots=snapshots,
+                rule_advice=rule_advice,
+                web_search_docs=web_search_docs,
+                detail=config.plugin_detail(active_plugin_id),
+                address_by=config.plugin_address_by(active_plugin_id),
+            )
+            provider_started_at = time.perf_counter()
+            text = provider.analyze(None, prompt)
+            provider_elapsed_ms = (time.perf_counter() - provider_started_at) * 1000
+            total_elapsed_ms = (time.perf_counter() - cycle_started_at) * 1000
+            _log_with_timestamp(
+                "QA timing",
+                f"provider={config.ai_provider} "
+                f"provider_ms={provider_elapsed_ms:.0f} "
+                f"total_ms={total_elapsed_ms:.0f}",
+            )
+            if debug_timing:
+                print(
+                    "[timing] "
+                    "reason=qa "
+                    "bridge_ms=0 "
+                    f"provider_ms={provider_elapsed_ms:.0f} "
+                    f"total_ms={total_elapsed_ms:.0f}"
+                )
+            bus.put_advice(
+                text,
+                source="game_ai",
+                dedupe_key=f"game_ai:{active_plugin_id or 'unknown'}:{plan.reason}",
+            )
+            bus.emit_advice(text)
+            bridge.advice_ready.emit(text)
+        except Exception as exc:
+            print(f"[QA worker error] {exc}")
 
 
 def tts_worker(bus: EventBus, config: Config, stop_event: threading.Event, busy_event: threading.Event):
@@ -669,9 +751,12 @@ def tts_worker(bus: EventBus, config: Config, stop_event: threading.Event, busy_
                     if engine.is_busy():
                         busy_event.set()
                         try:
-                            next_text = bus.get_latest_advice(timeout=0.1)
+                            next_event = bus.get_latest_advice_event(timeout=0.1)
                         except queue.Empty:
                             continue
+                        if not next_event.interruptible:
+                            continue
+                        next_text = next_event.text
                         _log_with_timestamp("TTS", f"interrupt len={len(next_text)} text={next_text[:60]}")
                         engine.interrupt()
                         while engine.is_busy() and not stop_event.wait(timeout=0.02):
@@ -748,6 +833,7 @@ def main():
     tts_busy_event = threading.Event()
     running = [False]
     qa_channel = QaChannel(config_path="config.yaml")
+    qa_runtime = QaRuntimeContext()
 
     # ── UI ────────────────────────────────────────────────────────────────────
     overlay = None
@@ -836,10 +922,11 @@ def main():
 
     # ── Start / Pause ─────────────────────────────────────────────────────────
     ai_thread: threading.Thread | None = None
+    qa_thread: threading.Thread | None = None
     tts_thread: threading.Thread | None = None
 
     def start_analysis():
-        nonlocal ai_thread, tts_thread
+        nonlocal ai_thread, qa_thread, tts_thread
         if running[0]:
             return
         running[0] = True
@@ -847,7 +934,7 @@ def main():
         capturer.start()
         ai_thread = threading.Thread(
             target=ai_worker,
-            args=(bus, config, bridge, stop_event, tts_busy_event, tray, capturer, qa_channel),
+            args=(bus, config, bridge, stop_event, tts_busy_event, tray, capturer, qa_runtime, qa_channel),
             kwargs={
                 "debug": args.debug,
                 "debug_timing": args.debug_timing,
@@ -855,8 +942,15 @@ def main():
             },
             daemon=True,
         )
+        qa_thread = threading.Thread(
+            target=qa_worker,
+            args=(bus, config, bridge, stop_event, tts_busy_event, qa_channel, qa_runtime),
+            kwargs={"debug_timing": args.debug_timing},
+            daemon=True,
+        )
         tts_thread = threading.Thread(target=tts_worker, args=(bus, config, stop_event, tts_busy_event), daemon=True)
         ai_thread.start()
+        qa_thread.start()
         tts_thread.start()
         tray.set_state(TrayIcon.STATE_RUNNING)
 

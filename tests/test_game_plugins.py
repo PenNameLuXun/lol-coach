@@ -554,3 +554,41 @@ def test_qa_channel_can_pause_and_resume_microphone(tmp_path, monkeypatch):
 
     assert calls == ["pause", "resume"]
     assert result is True
+
+
+def test_qa_channel_requires_configured_wakeword(tmp_path, monkeypatch):
+    config_path = tmp_path / "config.yaml"
+    transcript_path = tmp_path / "game_qa_mic.txt"
+    config_path.write_text(
+        (
+            "qa:\n"
+            "  enabled: true\n"
+            "  source: microphone\n"
+            f"  transcript_file: {transcript_path.as_posix()}\n"
+            "  speaker: 玩家A\n"
+            "  wakeword_enabled: true\n"
+            "  wakeword_keywords_text: |\n"
+            "    小助手\n"
+            "    教练\n"
+        ),
+        encoding="utf-8",
+    )
+    transcript_path.write_text("", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(
+        dialogue_source_module.WindowsMicrophoneListener,
+        "ensure_running",
+        lambda self, transcript_path, culture="zh-CN": True,
+    )
+
+    channel = QaChannel(config_path=str(config_path))
+    channel.flush_transcript()
+
+    transcript_path.write_text("今天天气怎么样\n", encoding="utf-8")
+    assert channel.poll_question() is None
+
+    transcript_path.write_text("今天天气怎么样\n小助手，亚索怎么打阿卡丽？\n", encoding="utf-8")
+    question = channel.poll_question()
+
+    assert question is not None
+    assert question.text == "亚索怎么打阿卡丽？"

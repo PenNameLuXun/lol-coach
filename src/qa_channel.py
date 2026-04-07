@@ -95,6 +95,9 @@ class QaChannel:
         text = str(payload.get("text", "")).strip()
         if not text:
             return None
+        text = self._apply_wakeword_gate(text, cfg)
+        if not text:
+            return None
         question_key = _normalize_question_text(text)
         now = time.perf_counter()
         if (
@@ -145,6 +148,24 @@ class QaChannel:
             for line in new_lines:
                 handle.write(line + "\n")
         self._input_line_index_by_path[resolved] = len(lines)
+
+    def _apply_wakeword_gate(self, text: str, cfg: dict) -> str:
+        if not bool(cfg.get("wakeword_enabled", False)):
+            return text
+        raw_keywords = str(cfg.get("wakeword_keywords_text", "")).strip()
+        keywords = [line.strip() for line in raw_keywords.splitlines() if line.strip()]
+        if not keywords:
+            return text
+        stripped = text.strip()
+        normalized = _normalize_question_text(stripped)
+        for keyword in keywords:
+            keyword_norm = _normalize_question_text(keyword)
+            if not keyword_norm:
+                continue
+            if normalized.startswith(keyword_norm):
+                remainder = stripped[len(keyword):].lstrip(" ,，。.:：!?！？-")
+                return remainder.strip() or stripped
+        return ""
 
 
 def build_qa_prompt(
