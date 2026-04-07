@@ -89,6 +89,25 @@ def test_lol_plugin_can_optionally_include_enemy_champions(tmp_path):
     assert any("Zed" in title for title in titles)
 
 
+def test_lol_knowledge_sites_prefer_ugg_even_if_config_lists_opgg_first(tmp_path):
+    from src.game_plugins.lol.knowledge import _knowledge_sites
+
+    cfg_path = tmp_path / 'config.yaml'
+    cfg_path.write_text(
+        'plugin_settings:\n'
+        '  lol:\n'
+        '    knowledge_search_sites_text: |\n'
+        '      op.gg,100\n'
+        '      u.gg,95\n'
+        '      leagueofgraphs.com,90\n',
+        encoding='utf-8',
+    )
+    cfg = Config(str(cfg_path))
+    sites = _knowledge_sites(cfg)
+
+    assert [site.domain for site in sites[:3]] == ["u.gg", "leagueofgraphs.com", "op.gg"]
+
+
 def test_tft_plugin_builds_web_knowledge_queries(tmp_path):
     cfg_path = tmp_path / 'config.yaml'
     cfg_path.write_text(

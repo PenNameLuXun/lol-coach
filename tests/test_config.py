@@ -164,6 +164,7 @@ def test_qa_web_search_settings_and_site_merge(config_file):
             "qa.microphone_hotkey": "ctrl+space",
             "qa.wakeword_enabled": True,
             "qa.wakeword_keywords_text": "小助手\n教练",
+            "qa.wakeword_ack_texts_text": "你说\n在",
             "qa.web_search_engine": "duckduckgo",
             "qa.web_search_timeout_seconds": 9,
             "qa.web_search_max_results_per_site": 2,
@@ -180,6 +181,7 @@ def test_qa_web_search_settings_and_site_merge(config_file):
     assert cfg2.qa_microphone_hotkey == "ctrl+space"
     assert cfg2.qa_wakeword_enabled is True
     assert cfg2.qa_wakeword_keywords == ["小助手", "教练"]
+    assert cfg2.qa_wakeword_ack_texts == ["你说", "在"]
     assert cfg2.qa_web_search_engine == "duckduckgo"
     assert cfg2.qa_web_search_timeout_seconds == 9
     assert cfg2.qa_web_search_max_results_per_site == 2

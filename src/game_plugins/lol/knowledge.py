@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+import time
 
 from PyQt6.QtWidgets import QTabWidget, QTextBrowser
 
@@ -64,24 +65,33 @@ def collect_lol_web_knowledge_documents(query: KnowledgeQuery, state, config) ->
         return []
     timeout_seconds = int(getattr(config, "web_knowledge_timeout_seconds", 8))
     engine = str(getattr(config, "web_knowledge_search_engine", "google"))
+    debug_timing = bool(getattr(config, "_debug_timing", False))
     sites = _knowledge_sites(config)
     best_doc: SearchDocument | None = None
     best_score = -1
 
     for site in sites:
+        site_started_at = time.perf_counter()
         doc = _collect_from_known_site(champion, site, timeout_seconds)
+        if debug_timing:
+            elapsed_ms = (time.perf_counter() - site_started_at) * 1000
+            print(
+                f"[WebKnowledge site] plugin=lol champion={champion} site={site.domain} "
+                f"mode=direct ok={doc is not None} elapsed_ms={elapsed_ms:.0f}"
+            )
         if doc is not None:
             score = _document_quality_score(doc)
             if score > best_score:
                 best_doc = doc
                 best_score = score
-            if score >= 100:
+            if score >= 40:
                 return [doc]
 
     if best_doc is not None:
         return [best_doc]
 
     for site in sites:
+        site_started_at = time.perf_counter()
         fallback = search_web_for_qa(
             question=query.query,
             engine=engine,
@@ -91,6 +101,12 @@ def collect_lol_web_knowledge_documents(query: KnowledgeQuery, state, config) ->
             max_pages=1,
             stop_after_first_site_success=True,
         )
+        if debug_timing:
+            elapsed_ms = (time.perf_counter() - site_started_at) * 1000
+            print(
+                f"[WebKnowledge site] plugin=lol champion={champion} site={site.domain} "
+                f"mode=search docs={len(fallback)} elapsed_ms={elapsed_ms:.0f}"
+            )
         if fallback:
             return fallback[:1]
     return []
@@ -399,6 +415,18 @@ def _knowledge_sites(config) -> list[SearchSite]:
     allowed = {"u.gg", "op.gg", "leagueofgraphs.com", "mobalytics.gg"}
     sites = parse_search_sites_text(text)
     filtered = [site for site in sites if site.domain.lower().removeprefix("www.") in allowed]
+    domain_rank = {
+        "u.gg": 0,
+        "leagueofgraphs.com": 1,
+        "op.gg": 2,
+        "mobalytics.gg": 3,
+    }
+    filtered.sort(
+        key=lambda site: (
+            domain_rank.get(site.domain.lower().removeprefix("www."), 99),
+            -site.priority,
+        )
+    )
     return filtered or [
         SearchSite(domain="u.gg", priority=100),
         SearchSite(domain="leagueofgraphs.com", priority=80),

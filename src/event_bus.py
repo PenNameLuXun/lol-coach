@@ -29,6 +29,7 @@ def _normalize_text(text: str) -> str:
 
 def _default_priority(source: str) -> int:
     mapping = {
+        "qa_ack": 400,
         "qa": 300,
         "rule": 220,
         "hybrid_rule": 220,
@@ -39,6 +40,7 @@ def _default_priority(source: str) -> int:
 
 def _default_expiry_seconds(source: str) -> float | None:
     mapping = {
+        "qa_ack": 3.0,
         "qa": 30.0,
         "rule": 8.0,
         "hybrid_rule": 8.0,

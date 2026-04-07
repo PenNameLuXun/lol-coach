@@ -19,6 +19,7 @@ import signal
 import sys
 import threading
 import os
+import random
 import subprocess
 import time
 
@@ -361,7 +362,11 @@ def ai_worker(
             capturer.resume()
             if active_context is not None and config.web_knowledge_enabled:
                 try:
-                    knowledge_bundle = knowledge_manager.collect_for_context(active_context, config)
+                    knowledge_bundle = knowledge_manager.collect_for_context(
+                        active_context,
+                        config,
+                        debug_timing=debug_timing,
+                    )
                     if knowledge_bundle is not None and knowledge_bundle is not last_emitted_knowledge_bundle:
                         bridge.knowledge_ready.emit(
                             {
@@ -617,6 +622,7 @@ def qa_worker(
     bridge: SignalBridge,
     stop_event: threading.Event,
     tts_busy_event: threading.Event,
+    tts_interrupt_event: threading.Event,
     qa_channel: QaChannel,
     qa_runtime: QaRuntimeContext,
     debug_timing: bool = False,
@@ -632,7 +638,7 @@ def qa_worker(
             continue
 
         tts_busy_now = tts_busy_event.is_set()
-        if tts_busy_now:
+        if tts_busy_now and not config.qa_wakeword_enabled:
             if not mic_paused_for_tts:
                 qa_channel.pause_microphone()
                 mic_paused_for_tts = True
@@ -653,6 +659,21 @@ def qa_worker(
         question = qa_channel.poll_question()
         if question is None:
             continue
+
+        if question.wakeword_triggered and config.qa_wakeword_enabled:
+            _log_with_timestamp("QA", "wakeword matched, requesting interrupt")
+            tts_interrupt_event.set()
+            ack_text = random.choice(config.qa_wakeword_ack_texts)
+            bus.put_advice(
+                ack_text,
+                source="qa_ack",
+                expires_after_seconds=3.0,
+                interruptible=False,
+            )
+            bus.emit_advice(ack_text)
+            bridge.advice_ready.emit(ack_text)
+            if question.wakeword_only:
+                continue
 
         active_context, rule_advice, snapshots = qa_runtime.snapshot()
         active_plugin_id = active_context.plugin.id if active_context else None
@@ -712,8 +733,9 @@ def qa_worker(
                 )
             bus.put_advice(
                 text,
-                source="game_ai",
-                dedupe_key=f"game_ai:{active_plugin_id or 'unknown'}:{plan.reason}",
+                source="qa",
+                expires_after_seconds=45.0,
+                interruptible=False,
             )
             bus.emit_advice(text)
             bridge.advice_ready.emit(text)
@@ -721,7 +743,13 @@ def qa_worker(
             print(f"[QA worker error] {exc}")
 
 
-def tts_worker(bus: EventBus, config: Config, stop_event: threading.Event, busy_event: threading.Event):
+def tts_worker(
+    bus: EventBus,
+    config: Config,
+    stop_event: threading.Event,
+    busy_event: threading.Event,
+    interrupt_event: threading.Event,
+):
     current_engine = None
     current_backend = None
     current_cfg = None
@@ -736,51 +764,84 @@ def tts_worker(bus: EventBus, config: Config, stop_event: threading.Event, busy_
             current_cfg = cfg
         return current_engine
 
-    active_text: str | None = None
+    active_event = None
     active_started_at = 0.0
+
+    def _should_interrupt_current(current_event, incoming_event, playback_mode: str, supports_interrupt: bool) -> bool:
+        if not supports_interrupt or current_event is None or incoming_event is None:
+            return False
+        if getattr(incoming_event, "source", "") == "qa" and getattr(current_event, "source", "") != "qa":
+            return True
+        if not bool(getattr(current_event, "interruptible", True)):
+            return False
+        return playback_mode == "interrupt" and bool(getattr(incoming_event, "interruptible", True))
 
     while not stop_event.is_set():
         try:
             engine = get_engine()
             playback_mode = config.tts_playback_mode
             supports_interrupt = engine.supports_interrupt()
-
-            if playback_mode == "interrupt" and supports_interrupt:
-                next_text: str | None = None
-                if active_text is not None:
+            if supports_interrupt:
+                if active_event is not None:
                     if engine.is_busy():
                         busy_event.set()
+                        if interrupt_event.is_set():
+                            _log_with_timestamp("TTS", "interrupt requested by wakeword")
+                            interrupt_event.clear()
+                            engine.interrupt()
+                            while engine.is_busy() and not stop_event.wait(timeout=0.02):
+                                pass
+                            elapsed_ms = (time.perf_counter() - active_started_at) * 1000
+                            _log_with_timestamp("TTS", f"end elapsed_ms={elapsed_ms:.0f} interrupted=true")
+                            active_event = None
+                            busy_event.clear()
+                            continue
                         try:
                             next_event = bus.get_latest_advice_event(timeout=0.1)
                         except queue.Empty:
                             continue
-                        if not next_event.interruptible:
+                        if not _should_interrupt_current(active_event, next_event, playback_mode, supports_interrupt):
+                            bus.put_advice(
+                                next_event.text,
+                                source=next_event.source,
+                                priority=next_event.priority,
+                                expires_after_seconds=next_event.expires_after_seconds,
+                                dedupe_key=next_event.dedupe_key,
+                                interruptible=next_event.interruptible,
+                            )
                             continue
-                        next_text = next_event.text
-                        _log_with_timestamp("TTS", f"interrupt len={len(next_text)} text={next_text[:60]}")
+                        _log_with_timestamp("TTS", f"interrupt len={len(next_event.text)} text={next_event.text[:60]}")
                         engine.interrupt()
                         while engine.is_busy() and not stop_event.wait(timeout=0.02):
                             pass
                         elapsed_ms = (time.perf_counter() - active_started_at) * 1000
                         _log_with_timestamp("TTS", f"end elapsed_ms={elapsed_ms:.0f} interrupted=true")
-                        active_text = None
-                    else:
-                        elapsed_ms = (time.perf_counter() - active_started_at) * 1000
-                        _log_with_timestamp("TTS", f"end elapsed_ms={elapsed_ms:.0f}")
-                        active_text = None
-                        busy_event.clear()
+                        active_event = next_event
+                        active_started_at = time.perf_counter()
+                        _log_with_timestamp("TTS", f"start len={len(active_event.text)} text={active_event.text[:60]}")
+                        busy_event.set()
+                        engine.start(
+                            active_event.text,
+                            rate_override=_resolve_tts_rate_override(config, current_backend, engine, active_event.text),
+                        )
                         continue
-                if next_text is None:
-                    try:
-                        next_text = bus.get_latest_advice(timeout=0.1)
-                    except queue.Empty:
-                        continue
-                text = next_text
-                active_text = text
+                    elapsed_ms = (time.perf_counter() - active_started_at) * 1000
+                    _log_with_timestamp("TTS", f"end elapsed_ms={elapsed_ms:.0f}")
+                    active_event = None
+                    busy_event.clear()
+                    continue
+
+                try:
+                    active_event = bus.get_latest_advice_event(timeout=1.0)
+                except queue.Empty:
+                    continue
                 active_started_at = time.perf_counter()
-                _log_with_timestamp("TTS", f"start len={len(text)} text={text[:60]}")
+                _log_with_timestamp("TTS", f"start len={len(active_event.text)} text={active_event.text[:60]}")
                 busy_event.set()
-                engine.start(text, rate_override=_resolve_tts_rate_override(config, current_backend, engine, text))
+                engine.start(
+                    active_event.text,
+                    rate_override=_resolve_tts_rate_override(config, current_backend, engine, active_event.text),
+                )
                 continue
 
             try:
@@ -796,9 +857,9 @@ def tts_worker(bus: EventBus, config: Config, stop_event: threading.Event, busy_
         except Exception as e:
             print(f"[TTS worker error] {e}")
             busy_event.clear()
-            active_text = None
+            active_event = None
         finally:
-            if active_text is None and not stop_event.is_set():
+            if active_event is None and not stop_event.is_set():
                 busy_event.clear()
 
 
@@ -822,6 +883,7 @@ def main():
     app.setQuitOnLastWindowClosed(False)  # keep running in tray
 
     config = Config("config.yaml")
+    setattr(config, "_debug_timing", bool(args.debug_timing))
     config._start_watcher()
     _try_start_overwolf(config)
 
@@ -831,6 +893,7 @@ def main():
     bridge = SignalBridge()
     stop_event = threading.Event()
     tts_busy_event = threading.Event()
+    tts_interrupt_event = threading.Event()
     running = [False]
     qa_channel = QaChannel(config_path="config.yaml")
     qa_runtime = QaRuntimeContext()
@@ -931,6 +994,7 @@ def main():
             return
         running[0] = True
         stop_event.clear()
+        tts_interrupt_event.clear()
         capturer.start()
         ai_thread = threading.Thread(
             target=ai_worker,
@@ -944,11 +1008,15 @@ def main():
         )
         qa_thread = threading.Thread(
             target=qa_worker,
-            args=(bus, config, bridge, stop_event, tts_busy_event, qa_channel, qa_runtime),
+            args=(bus, config, bridge, stop_event, tts_busy_event, tts_interrupt_event, qa_channel, qa_runtime),
             kwargs={"debug_timing": args.debug_timing},
             daemon=True,
         )
-        tts_thread = threading.Thread(target=tts_worker, args=(bus, config, stop_event, tts_busy_event), daemon=True)
+        tts_thread = threading.Thread(
+            target=tts_worker,
+            args=(bus, config, stop_event, tts_busy_event, tts_interrupt_event),
+            daemon=True,
+        )
         ai_thread.start()
         qa_thread.start()
         tts_thread.start()

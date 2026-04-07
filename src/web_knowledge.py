@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
@@ -41,9 +43,10 @@ class WebKnowledgeManager:
         self._cached_bundle: KnowledgeBundle | None = None
         self._cached_at = 0.0
 
-    def collect_for_context(self, active_context, config) -> KnowledgeBundle | None:
+    def collect_for_context(self, active_context, config, debug_timing: bool = False) -> KnowledgeBundle | None:
         if not config.web_knowledge_enabled or active_context is None:
             return None
+        started_at = time.perf_counter()
         plugin = active_context.plugin
         plugin_id = plugin.id
         if not config.plugin_web_knowledge_enabled(plugin_id):
@@ -61,10 +64,16 @@ class WebKnowledgeManager:
             and self._cached_signature == signature
             and now - self._cached_at < config.web_knowledge_refresh_interval_seconds
         ):
+            if debug_timing:
+                elapsed_ms = (time.perf_counter() - started_at) * 1000
+                print(
+                    f"[WebKnowledge] plugin={plugin_id} cache_hit=true "
+                    f"items={len(self._cached_bundle.items)} elapsed_ms={elapsed_ms:.0f}"
+                )
             return self._cached_bundle
 
-        items: list[KnowledgeItem] = []
-        for query in queries:
+        def _collect_one(query: KnowledgeQuery) -> tuple[KnowledgeQuery, list[SearchDocument], float]:
+            query_started_at = time.perf_counter()
             collector = getattr(plugin, "collect_web_knowledge_documents", None)
             if callable(collector):
                 documents = collector(query, active_context.state, config) or []
@@ -78,6 +87,25 @@ class WebKnowledgeManager:
                     max_results_per_site=config.web_knowledge_max_results_per_site,
                     max_pages=config.web_knowledge_max_pages,
                     stop_after_first_site_success=True,
+                )
+            query_elapsed_ms = (time.perf_counter() - query_started_at) * 1000
+            return query, documents, query_elapsed_ms
+
+        collected: dict[str, tuple[KnowledgeQuery, list[SearchDocument], float]] = {}
+        max_workers = max(1, min(len(queries), 4))
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            future_map = {executor.submit(_collect_one, query): query.key for query in queries}
+            for future in as_completed(future_map):
+                query, documents, query_elapsed_ms = future.result()
+                collected[query.key] = (query, documents, query_elapsed_ms)
+
+        items: list[KnowledgeItem] = []
+        for query in queries:
+            _query, documents, query_elapsed_ms = collected[query.key]
+            if debug_timing:
+                print(
+                    f"[WebKnowledge query] plugin={plugin_id} key={query.key} "
+                    f"docs={len(documents)} elapsed_ms={query_elapsed_ms:.0f}"
                 )
             item_builder = getattr(plugin, "build_web_knowledge_item", None)
             if item_builder is not None:
@@ -113,6 +141,12 @@ class WebKnowledgeManager:
         self._cached_signature = signature
         self._cached_bundle = bundle
         self._cached_at = now
+        if debug_timing:
+            elapsed_ms = (time.perf_counter() - started_at) * 1000
+            print(
+                f"[WebKnowledge] plugin={plugin_id} cache_hit=false "
+                f"items={len(items)} elapsed_ms={elapsed_ms:.0f}"
+            )
         return bundle
 
 

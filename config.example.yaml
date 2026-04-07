@@ -168,6 +168,11 @@ qa:
   # 教练
   wakeword_keywords_text: |
     小助手
+  # 命中唤醒词后用于确认已听到的短提示，每行一个，运行时会随机选择一句
+  wakeword_ack_texts_text: |
+    你说
+    在
+    哎
   auto_start_listener: true
   # 预留给 Qt 麦克风架构的判句静音时长
   silence_ms: 1000

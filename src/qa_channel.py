@@ -23,6 +23,8 @@ class QaQuestion:
     text: str
     source_kind: str
     raw_data: dict
+    wakeword_triggered: bool = False
+    wakeword_only: bool = False
 
 
 class QaChannel:
@@ -37,6 +39,8 @@ class QaChannel:
         self._last_question_key = ""
         self._last_question_at = 0.0
         self._duplicate_cooldown_seconds = 20.0
+        self._wakeword_listen_until = 0.0
+        self._wakeword_followup_window_seconds = 8.0
 
     def is_enabled(self, config) -> bool:
         return bool(config.qa_enabled)
@@ -95,25 +99,29 @@ class QaChannel:
         text = str(payload.get("text", "")).strip()
         if not text:
             return None
-        text = self._apply_wakeword_gate(text, cfg)
-        if not text:
+        text, wakeword_triggered, wakeword_only = self._apply_wakeword_gate(text, cfg)
+        if not text and not wakeword_only:
             return None
         question_key = _normalize_question_text(text)
         now = time.perf_counter()
         if (
-            question_key
+            not wakeword_only
+            and question_key
             and question_key == self._last_question_key
             and now - self._last_question_at < self._duplicate_cooldown_seconds
         ):
             print(f"[QA] suppressed duplicate question within {self._duplicate_cooldown_seconds:.0f}s: {text}")
             return None
-        self._last_question_key = question_key
-        self._last_question_at = now
+        if not wakeword_only:
+            self._last_question_key = question_key
+            self._last_question_at = now
         return QaQuestion(
             speaker=str(payload.get("speaker", "玩家")),
             text=text,
             source_kind=str(payload.get("source", "file")),
             raw_data=raw_data,
+            wakeword_triggered=wakeword_triggered,
+            wakeword_only=wakeword_only,
         )
 
     def _ingest_file_questions(self, cfg: dict, transcript_path) -> None:
@@ -149,23 +157,30 @@ class QaChannel:
                 handle.write(line + "\n")
         self._input_line_index_by_path[resolved] = len(lines)
 
-    def _apply_wakeword_gate(self, text: str, cfg: dict) -> str:
+    def _apply_wakeword_gate(self, text: str, cfg: dict) -> tuple[str, bool, bool]:
         if not bool(cfg.get("wakeword_enabled", False)):
-            return text
+            return text, False, False
         raw_keywords = str(cfg.get("wakeword_keywords_text", "")).strip()
         keywords = [line.strip() for line in raw_keywords.splitlines() if line.strip()]
         if not keywords:
-            return text
+            return text, False, False
         stripped = text.strip()
         normalized = _normalize_question_text(stripped)
+        now = time.perf_counter()
         for keyword in keywords:
             keyword_norm = _normalize_question_text(keyword)
             if not keyword_norm:
                 continue
             if normalized.startswith(keyword_norm):
                 remainder = stripped[len(keyword):].lstrip(" ,，。.:：!?！？-")
-                return remainder.strip() or stripped
-        return ""
+                remainder = remainder.strip()
+                self._wakeword_listen_until = now + self._wakeword_followup_window_seconds
+                if remainder:
+                    return remainder, True, False
+                return "", True, True
+        if now < self._wakeword_listen_until:
+            return stripped, False, False
+        return "", False, False
 
 
 def build_qa_prompt(

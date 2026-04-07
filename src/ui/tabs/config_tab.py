@@ -322,6 +322,11 @@ class ConfigTab(QWidget):
         self._qa_wakeword_keywords_edit.setPlaceholderText("每行一个唤醒词，例如：\n小助手")
         qa_form.addRow("唤醒词列表:", self._qa_wakeword_keywords_edit)
 
+        self._qa_wakeword_ack_texts_edit = QTextEdit()
+        self._qa_wakeword_ack_texts_edit.setMaximumHeight(70)
+        self._qa_wakeword_ack_texts_edit.setPlaceholderText("每行一句确认提示，例如：\n你说")
+        qa_form.addRow("唤醒确认语:", self._qa_wakeword_ack_texts_edit)
+
         self._qa_auto_listener_check = QCheckBox()
         qa_form.addRow("自动启动麦克风监听:", self._qa_auto_listener_check)
 
@@ -451,6 +456,7 @@ class ConfigTab(QWidget):
         self._qa_mic_hotkey_edit.setText(self._cfg.qa_microphone_hotkey)
         self._qa_wakeword_enabled_check.setChecked(self._cfg.qa_wakeword_enabled)
         self._qa_wakeword_keywords_edit.setPlainText("\n".join(self._cfg.qa_wakeword_keywords))
+        self._qa_wakeword_ack_texts_edit.setPlainText("\n".join(self._cfg.qa_wakeword_ack_texts))
         self._qa_auto_listener_check.setChecked(bool(self._cfg.qa_settings.get("auto_start_listener", True)))
         self._qa_silence_spin.setValue(int(self._cfg.qa_settings.get("silence_ms", 1000)))
         self._qa_max_transcript_spin.setValue(int(self._cfg.qa_settings.get("max_transcript_mb", 10)))
@@ -527,6 +533,7 @@ class ConfigTab(QWidget):
             "qa.microphone_hotkey": self._qa_mic_hotkey_edit.text().strip() or "alt",
             "qa.wakeword_enabled": self._qa_wakeword_enabled_check.isChecked(),
             "qa.wakeword_keywords_text": self._qa_wakeword_keywords_edit.toPlainText().strip(),
+            "qa.wakeword_ack_texts_text": self._qa_wakeword_ack_texts_edit.toPlainText().strip(),
             "qa.auto_start_listener": self._qa_auto_listener_check.isChecked(),
             "qa.silence_ms": self._qa_silence_spin.value(),
             "qa.max_transcript_mb": self._qa_max_transcript_spin.value(),
