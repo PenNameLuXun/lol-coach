@@ -378,6 +378,13 @@ class Config:
         return str(self.web_knowledge_settings.get("hotkey", "alt+`")).strip() or "alt+`"
 
     @property
+    def web_knowledge_window_size_mode(self) -> str:
+        mode = str(self.web_knowledge_settings.get("window_size", "auto")).strip().lower()
+        if mode in {"auto", "fixed"}:
+            return mode
+        return "auto"
+
+    @property
     def web_knowledge_window_width(self) -> int:
         return int(self.web_knowledge_settings.get("window_width", 560) or 560)
 

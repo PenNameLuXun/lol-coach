@@ -131,6 +131,7 @@ def _populate_tft_embed(window, bundle, state, config) -> bool:
         routes,
         title="TFT — 主流阵容",
         summary=bundle.summary or "当前展示 TFT 主流阵容资料。",
+        plugin_id="tft",
     )
     return True
 

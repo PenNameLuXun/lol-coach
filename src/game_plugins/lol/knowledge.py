@@ -225,6 +225,7 @@ def _populate_lol_embed(window, bundle, state, config) -> bool:
         routes,
         title=f"队伍英雄资料",
         summary=bundle.summary or f"当前展示：{names}",
+        plugin_id="lol",
     )
     return True
 

@@ -157,6 +157,7 @@ def main():
         knowledge_window = KnowledgeWindow(
             width=config.web_knowledge_window_width,
             height=config.web_knowledge_window_height,
+            size_mode=config.web_knowledge_window_size_mode,
         )
         screens = app.screens()
         if len(screens) > 1:

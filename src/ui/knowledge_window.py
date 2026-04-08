@@ -53,8 +53,18 @@ _DARK_INJECT_CSS = """
 """
 
 
+_AUTO_SIZES: dict[str, tuple[int, int]] = {
+    "embed:lol": (1200, 900),
+    "embed:tft": (1100, 900),
+    "embed:default": (1100, 900),
+    "text:lol": (560, 900),
+    "text:tft": (560, 850),
+    "text:default": (560, 900),
+}
+
+
 class KnowledgeWindow(QWidget):
-    def __init__(self, width: int = 560, height: int = 900, parent=None):
+    def __init__(self, width: int = 560, height: int = 900, size_mode: str = "auto", parent=None):
         super().__init__(parent)
         self._drag_offset: QPoint | None = None
         self._dismissed = False
@@ -63,6 +73,8 @@ class KnowledgeWindow(QWidget):
         self._current_routes: list[EmbedRoute] = []
         self._webviews: list[QWebEngineView] = [] if _HAS_WEBENGINE else []
         self._profile: QWebEngineProfile | None = None
+        self._size_mode = size_mode
+        self._fixed_size = (width, height)
 
         self.setWindowTitle("Web Knowledge")
         self.resize(width, height)
@@ -205,7 +217,9 @@ class KnowledgeWindow(QWidget):
         self.raise_()
         self.activateWindow()
 
-    def load_routes(self, routes: list[EmbedRoute], *, title: str = "", summary: str = "") -> None:
+    def load_routes(
+        self, routes: list[EmbedRoute], *, title: str = "", summary: str = "", plugin_id: str = "",
+    ) -> None:
         """Load embedded website routes (Option C mode)."""
         if not _HAS_WEBENGINE:
             logger.warning("PyQt6-WebEngine not installed, falling back to text mode")
@@ -215,6 +229,7 @@ class KnowledgeWindow(QWidget):
 
         self._current_routes = list(routes)
         self._webviews.clear()
+        self._auto_resize("embed", plugin_id)
 
         self._title_label.setText(title or "Web Knowledge")
         self._summary_label.setText(summary or "")
@@ -256,10 +271,11 @@ class KnowledgeWindow(QWidget):
         if routes:
             self._url_label.setText(routes[0].url)
 
-    def update_bundle(self, bundle: KnowledgeBundle | None) -> None:
+    def update_bundle(self, bundle: KnowledgeBundle | None, *, plugin_id: str = "") -> None:
         """Legacy text mode — display parsed web knowledge."""
         self._bundle = bundle
         self._current_routes = []
+        self._auto_resize("text", plugin_id or (bundle.plugin_id if bundle else ""))
         self._webviews.clear()
         self._nav_widget.hide()
 
@@ -305,6 +321,21 @@ class KnowledgeWindow(QWidget):
             self._content_widget.setParent(None)
         self._content_widget = widget
         self._content_layout.addWidget(widget)
+
+    # ── Auto resize ───────────────────────────────────────────────────────
+
+    def _auto_resize(self, display_mode: str, plugin_id: str) -> None:
+        if self._size_mode != "auto":
+            return
+        key = f"{display_mode}:{plugin_id}"
+        w, h = _AUTO_SIZES.get(key, _AUTO_SIZES.get(f"{display_mode}:default", self._fixed_size))
+        screen = self.screen()
+        if screen is not None:
+            avail = screen.availableGeometry()
+            w = min(w, avail.width())
+            h = min(h, avail.height())
+        if (w, h) != (self.width(), self.height()):
+            self.resize(w, h)
 
     # ── Navigation handlers ──────────────────────────────────────────────
 

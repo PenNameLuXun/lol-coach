@@ -55,6 +55,8 @@ web_knowledge:
   always_visible: false
   # 如果没有副屏，则按住这个热键时显示 Web 资料窗口
   hotkey: "alt+`"
+  # auto = 根据显示模式和游戏自动调整窗口大小  |  fixed = 使用下面的固定尺寸
+  window_size: auto
   window_width: 560
   window_height: 900
   # 每行一个站点，格式：domain,priority
