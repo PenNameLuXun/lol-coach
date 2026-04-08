@@ -59,7 +59,10 @@ class TrayIcon(QObject):
     def set_state(self, state: str):
         self._state = state
         color = self._STATE_COLORS.get(state, "#9ca3af")
-        self._tray.setIcon(_make_icon(color))
+        try:
+            self._tray.setIcon(_make_icon(color))
+        except RuntimeError:
+            return
         if state == self.STATE_PAUSED:
             self._toggle_action.setText("开始分析")
             self._tray.setToolTip("LOL Coach — 已暂停")

@@ -41,7 +41,9 @@ launcher:
 
 web_knowledge:
   enabled: true
-  # duckduckgo | google
+  # embed = 直接内嵌网站(需要PyQt6-WebEngine)  |  text = 纯文本解析模式
+  mode: embed
+  # duckduckgo | google （仅 text 模式使用）
   search_engine: google
   refresh_interval_seconds: 300
   timeout_seconds: 8
@@ -85,6 +87,12 @@ plugin_settings:
     knowledge_enabled: true
     knowledge_max_champions: 5
     knowledge_include_enemy_champions: false
+    # embed 模式下内嵌哪些网站（按顺序显示为标签页）
+    knowledge_embed_sites:
+      - op.gg
+      - u.gg
+      - lolalytics.com
+    # text 模式下解析哪些网站
     knowledge_search_sites_text: |
       origin-lol.wzstats.gg,105
       op.gg,100
@@ -111,6 +119,12 @@ plugin_settings:
       mobalytics.gg,90
       tft.vinky.cn,75
     knowledge_enabled: true
+    # embed 模式下内嵌哪些网站
+    knowledge_embed_sites:
+      - tactics.tools
+      - lolchess.gg
+      - mobalytics.gg
+    # text 模式下解析哪些网站
     knowledge_search_sites_text: |
       tactics.tools,100
       lolchess.gg,95

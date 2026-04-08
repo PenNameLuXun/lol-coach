@@ -6,6 +6,8 @@ import time
 
 from PyQt6.QtWidgets import QTabWidget, QTextBrowser
 
+from src.ui.web_routes import build_lol_routes, build_lol_team_routes
+
 from src.qa_web_search import (
     SearchDocument,
     SearchSite,
@@ -199,6 +201,35 @@ def collect_lol_web_knowledge_documents(query: KnowledgeQuery, state, config) ->
 
 
 def populate_lol_web_knowledge_window(window, bundle, state, config) -> bool:
+    if config is not None:
+        embed_mode = str(config.web_knowledge_settings.get("mode", "embed")).strip().lower()
+        if embed_mode == "embed" and hasattr(window, "load_routes"):
+            return _populate_lol_embed(window, bundle, state, config)
+    return _populate_lol_text(window, bundle, state, config)
+
+
+def _populate_lol_embed(window, bundle, state, config) -> bool:
+    include_enemy = bool(config.plugin_setting("lol", "knowledge_include_enemy_champions", False))
+    champions = _knowledge_champions(state.raw_data, include_enemy=include_enemy)
+    max_champions = int(config.plugin_setting("lol", "knowledge_max_champions", 5) or 5)
+    champions = champions[: max(1, max_champions)]
+    if not champions:
+        return False
+    embed_sites = config.plugin_setting("lol", "knowledge_embed_sites", None)
+    preferred_site = embed_sites[0] if isinstance(embed_sites, list) and embed_sites else None
+    routes = build_lol_team_routes(champions, site=preferred_site)
+    if not routes:
+        return False
+    names = "、".join(champions)
+    window.load_routes(
+        routes,
+        title=f"队伍英雄资料",
+        summary=bundle.summary or f"当前展示：{names}",
+    )
+    return True
+
+
+def _populate_lol_text(window, bundle, state, config) -> bool:
     tabs = QTabWidget()
     tabs.setDocumentMode(True)
     tabs.tabBar().setExpanding(False)

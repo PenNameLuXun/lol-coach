@@ -5,6 +5,8 @@ import time
 
 from PyQt6.QtWidgets import QTextBrowser, QVBoxLayout, QWidget
 
+from src.ui.web_routes import build_tft_routes
+
 from src.qa_web_search import (
     SearchDocument,
     SearchSite,
@@ -109,6 +111,31 @@ def collect_tft_web_knowledge_documents(query: KnowledgeQuery, state, config) ->
 
 
 def populate_tft_web_knowledge_window(window, bundle, state, config) -> bool:
+    if config is not None:
+        embed_mode = str(config.web_knowledge_settings.get("mode", "embed")).strip().lower()
+        if embed_mode == "embed" and hasattr(window, "load_routes"):
+            return _populate_tft_embed(window, bundle, state, config)
+    return _populate_tft_text(window, bundle, state, config)
+
+
+def _populate_tft_embed(window, bundle, state, config) -> bool:
+    embed_sites = config.plugin_setting("tft", "knowledge_embed_sites", None)
+    if isinstance(embed_sites, list):
+        site_list = embed_sites
+    else:
+        site_list = None
+    routes = build_tft_routes(sites=site_list)
+    if not routes:
+        return False
+    window.load_routes(
+        routes,
+        title="TFT — 主流阵容",
+        summary=bundle.summary or "当前展示 TFT 主流阵容资料。",
+    )
+    return True
+
+
+def _populate_tft_text(window, bundle, state, config) -> bool:
     root = QWidget()
     layout = QVBoxLayout(root)
     layout.setContentsMargins(0, 0, 0, 0)
