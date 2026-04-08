@@ -1,4 +1,4 @@
-from main import _build_debug_fake_lol_context, _build_debug_fake_tft_context
+from src.workers.ai_worker import _build_debug_fake_context, _DEBUG_FAKE_LOL_DATA, _DEBUG_FAKE_TFT_DATA
 from src.config import Config
 from src.rule_engine import RuleEngine
 
@@ -14,7 +14,7 @@ def test_build_debug_fake_lol_context(tmp_path):
     config = Config(str(path))
     engine = RuleEngine(enabled_plugin_ids=["lol"], config=config)
 
-    context = _build_debug_fake_lol_context(engine)
+    context = _build_debug_fake_context(engine, "lol", _DEBUG_FAKE_LOL_DATA)
 
     assert context is not None
     assert context.plugin.id == "lol"
@@ -33,7 +33,7 @@ def test_build_debug_fake_tft_context(tmp_path):
     config = Config(str(path))
     engine = RuleEngine(enabled_plugin_ids=["tft"], config=config)
 
-    context = _build_debug_fake_tft_context(engine)
+    context = _build_debug_fake_context(engine, "tft", _DEBUG_FAKE_TFT_DATA)
 
     assert context is not None
     assert context.plugin.id == "tft"

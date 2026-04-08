@@ -1,16 +1,8 @@
-"""Backward-compatible re-exports from src.search subpackage.
-
-All functionality has been moved to src/search/. This module re-exports
-everything so existing imports continue to work.
-"""
+"""Web search subpackage — search engines, HTML parsing, and document models."""
 
 from src.search.models import SearchSite, SearchDocument
-from src.search.sites import parse_search_sites_text, merge_search_sites
 from src.search.formatting import format_search_documents, sort_search_documents
-from src.search.engine import search_web_for_qa, should_web_search_question
 from src.search.html_extract import (
-    USER_AGENT,
-    DEFAULT_ACCEPT_LANGUAGE,
     fetch_page_html,
     sanitize_content_html,
     extract_meta_description,
@@ -19,18 +11,14 @@ from src.search.html_extract import (
     infer_patch_version,
     infer_domain_from_url,
 )
+from src.search.engine import search_web_for_qa, should_web_search_question
+from src.search.sites import parse_search_sites_text, merge_search_sites
 
 __all__ = [
     "SearchSite",
     "SearchDocument",
-    "parse_search_sites_text",
-    "merge_search_sites",
     "format_search_documents",
     "sort_search_documents",
-    "search_web_for_qa",
-    "should_web_search_question",
-    "USER_AGENT",
-    "DEFAULT_ACCEPT_LANGUAGE",
     "fetch_page_html",
     "sanitize_content_html",
     "extract_meta_description",
@@ -38,4 +26,8 @@ __all__ = [
     "extract_visible_text_excerpt",
     "infer_patch_version",
     "infer_domain_from_url",
+    "search_web_for_qa",
+    "should_web_search_question",
+    "parse_search_sites_text",
+    "merge_search_sites",
 ]

@@ -87,6 +87,13 @@ class EdgeTTS(BaseTTS):
     def __init__(self, voice: str, rate: str = "+0%"):
         self._voice = voice
         self._rate = rate
+        self._mixer_inited = False
+
+    def _ensure_mixer(self):
+        if not self._mixer_inited:
+            import pygame
+            pygame.mixer.init()
+            self._mixer_inited = True
 
     def speak(self, text: str, rate_override=None):
         asyncio.run(self._async_speak(text))
@@ -103,7 +110,7 @@ class EdgeTTS(BaseTTS):
         synth_elapsed_ms = (time.perf_counter() - synth_started_at) * 1000
         _tts_log("edge", f"synth_end elapsed_ms={synth_elapsed_ms:.0f}")
         play_started_at = time.perf_counter()
-        pygame.mixer.init()
+        self._ensure_mixer()
         pygame.mixer.music.load(tmp_path)
         _tts_log("edge", "play_start")
         pygame.mixer.music.play()
@@ -117,6 +124,13 @@ class OpenAITTS(BaseTTS):
         self._client = openai.OpenAI(api_key=api_key)
         self._voice = voice
         self._model = model
+        self._mixer_inited = False
+
+    def _ensure_mixer(self):
+        if not self._mixer_inited:
+            import pygame
+            pygame.mixer.init()
+            self._mixer_inited = True
 
     def speak(self, text: str, rate_override=None):
         import pygame
@@ -133,7 +147,7 @@ class OpenAITTS(BaseTTS):
         synth_elapsed_ms = (time.perf_counter() - synth_started_at) * 1000
         _tts_log("openai", f"synth_end elapsed_ms={synth_elapsed_ms:.0f}")
         play_started_at = time.perf_counter()
-        pygame.mixer.init()
+        self._ensure_mixer()
         pygame.mixer.music.load(tmp_path)
         _tts_log("openai", "play_start")
         pygame.mixer.music.play()

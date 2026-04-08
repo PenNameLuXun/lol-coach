@@ -4,7 +4,7 @@ import tempfile
 import pytest
 import yaml
 from src.config import Config
-from main import _resolve_tts_rate_override
+from src.workers.tts_worker import _resolve_tts_rate_override
 
 MINIMAL_CONFIG = {
     "decision": {

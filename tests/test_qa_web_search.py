@@ -1,12 +1,9 @@
 from src.qa_channel import QaQuestion, build_qa_prompt
-from src.qa_web_search import (
-    _direct_content_candidates,
-    SearchDocument,
-    _extract_excerpt_from_html,
-    merge_search_sites,
-    parse_search_sites_text,
-    sort_search_documents,
-)
+from src.search.engine import _direct_content_candidates
+from src.search.html_extract import extract_excerpt_from_html as _extract_excerpt_from_html
+from src.search.models import SearchDocument
+from src.search.sites import merge_search_sites, parse_search_sites_text
+from src.search.formatting import sort_search_documents
 
 
 def test_parse_search_sites_text_and_merge_priority():

@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, ANY
 from src.ai_provider import ClaudeProvider, OpenAIProvider, GeminiProvider, OpenAICompatibleProvider, get_provider
 
 
@@ -85,7 +85,9 @@ def test_compat_provider_passes_base_url():
             api_key="k", model="llava", max_tokens=100,
             temperature=0.7, base_url="http://localhost:11434/v1"
         )
-        MockClient.assert_called_once_with(api_key="k", base_url="http://localhost:11434/v1")
+        call_kwargs = MockClient.call_args.kwargs
+        assert call_kwargs["api_key"] == "k"
+        assert call_kwargs["base_url"] == "http://localhost:11434/v1"
 
 
 # ── Factory ───────────────────────────────────────────────────────────────────
@@ -108,7 +110,9 @@ def test_get_provider_returns_compat_with_default_url(name, expected_url):
         cfg = {"api_key": "k", "model": "some-model", "max_tokens": 100, "temperature": 0.7}
         p = get_provider(name, cfg)
         assert isinstance(p, OpenAICompatibleProvider)
-        MockClient.assert_called_once_with(api_key="k", base_url=expected_url)
+        call_kwargs = MockClient.call_args.kwargs
+        assert call_kwargs["api_key"] == "k"
+        assert call_kwargs["base_url"] == expected_url
 
 
 def test_get_provider_compat_respects_custom_base_url():
@@ -117,7 +121,9 @@ def test_get_provider_compat_respects_custom_base_url():
                "temperature": 0.7, "base_url": "http://myserver:11434/v1"}
         p = get_provider("ollama", cfg)
         assert isinstance(p, OpenAICompatibleProvider)
-        MockClient.assert_called_once_with(api_key="k", base_url="http://myserver:11434/v1")
+        call_kwargs = MockClient.call_args.kwargs
+        assert call_kwargs["api_key"] == "k"
+        assert call_kwargs["base_url"] == "http://myserver:11434/v1"
 
 
 def test_get_provider_raises_on_unknown():

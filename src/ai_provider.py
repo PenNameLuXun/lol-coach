@@ -2,9 +2,12 @@ import base64
 from abc import ABC, abstractmethod
 
 import anthropic
+import httpx
 import openai
 from google import genai
 from google.genai import types
+
+DEFAULT_TIMEOUT = 120  # seconds
 
 
 class BaseProvider(ABC):
@@ -15,8 +18,12 @@ class BaseProvider(ABC):
 
 
 class ClaudeProvider(BaseProvider):
-    def __init__(self, api_key: str, model: str, max_tokens: int, temperature: float):
-        self._client = anthropic.Anthropic(api_key=api_key)
+    def __init__(self, api_key: str, model: str, max_tokens: int, temperature: float,
+                 timeout: int = DEFAULT_TIMEOUT):
+        self._client = anthropic.Anthropic(
+            api_key=api_key,
+            timeout=httpx.Timeout(timeout, connect=10.0),
+        )
         self._model = model
         self._max_tokens = max_tokens
         self._temperature = temperature
@@ -40,8 +47,12 @@ class ClaudeProvider(BaseProvider):
 
 
 class OpenAIProvider(BaseProvider):
-    def __init__(self, api_key: str, model: str, max_tokens: int, temperature: float):
-        self._client = openai.OpenAI(api_key=api_key)
+    def __init__(self, api_key: str, model: str, max_tokens: int, temperature: float,
+                 timeout: int = DEFAULT_TIMEOUT):
+        self._client = openai.OpenAI(
+            api_key=api_key,
+            timeout=httpx.Timeout(timeout, connect=10.0),
+        )
         self._model = model
         self._max_tokens = max_tokens
         self._temperature = temperature
@@ -66,8 +77,12 @@ class OpenAIProvider(BaseProvider):
 
 
 class GeminiProvider(BaseProvider):
-    def __init__(self, api_key: str, model: str, max_tokens: int, temperature: float):
-        self._client = genai.Client(api_key=api_key)
+    def __init__(self, api_key: str, model: str, max_tokens: int, temperature: float,
+                 timeout: int = DEFAULT_TIMEOUT):
+        self._client = genai.Client(
+            api_key=api_key,
+            http_options={"timeout": timeout},
+        )
         self._model = model
         self._max_tokens = max_tokens
         self._temperature = temperature
@@ -92,8 +107,13 @@ class OpenAICompatibleProvider(BaseProvider):
     """Shared implementation for OpenAI-compatible APIs (DeepSeek, Qwen, Zhipu, Ollama)."""
 
     def __init__(self, api_key: str, model: str, max_tokens: int,
-                 temperature: float, base_url: str, vision: bool = True):
-        self._client = openai.OpenAI(api_key=api_key, base_url=base_url)
+                 temperature: float, base_url: str, vision: bool = True,
+                 timeout: int = DEFAULT_TIMEOUT):
+        self._client = openai.OpenAI(
+            api_key=api_key,
+            base_url=base_url,
+            timeout=httpx.Timeout(timeout, connect=10.0),
+        )
         self._model = model
         self._max_tokens = max_tokens
         self._temperature = temperature
@@ -131,6 +151,7 @@ _TEXT_ONLY = {"deepseek"}
 
 
 def get_provider(name: str, cfg: dict) -> BaseProvider:
+    timeout = int(cfg.get("timeout", DEFAULT_TIMEOUT))
     if name in ("claude", "openai", "gemini"):
         providers = {
             "claude": ClaudeProvider,
@@ -142,6 +163,7 @@ def get_provider(name: str, cfg: dict) -> BaseProvider:
             model=cfg["model"],
             max_tokens=cfg["max_tokens"],
             temperature=cfg["temperature"],
+            timeout=timeout,
         )
     if name in _COMPAT_BASE_URLS:
         base_url = cfg.get("base_url", _COMPAT_BASE_URLS[name])
@@ -152,5 +174,6 @@ def get_provider(name: str, cfg: dict) -> BaseProvider:
             temperature=cfg["temperature"],
             base_url=base_url,
             vision=name not in _TEXT_ONLY,
+            timeout=timeout,
         )
     raise ValueError(f"Unknown provider: {name}")

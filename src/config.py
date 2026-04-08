@@ -421,6 +421,22 @@ class Config:
             node = node[part]
         return node
 
+    def _section(self, *keys: str) -> dict:
+        """Retrieve a nested dict section, e.g. _section('qa') or _section('ai', 'claude')."""
+        node = self._data
+        for key in keys:
+            node = node.get(key, {}) if isinstance(node, dict) else {}
+        return node if isinstance(node, dict) else {}
+
+    def _str_choice(self, section: dict, key: str, default: str, valid: set[str]) -> str:
+        """Read a string from section, validate against allowed values, return default if invalid."""
+        value = str(section.get(key, default)).strip().lower()
+        return value if value in valid else default
+
+    def _int_val(self, section: dict, key: str, default: int) -> int:
+        """Read an int from section with fallback."""
+        return int(section.get(key, default) or default)
+
     def set(self, key: str, value: Any):
         """Dot-notation write + save e.g. set('capture.interval', 10)"""
         self._set_in_memory(key, value)
