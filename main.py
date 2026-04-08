@@ -163,9 +163,6 @@ def main():
         if len(screens) > 1:
             geo = screens[1].availableGeometry()
             knowledge_window.move(geo.x(), geo.y())
-            knowledge_window.show()
-        elif config.web_knowledge_always_visible:
-            knowledge_window.show()
 
     window: MainWindow | None = None
     tray = TrayIcon("assets/icon.png")
@@ -194,21 +191,31 @@ def main():
     def on_knowledge(payload):
         if knowledge_window is None:
             return
+        screens = app.screens()
+        auto_show = len(screens) > 1 or config.web_knowledge_always_visible
         if not isinstance(payload, dict):
             knowledge_window.update_bundle(payload)
+            if payload is not None and auto_show and not knowledge_window.is_dismissed and not knowledge_window.isVisible():
+                knowledge_window.show()
             return
         plugin = payload.get("plugin")
         state = payload.get("state")
         bundle = payload.get("bundle")
         if plugin is None or bundle is None:
             knowledge_window.update_bundle(bundle)
+            if bundle is not None and auto_show and not knowledge_window.is_dismissed and not knowledge_window.isVisible():
+                knowledge_window.show()
             return
         populate = getattr(plugin, "populate_web_knowledge_window", None)
         if callable(populate):
             handled = bool(populate(knowledge_window, bundle, state, config))
             if handled:
+                if auto_show and not knowledge_window.is_dismissed and not knowledge_window.isVisible():
+                    knowledge_window.show()
                 return
         knowledge_window.update_bundle(bundle)
+        if bundle is not None and auto_show and not knowledge_window.is_dismissed and not knowledge_window.isVisible():
+            knowledge_window.show()
 
     bridge.knowledge_ready.connect(on_knowledge)
 
@@ -321,12 +328,16 @@ def main():
             if always_visible:
                 if knowledge_window.is_dismissed:
                     if visible:
+                        if not knowledge_window.has_content:
+                            knowledge_window.show_loading()
                         knowledge_window.revive()
-                elif not knowledge_window.isVisible():
+                elif knowledge_window.has_content and not knowledge_window.isVisible():
                     knowledge_window.show()
                 return
 
             if visible and not knowledge_window.isVisible():
+                if not knowledge_window.has_content:
+                    knowledge_window.show_loading()
                 knowledge_window.revive()
             elif not visible and knowledge_window.isVisible():
                 knowledge_window.hide()

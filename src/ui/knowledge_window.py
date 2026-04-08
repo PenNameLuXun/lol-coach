@@ -54,6 +54,7 @@ _DARK_INJECT_CSS = """
 
 
 _AUTO_SIZES: dict[str, tuple[int, int]] = {
+    "loading:default": (360, 220),
     "embed:lol": (1200, 900),
     "embed:tft": (1100, 900),
     "embed:default": (1100, 900),
@@ -73,6 +74,8 @@ class KnowledgeWindow(QWidget):
         self._current_routes: list[EmbedRoute] = []
         self._webviews: list[QWebEngineView] = [] if _HAS_WEBENGINE else []
         self._profile: QWebEngineProfile | None = None
+        self._has_content = False
+        self._is_loading = False
         self._size_mode = size_mode
         self._fixed_size = (width, height)
 
@@ -217,6 +220,42 @@ class KnowledgeWindow(QWidget):
         self.raise_()
         self.activateWindow()
 
+    @property
+    def has_content(self) -> bool:
+        return self._has_content
+
+    @property
+    def is_loading(self) -> bool:
+        return self._is_loading
+
+    def show_loading(self, *, summary: str = "正在获取中，请稍候…") -> None:
+        self._bundle = None
+        self._current_routes = []
+        self._webviews.clear()
+        self._has_content = False
+        self._is_loading = True
+        self._auto_resize("loading", "")
+        self._nav_widget.hide()
+        self._title_label.setText("Web Knowledge")
+        self._summary_label.setText(summary)
+        self._updated_label.setText("")
+        browser = QTextBrowser()
+        browser.setOpenExternalLinks(True)
+        browser.setFrameShape(QTextBrowser.Shape.NoFrame)
+        browser.setStyleSheet(_BROWSER_STYLESHEET)
+        browser.setHtml(
+            "<html><body style='font-family:Segoe UI,Microsoft YaHei,sans-serif;"
+            "background:#12161f;color:#e8ebf1;padding:8px;'>"
+            "<div style='font-size:18px;font-weight:700;margin-bottom:10px;'>正在获取资料</div>"
+            "<div style='color:#b8bfcc;font-size:14px;'>请稍候，已开始加载当前游戏相关网页内容。</div>"
+            "</body></html>"
+        )
+        self.set_content_widget(self._tabs)
+        self._tabs.blockSignals(True)
+        self._tabs.clear()
+        self._tabs.addTab(browser, "获取中")
+        self._tabs.blockSignals(False)
+
     def load_routes(
         self, routes: list[EmbedRoute], *, title: str = "", summary: str = "", plugin_id: str = "",
     ) -> None:
@@ -229,6 +268,8 @@ class KnowledgeWindow(QWidget):
 
         self._current_routes = list(routes)
         self._webviews.clear()
+        self._has_content = bool(routes)
+        self._is_loading = False
         self._auto_resize("embed", plugin_id)
 
         self._title_label.setText(title or "Web Knowledge")
@@ -275,6 +316,8 @@ class KnowledgeWindow(QWidget):
         """Legacy text mode — display parsed web knowledge."""
         self._bundle = bundle
         self._current_routes = []
+        self._has_content = bool(bundle and bundle.items)
+        self._is_loading = False
         self._auto_resize("text", plugin_id or (bundle.plugin_id if bundle else ""))
         self._webviews.clear()
         self._nav_widget.hide()
