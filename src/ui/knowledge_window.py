@@ -27,7 +27,12 @@ from src.ui.web_routes import EmbedRoute
 
 try:
     from PyQt6.QtWebEngineWidgets import QWebEngineView
-    from PyQt6.QtWebEngineCore import QWebEnginePage, QWebEngineProfile, QWebEngineSettings
+    from PyQt6.QtWebEngineCore import (
+        QWebEnginePage,
+        QWebEngineProfile,
+        QWebEngineSettings,
+        QWebEngineUrlRequestInterceptor,
+    )
 
     _HAS_WEBENGINE = True
 except ImportError:
@@ -36,6 +41,65 @@ except ImportError:
 from src.web_knowledge import KnowledgeBundle, knowledge_item_tab_label, render_knowledge_item
 
 logger = logging.getLogger("lol_coach.knowledge_window")
+
+
+if _HAS_WEBENGINE:
+    _BLOCKED_HOST_KEYWORDS = (
+        "doubleclick",
+        "googlesyndication",
+        "google-analytics",
+        "googletagmanager",
+        "adservice",
+        "adsystem",
+        "adnxs",
+        "taboola",
+        "outbrain",
+        "criteo",
+        "pubmatic",
+        "rubiconproject",
+        "openx",
+        "casalemedia",
+        "scorecardresearch",
+        "amazon-adsystem",
+        "apstag",
+        "nextmillmedia",
+        "pmbmonetize",
+        "revcontent",
+        "quantserve",
+        "hotjar",
+        "segment.io",
+        "branch.io",
+        "onesignal",
+        "optimizely",
+    )
+
+    class _AdBlockInterceptor(QWebEngineUrlRequestInterceptor):
+        """Block common ad / tracking requests for embedded knowledge pages."""
+
+        def interceptRequest(self, info):  # type: ignore[override]
+            host = info.requestUrl().host().lower()
+            url = info.requestUrl().toString().lower()
+            if any(keyword in host for keyword in _BLOCKED_HOST_KEYWORDS):
+                info.block(True)
+                return
+            if any(keyword in url for keyword in _BLOCKED_HOST_KEYWORDS):
+                info.block(True)
+                return
+
+    class _SilentWebEnginePage(QWebEnginePage):
+        """Suppress noisy site-side JS console spam from embedded pages."""
+
+        def javaScriptConsoleMessage(self, level, message, line_number, source_id):  # type: ignore[override]
+            text = str(message or "").strip()
+            if not text:
+                return
+            logger.debug(
+                "web-console level=%s line=%s source=%s message=%s",
+                getattr(level, "name", level),
+                line_number,
+                source_id,
+                text[:240],
+            )
 
 
 # ── Dark CSS injected into every loaded page ────────────────────────────────
@@ -47,8 +111,93 @@ _DARK_INJECT_CSS = """
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: #12161f; }
         ::-webkit-scrollbar-thumb { background: #2d3644; border-radius: 4px; }
+        iframe[src*="doubleclick"],
+        iframe[src*="googlesyndication"],
+        iframe[src*="adnxs"],
+        iframe[src*="taboola"],
+        iframe[src*="outbrain"],
+        iframe[src*="criteo"],
+        iframe[src*="amazon-adsystem"],
+        [id*="google_ads"],
+        [id*="div-gpt-ad"],
+        [id*="ad-slot"],
+        [id*="adslot"],
+        [id*="advert"],
+        [class*="advert"],
+        [class*="ads"],
+        [class*="ad-slot"],
+        [class*="adslot"],
+        [class*="banner-ad"],
+        [class*="sponsor"],
+        [class*="outbrain"],
+        [class*="taboola"],
+        [data-ad],
+        [data-ad-unit],
+        [data-testid*="ad"],
+        .google-auto-placed,
+        .adsbygoogle,
+        .jw-sticky-ad,
+        .rev-iq-wrapper,
+        .snigel-ad,
+        .vm-placement,
+        .minisidebar-ad,
+        .ad-container,
+        .ads-container {
+            display: none !important;
+            visibility: hidden !important;
+            width: 0 !important;
+            height: 0 !important;
+            min-width: 0 !important;
+            min-height: 0 !important;
+            overflow: hidden !important;
+        }
     `;
     document.head.appendChild(style);
+
+    function removeAdNodes() {
+        var selectors = [
+            'iframe[src*="doubleclick"]',
+            'iframe[src*="googlesyndication"]',
+            'iframe[src*="adnxs"]',
+            'iframe[src*="taboola"]',
+            'iframe[src*="outbrain"]',
+            '[id*="google_ads"]',
+            '[id*="div-gpt-ad"]',
+            '[id*="ad-slot"]',
+            '[id*="adslot"]',
+            '[class*="advert"]',
+            '[class*="ads"]',
+            '[class*="ad-slot"]',
+            '[class*="adslot"]',
+            '[class*="banner-ad"]',
+            '[class*="sponsor"]',
+            '.google-auto-placed',
+            '.adsbygoogle',
+            '.jw-sticky-ad',
+            '.rev-iq-wrapper',
+            '.snigel-ad',
+            '.vm-placement',
+            '.minisidebar-ad',
+            '.ad-container',
+            '.ads-container'
+        ];
+        selectors.forEach(function(selector) {
+            document.querySelectorAll(selector).forEach(function(node) {
+                try {
+                    if (node && node.parentElement) {
+                        node.parentElement.style.display = 'none';
+                    }
+                    if (node) {
+                        node.remove();
+                    }
+                } catch (e) {}
+            });
+        });
+    }
+
+    removeAdNodes();
+    setTimeout(removeAdNodes, 800);
+    setTimeout(removeAdNodes, 2000);
 })();
 """
 
@@ -74,6 +223,7 @@ class KnowledgeWindow(QWidget):
         self._current_routes: list[EmbedRoute] = []
         self._webviews: list[QWebEngineView] = [] if _HAS_WEBENGINE else []
         self._profile: QWebEngineProfile | None = None
+        self._interceptor: _AdBlockInterceptor | None = None
         self._has_content = False
         self._is_loading = False
         self._size_mode = size_mode
@@ -231,7 +381,7 @@ class KnowledgeWindow(QWidget):
     def show_loading(self, *, summary: str = "正在获取中，请稍候…") -> None:
         self._bundle = None
         self._current_routes = []
-        self._webviews.clear()
+        self._clear_webviews()
         self._has_content = False
         self._is_loading = True
         self._auto_resize("loading", "")
@@ -266,8 +416,8 @@ class KnowledgeWindow(QWidget):
         if routes == self._current_routes:
             return
 
+        self._clear_webviews()
         self._current_routes = list(routes)
-        self._webviews.clear()
         self._has_content = bool(routes)
         self._is_loading = False
         self._auto_resize("embed", plugin_id)
@@ -290,9 +440,11 @@ class KnowledgeWindow(QWidget):
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
                 "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
             )
+            self._interceptor = _AdBlockInterceptor(self)
+            self._profile.setUrlRequestInterceptor(self._interceptor)
 
         for route in routes:
-            page = QWebEnginePage(self._profile, self)
+            page = _SilentWebEnginePage(self._profile, self)
             view = QWebEngineView(self)
             view.setPage(page)
 
@@ -319,7 +471,7 @@ class KnowledgeWindow(QWidget):
         self._has_content = bool(bundle and bundle.items)
         self._is_loading = False
         self._auto_resize("text", plugin_id or (bundle.plugin_id if bundle else ""))
-        self._webviews.clear()
+        self._clear_webviews()
         self._nav_widget.hide()
 
         self.set_content_widget(self._tabs)
@@ -423,6 +575,28 @@ class KnowledgeWindow(QWidget):
             view.page().runJavaScript(_DARK_INJECT_CSS)
             if view == self._current_webview():
                 self._url_label.setText(view.url().toString())
+
+    def _clear_webviews(self) -> None:
+        if not _HAS_WEBENGINE or not self._webviews:
+            self._webviews.clear()
+            return
+        for view in self._webviews:
+            try:
+                page = view.page()
+                if page is not None:
+                    view.setPage(None)
+                    page.deleteLater()
+                view.deleteLater()
+            except Exception:
+                pass
+        self._webviews.clear()
+
+    def closeEvent(self, event) -> None:
+        self._clear_webviews()
+        if self._profile is not None:
+            self._profile.deleteLater()
+            self._profile = None
+        super().closeEvent(event)
 
     # ── Window drag ──────────────────────────────────────────────────────
 
