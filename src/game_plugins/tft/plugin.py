@@ -29,6 +29,7 @@ class TftPlugin:
     manifest = {
         "id": "tft",
         "display_name": "Teamfight Tactics",
+        "detect_priority": 10,
         "source": {"kind": "league_live_client"},
         "supports_rules": True,
         "supports_ai_context": True,

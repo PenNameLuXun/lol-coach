@@ -62,7 +62,7 @@ def discover_plugins(config=None) -> list[GamePlugin]:
         plugin = _instantiate_plugin_from_module(module, config=config)
         if plugin is not None:
             plugins.append(plugin)
-    plugins.sort(key=lambda item: str(item.manifest.get("id", item.id)))
+    plugins.sort(key=lambda item: (-int(item.manifest.get("detect_priority", 0)), str(item.manifest.get("id", item.id))))
     return plugins
 
 
