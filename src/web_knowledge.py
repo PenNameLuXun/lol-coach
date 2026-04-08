@@ -57,6 +57,7 @@ class WebKnowledgeManager:
         queries = build_queries(active_context.state, config) or []
         if not queries:
             return None
+        embed_mode = str(config.web_knowledge_settings.get("mode", "text")).strip().lower() == "embed"
         signature = _signature_for_queries(plugin_id, queries)
         now = datetime.now().timestamp()
         if (
@@ -73,6 +74,9 @@ class WebKnowledgeManager:
             return self._cached_bundle
 
         def _collect_one(query: KnowledgeQuery) -> tuple[KnowledgeQuery, list[SearchDocument], float]:
+            if embed_mode:
+                # embed 模式直接由 WebEngine 加载 URL，无需抓取文字内容
+                return query, [], 0.0
             query_started_at = time.perf_counter()
             collector = getattr(plugin, "collect_web_knowledge_documents", None)
             if callable(collector):

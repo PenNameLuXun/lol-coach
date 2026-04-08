@@ -16,6 +16,7 @@ from PyQt6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QPushButton,
+    QSizeGrip,
     QSlider,
     QTabWidget,
     QTextBrowser,
@@ -348,6 +349,14 @@ class KnowledgeWindow(QWidget):
         self._content_layout.addWidget(self._tabs)
         panel_layout.addWidget(self._content_host, 1)
 
+        # ── Resize grip ──────────────────────────────────────────────────
+        grip_row = QHBoxLayout()
+        grip_row.setContentsMargins(0, 0, 0, 0)
+        grip_row.addStretch()
+        self._size_grip = QSizeGrip(self)
+        grip_row.addWidget(self._size_grip)
+        panel_layout.addLayout(grip_row)
+
         root.addWidget(self._panel)
 
         self.setStyleSheet(_WINDOW_STYLESHEET)
@@ -601,7 +610,7 @@ class KnowledgeWindow(QWidget):
     # ── Window drag ──────────────────────────────────────────────────────
 
     def mousePressEvent(self, event: QMouseEvent) -> None:
-        if event.button() == Qt.MouseButton.LeftButton:
+        if event.button() == Qt.MouseButton.LeftButton and event.position().y() < 60:
             self._drag_offset = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
             event.accept()
             return
