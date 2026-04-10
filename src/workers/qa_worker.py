@@ -92,6 +92,8 @@ def qa_worker(
         if question is None:
             continue
 
+        bridge.overlay_event.emit({"kind": "qa_input", "text": question.text})
+
         if question.wakeword_triggered and config.qa_wakeword_enabled:
             log_with_timestamp("QA", "wakeword matched, requesting interrupt")
             tts_interrupt_event.set()
@@ -104,6 +106,7 @@ def qa_worker(
             )
             bus.emit_advice(ack_text)
             bridge.advice_ready.emit(ack_text)
+            bridge.overlay_event.emit({"kind": "qa_ack", "text": ack_text})
             if question.wakeword_only:
                 continue
 
@@ -168,5 +171,6 @@ def qa_worker(
             )
             bus.emit_advice(text)
             bridge.advice_ready.emit(text)
+            bridge.overlay_event.emit({"kind": "qa_output", "text": text})
         except Exception as exc:
             logger.error("[QA worker error] %s", exc)

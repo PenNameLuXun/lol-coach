@@ -1,5 +1,7 @@
 import asyncio
 import datetime
+import os
+import shutil
 import tempfile
 import time
 from abc import ABC, abstractmethod
@@ -40,11 +42,38 @@ class WindowsTTS(BaseTTS):
 
         pythoncom.CoInitialize()
         self._pythoncom = pythoncom
-        self._voice = win32com.client.Dispatch("SAPI.SpVoice")
+        self._voice = self._create_voice(win32com.client)
         self._base_rate = self._normalize_rate(rate)
         # SAPI volume is 0-100; keep accepting 0.0-1.0 in config.
         self._voice.Rate = self._base_rate
         self._voice.Volume = max(0, min(100, int(volume * 100)))
+
+    @staticmethod
+    def _create_voice(win32com_client):
+        try:
+            return win32com_client.Dispatch("SAPI.SpVoice")
+        except Exception as exc:
+            message = str(exc)
+            if "CLSIDToPackageMap" not in message and "gen_py" not in message:
+                raise
+            _tts_log("windows", "gen_py cache issue detected, retrying with dynamic dispatch")
+            WindowsTTS._clear_win32com_cache(win32com_client)
+            try:
+                return win32com_client.dynamic.Dispatch("SAPI.SpVoice")
+            except Exception:
+                return win32com_client.Dispatch("SAPI.SpVoice")
+
+    @staticmethod
+    def _clear_win32com_cache(win32com_client) -> None:
+        try:
+            gen_path = getattr(win32com_client.gencache, "GetGeneratePath", lambda: "")()
+            if gen_path and os.path.isdir(gen_path):
+                shutil.rmtree(gen_path, ignore_errors=True)
+            rebuild = getattr(win32com_client.gencache, "Rebuild", None)
+            if callable(rebuild):
+                rebuild()
+        except Exception:
+            pass
 
     @staticmethod
     def _normalize_rate(rate: int) -> int:

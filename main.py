@@ -52,6 +52,46 @@ def _setup_logging(debug: bool = False):
         logging.getLogger(name).setLevel(logging.WARNING)
 
 
+class _OverlayLogHandler(logging.Handler):
+    def __init__(self, bridge: SignalBridge):
+        super().__init__(level=logging.INFO)
+        self._bridge = bridge
+
+    def emit(self, record: logging.LogRecord) -> None:
+        try:
+            message = self.format(record)
+        except Exception:
+            return
+        if not _should_mirror_log_to_overlay(message):
+            return
+        self._bridge.overlay_event.emit({"kind": "log", "text": message})
+
+
+def _should_mirror_log_to_overlay(message: str) -> bool:
+    text = str(message or "").strip()
+    if not text:
+        return False
+    blocked = (
+        "[UI] display",
+        "js:",
+        "Release of profile requested",
+    )
+    if any(token in text for token in blocked):
+        return False
+    allowed = (
+        "[QA]",
+        "[QA search]",
+        "[QA timing]",
+        "[TTS]",
+        "[Rules]",
+        "[AI worker]",
+        "[Vision bridge]",
+        "[WebKnowledge]",
+        "[startup]",
+    )
+    return any(token in text for token in allowed)
+
+
 # ── Startup helpers ──────────────────────────────────────────────────────────
 
 def _is_overwolf_running() -> bool:
@@ -177,8 +217,6 @@ def main():
     # ── Signals ───────────────────────────────────────────────────────────
     def on_advice(text: str):
         log_with_timestamp("UI", f"display len={len(text)} text={text[:60]}")
-        if overlay is not None:
-            overlay.show_advice(text)
         if window is not None:
             window.on_advice(text)
             session_id = window.history_tab.get_current_session_id()
@@ -187,6 +225,11 @@ def main():
         history.add_advice(text, "timer", session_id=session_id)
 
     bridge.advice_ready.connect(on_advice)
+    if overlay is not None:
+        bridge.overlay_event.connect(overlay.append_event)
+        overlay_log_handler = _OverlayLogHandler(bridge)
+        overlay_log_handler.setFormatter(logging.Formatter("%(message)s"))
+        logging.getLogger().addHandler(overlay_log_handler)
 
     def on_knowledge(payload):
         if knowledge_window is None:

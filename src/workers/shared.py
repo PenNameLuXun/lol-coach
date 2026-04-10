@@ -16,6 +16,7 @@ logger = logging.getLogger("lol_coach")
 class SignalBridge(QObject):
     advice_ready = pyqtSignal(str)
     knowledge_ready = pyqtSignal(object)
+    overlay_event = pyqtSignal(object)
 
 
 class QaRuntimeContext:

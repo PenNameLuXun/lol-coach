@@ -202,6 +202,7 @@ def _emit_rule_advice(
     )
     bus.emit_advice(text)
     bridge.advice_ready.emit(text)
+    bridge.overlay_event.emit({"kind": source, "text": text})
     context_window.add(
         AnalysisSnapshot(
             timestamp=datetime.datetime.now(),
@@ -478,12 +479,13 @@ def ai_worker(
                 )
             bus.put_advice(
                 text,
-                source="qa",
+                source="game_ai",
                 expires_after_seconds=45.0,
                 interruptible=False,
             )
             bus.emit_advice(text)
             bridge.advice_ready.emit(text)
+            bridge.overlay_event.emit({"kind": "game_ai", "text": text})
             context_window.add(
                 AnalysisSnapshot(
                     timestamp=datetime.datetime.now(),
