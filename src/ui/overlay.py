@@ -1,19 +1,18 @@
 from __future__ import annotations
 
+import json
 from collections import deque
 from datetime import datetime
 
-from PyQt6.QtCore import QPoint, Qt, QTimer
-from PyQt6.QtGui import QFont, QMouseEvent
+from PyQt6.QtCore import QPoint, Qt, QTimer, QUrl
+from PyQt6.QtGui import QColor, QFont, QMouseEvent
+from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QLabel,
     QPushButton,
-    QScrollArea,
     QSizeGrip,
-    QSplitter,
-    QTextBrowser,
     QVBoxLayout,
     QWidget,
 )
@@ -21,6 +20,7 @@ from PyQt6.QtWidgets import (
 
 _MAX_EVENT_ENTRIES = 120
 _MAX_LOG_ENTRIES = 240
+_RESIZE_MARGIN = 10
 
 _KIND_STYLES = {
     "qa_input": {"bg": (61, 121, 255), "border": "#5a8dff", "title": "#d8e6ff", "text": "#eef4ff", "small": False},
@@ -41,7 +41,6 @@ _KIND_LABELS = {
 }
 
 _RIGHT_ALIGNED_KINDS = {"qa_input"}
-_RESIZE_MARGIN = 10
 
 
 class _DragHandleFrame(QFrame):
@@ -72,7 +71,7 @@ class _DragHandleFrame(QFrame):
 
 
 class OverlayWindow(QWidget):
-    """Transparent floating dialogue/log panel with separate subwindows."""
+    """Transparent floating dialogue/log panel powered by a small web UI."""
 
     def __init__(self, fade_after: int = 8):
         super().__init__()
@@ -89,6 +88,7 @@ class OverlayWindow(QWidget):
         self._content_alpha = 0.9
         self._hit_test_alpha = 0.04
         self._expanded_size = (560, 520)
+        self._web_ready = False
         self.setObjectName("overlayRoot")
 
         self.setWindowFlags(
@@ -136,20 +136,16 @@ class OverlayWindow(QWidget):
         self._content_frame.setObjectName("overlayContent")
         content_layout = QVBoxLayout(self._content_frame)
         content_layout.setContentsMargins(0, 0, 0, 0)
-        content_layout.setSpacing(6)
+        content_layout.setSpacing(0)
 
-        splitter = QSplitter(Qt.Orientation.Vertical, self._content_frame)
-        splitter.setChildrenCollapsible(False)
-
-        self._event_panel = self._build_panel("关键信息")
-        splitter.addWidget(self._event_panel)
-
-        self._log_panel = self._build_panel("关键日志")
-        self._log_browser = self._log_panel.findChild(QTextBrowser)
-        splitter.addWidget(self._log_panel)
-        splitter.setSizes([320, 160])
-
-        content_layout.addWidget(splitter, 1)
+        self._view = QWebEngineView(self._content_frame)
+        self._view.setObjectName("overlayWebView")
+        self._view.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self._view.setContextMenuPolicy(Qt.ContextMenuPolicy.NoContextMenu)
+        self._view.page().setBackgroundColor(QColor(0, 0, 0, 0))
+        self._view.loadFinished.connect(self._on_web_load_finished)
+        self._view.setHtml(self._initial_html(), QUrl("about:blank"))
+        content_layout.addWidget(self._view, 1)
 
         footer = QHBoxLayout()
         footer.setContentsMargins(0, 0, 0, 0)
@@ -163,45 +159,403 @@ class OverlayWindow(QWidget):
         self._fade_timer.setSingleShot(True)
         self._fade_timer.timeout.connect(self.hide)
 
-        self._render_events()
-        self._render_logs()
         self._apply_styles()
 
-    def _build_panel(self, title: str) -> QWidget:
-        panel = QFrame(self)
-        panel.setObjectName("overlaySubPanel")
-        layout = QVBoxLayout(panel)
-        layout.setContentsMargins(8, 8, 8, 8)
-        layout.setSpacing(6)
+    def _initial_html(self) -> str:
+        return """<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <style>
+    :root {
+      --content-alpha: 0.9;
+      --panel-bg: rgba(8, 12, 18, 0.04);
+      --panel-border: rgba(72, 86, 108, 0.58);
+      --browser-border: rgba(58, 68, 84, 0.43);
+      --section-title: #dbe4f4;
+      --empty: #8f99a8;
+      --log-title: #8f99a8;
+      --log-text: #a9b2c1;
+      --log-bg: rgba(82, 92, 110, 0.18);
+      --log-border: rgba(90, 102, 122, 0.55);
+      color-scheme: dark;
+    }
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: transparent;
+      color: #eef2f8;
+      font-family: "Microsoft YaHei", "Segoe UI", sans-serif;
+      overflow: hidden;
+      height: 100%;
+    }
+    #app {
+      height: 100vh;
+      display: grid;
+      grid-template-rows: minmax(0, 1fr) minmax(150px, 0.65fr);
+      gap: 4px;
+      padding: 0;
+      box-sizing: border-box;
+      background: transparent;
+    }
+    .panel {
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      border-radius: 14px;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .panel-title {
+      padding: 5px 9px 3px;
+      color: var(--section-title);
+      font-size: 12px;
+      font-weight: 700;
+      flex: 0 0 auto;
+    }
+    .panel-body {
+      margin: 0 8px 8px;
+      padding: 2px;
+      border: 1px solid var(--browser-border);
+      border-radius: 10px;
+      background: var(--panel-bg);
+      min-height: 0;
+      overflow-y: auto;
+      overflow-x: hidden;
+      box-sizing: border-box;
+    }
+    .events-body {
+      padding: 4px 6px 6px;
+    }
+    .logs-shell {
+      margin: 0 8px 8px;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .log-filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      padding: 0 2px 1px;
+      flex: 0 0 auto;
+    }
+    .filter-chip {
+      border: 1px solid rgba(86, 102, 126, 0.7);
+      border-radius: 999px;
+      padding: 3px 10px;
+      background: rgba(20, 28, 40, 0.30);
+      color: #b9c3d4;
+      font-size: 10px;
+      line-height: 1;
+      cursor: pointer;
+      user-select: none;
+      transition: background .18s ease, border-color .18s ease, color .18s ease, transform .18s ease;
+    }
+    .filter-chip:hover {
+      background: rgba(42, 57, 78, 0.48);
+      border-color: rgba(112, 131, 160, 0.9);
+      transform: translateY(-1px);
+    }
+    .filter-chip.active {
+      background: rgba(61, 121, 255, 0.24);
+      border-color: rgba(90, 141, 255, 0.95);
+      color: #e8f1ff;
+    }
+    .logs-body {
+      margin: 0;
+      flex: 1 1 auto;
+      min-height: 0;
+    }
+    .event-row {
+      display: flex;
+      margin-bottom: 4px;
+      width: 100%;
+      animation: bubbleIn .22s ease-out;
+    }
+    .event-row.right {
+      justify-content: flex-end;
+    }
+    .event-row.left {
+      justify-content: flex-start;
+    }
+    .bubble {
+      max-width: 88%;
+      display: inline-flex;
+      flex-direction: column;
+      gap: 2px;
+      padding: 4px 8px;
+      border-radius: 16px;
+      box-sizing: border-box;
+      border: 1px solid transparent;
+      text-align: left;
+      word-break: break-word;
+      white-space: pre-wrap;
+      box-shadow: 0 6px 14px rgba(0, 0, 0, 0.12);
+    }
+    .bubble-title {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      margin-bottom: 0;
+      font-size: 9px;
+      line-height: 1.15;
+    }
+    .count-badge {
+      padding: 0 5px;
+      border-radius: 999px;
+      font-size: 9px;
+    }
+    .bubble-body {
+      font-size: 13px;
+      line-height: 1.24;
+    }
+    .bubble.small .bubble-title {
+      font-size: 9px;
+    }
+    .bubble.small .bubble-body {
+      font-size: 11px;
+    }
+    .log-item {
+      margin: 0 0 3px 0;
+      padding: 3px 7px;
+      border-radius: 8px;
+      background: var(--log-bg);
+      border: 1px solid var(--log-border);
+      animation: logIn .18s ease-out;
+    }
+    .log-title {
+      font-size: 9px;
+      color: var(--log-title);
+      margin-bottom: 0;
+      line-height: 1.1;
+    }
+    .log-body {
+      font-size: 10px;
+      color: var(--log-text);
+      white-space: pre-wrap;
+      word-break: break-word;
+      line-height: 1.2;
+    }
+    .empty {
+      padding: 3px;
+      color: var(--empty);
+      font-size: 10px;
+    }
+    ::-webkit-scrollbar {
+      width: 10px;
+      height: 10px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(96, 108, 128, 0.7);
+      border-radius: 5px;
+    }
+    @keyframes bubbleIn {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    @keyframes logIn {
+      from {
+        opacity: 0;
+        transform: translateY(6px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <section class="panel">
+      <div class="panel-title">关键信息</div>
+      <div id="events" class="panel-body events-body"></div>
+    </section>
+    <section class="panel">
+      <div class="panel-title">关键日志</div>
+      <div class="logs-shell">
+        <div id="logFilters" class="log-filters"></div>
+        <div id="logs" class="panel-body logs-body"></div>
+      </div>
+    </section>
+  </div>
+  <script>
+    const EMPTY_EVENTS = "等待 QA / 建议 / 规则消息…";
+    const EMPTY_LOGS = "等待关键日志…";
+    const LOG_FILTER_ORDER = ["all", "qa", "tts", "rules", "ai", "web", "startup", "other"];
+    const LOG_FILTER_LABELS = {
+      all: "全部",
+      qa: "QA",
+      tts: "TTS",
+      rules: "Rules",
+      ai: "AI",
+      web: "Web",
+      startup: "启动",
+      other: "其他"
+    };
+    let currentState = { events: [], logs: [], alpha: 0.9, hit_alpha: 0.04 };
+    let activeLogFilters = new Set(["all"]);
 
-        label = QLabel(title)
-        label.setObjectName("overlaySectionTitle")
-        label.setFont(QFont("Microsoft YaHei", 9, QFont.Weight.Bold))
-        layout.addWidget(label)
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;");
+    }
 
-        if title == "关键信息":
-            scroll = QScrollArea(panel)
-            scroll.setObjectName("overlayEventScroll")
-            scroll.setWidgetResizable(True)
-            scroll.setFrameShape(QFrame.Shape.NoFrame)
-            container = QWidget(scroll)
-            container.setObjectName("overlayEventContainer")
-            container_layout = QVBoxLayout(container)
-            container_layout.setContentsMargins(6, 6, 6, 6)
-            container_layout.setSpacing(8)
-            container_layout.addStretch(1)
-            scroll.setWidget(container)
-            self._event_scroll = scroll
-            self._event_container = container
-            self._event_layout = container_layout
-            layout.addWidget(scroll, 1)
-        else:
-            browser = QTextBrowser(panel)
-            browser.setOpenExternalLinks(False)
-            browser.setFrameShape(QTextBrowser.Shape.NoFrame)
-            browser.setObjectName("overlayBrowser")
-            layout.addWidget(browser, 1)
-        return panel
+    function inferLogCategory(text) {
+      const raw = String(text ?? "");
+      if (raw.startsWith("[QA") || raw.includes("[QA ")) return "qa";
+      if (raw.startsWith("[TTS") || raw.includes("[TTS")) return "tts";
+      if (raw.startsWith("[Rules]")) return "rules";
+      if (raw.startsWith("[AI worker]")) return "ai";
+      if (raw.startsWith("[WebKnowledge")) return "web";
+      if (raw.startsWith("[startup]")) return "startup";
+      return "other";
+    }
+
+    function normalizeFilters() {
+      if (!activeLogFilters.size) {
+        activeLogFilters = new Set(["all"]);
+        return;
+      }
+      if (activeLogFilters.has("all") && activeLogFilters.size > 1) {
+        activeLogFilters.delete("all");
+      }
+      if (!activeLogFilters.size) {
+        activeLogFilters = new Set(["all"]);
+      }
+    }
+
+    function toggleFilter(name) {
+      if (name === "all") {
+        activeLogFilters = new Set(["all"]);
+      } else {
+        activeLogFilters.delete("all");
+        if (activeLogFilters.has(name)) {
+          activeLogFilters.delete(name);
+        } else {
+          activeLogFilters.add(name);
+        }
+        if (!activeLogFilters.size) {
+          activeLogFilters = new Set(["all"]);
+        }
+      }
+      renderFilters();
+      renderLogs();
+    }
+
+    function renderFilters() {
+      normalizeFilters();
+      const filtersNode = document.getElementById("logFilters");
+      filtersNode.innerHTML = LOG_FILTER_ORDER.map((name) => {
+        const active = activeLogFilters.has(name) ? "active" : "";
+        return `<button class="filter-chip ${active}" data-filter="${name}">${LOG_FILTER_LABELS[name]}</button>`;
+      }).join("");
+      filtersNode.querySelectorAll(".filter-chip").forEach((node) => {
+        node.addEventListener("click", () => toggleFilter(node.dataset.filter));
+      });
+    }
+
+    function renderEvents() {
+      const events = Array.isArray(currentState.events) ? currentState.events : [];
+      const eventsNode = document.getElementById("events");
+      if (!events.length) {
+        eventsNode.innerHTML = `<div class="empty">${escapeHtml(EMPTY_EVENTS)}</div>`;
+      } else {
+        eventsNode.innerHTML = events.map((entry) => {
+          const align = entry.align === "right" ? "right" : "left";
+          const cls = entry.small ? "bubble small" : "bubble";
+          const countBadge = entry.count > 1
+            ? `<span class="count-badge" style="background:${entry.badge_bg};color:${entry.title_color};">x${entry.count}</span>`
+            : "";
+          return `
+            <div class="event-row ${align}">
+              <div class="${cls}" style="background:${entry.bg};border-color:${entry.border};border-radius:${entry.radius};">
+                <div class="bubble-title" style="color:${entry.title_color};">
+                  <span>${escapeHtml(entry.at)} · ${escapeHtml(entry.label)}</span>
+                  ${countBadge}
+                </div>
+                <div class="bubble-body" style="color:${entry.text_color};">${escapeHtml(entry.text)}</div>
+              </div>
+            </div>
+          `;
+        }).join("");
+      }
+      eventsNode.scrollTop = eventsNode.scrollHeight;
+    }
+
+    function renderLogs() {
+      const logs = Array.isArray(currentState.logs) ? currentState.logs : [];
+      const logsNode = document.getElementById("logs");
+      const visibleLogs = activeLogFilters.has("all")
+        ? logs
+        : logs.filter((entry) => activeLogFilters.has(inferLogCategory(entry.text)));
+      if (!visibleLogs.length) {
+        logsNode.innerHTML = `<div class="empty">${escapeHtml(EMPTY_LOGS)}</div>`;
+      } else {
+        logsNode.innerHTML = visibleLogs.map((entry) => `
+          <div class="log-item">
+            <div class="log-title">${escapeHtml(entry.at)} · ${escapeHtml(LOG_FILTER_LABELS[inferLogCategory(entry.text)] || "日志")}</div>
+            <div class="log-body">${escapeHtml(entry.text)}</div>
+          </div>
+        `).join("");
+      }
+      logsNode.scrollTop = logsNode.scrollHeight;
+    }
+
+    function renderState(state) {
+      currentState = {
+        events: Array.isArray(state.events) ? state.events : [],
+        logs: Array.isArray(state.logs) ? state.logs : [],
+        alpha: typeof state.alpha === "number" ? state.alpha : 0.9,
+        hit_alpha: typeof state.hit_alpha === "number" ? state.hit_alpha : 0.04,
+      };
+      const alpha = currentState.alpha;
+      const hit = currentState.hit_alpha;
+
+      document.documentElement.style.setProperty("--content-alpha", String(alpha));
+      document.documentElement.style.setProperty("--panel-bg", `rgba(8, 12, 18, ${hit})`);
+      renderFilters();
+      renderEvents();
+      renderLogs();
+    }
+
+    window.renderOverlayState = renderState;
+    window.renderOverlayEvents = function(events) {
+      currentState.events = Array.isArray(events) ? events : [];
+      renderEvents();
+    };
+    window.renderOverlayLogs = function(logs) {
+      currentState.logs = Array.isArray(logs) ? logs : [];
+      renderLogs();
+    };
+    window.renderOverlayChrome = function(alpha, hitAlpha) {
+      if (typeof alpha === "number") {
+        currentState.alpha = alpha;
+        document.documentElement.style.setProperty("--content-alpha", String(alpha));
+      }
+      if (typeof hitAlpha === "number") {
+        currentState.hit_alpha = hitAlpha;
+        document.documentElement.style.setProperty("--panel-bg", `rgba(8, 12, 18, ${hitAlpha})`);
+      }
+    };
+  </script>
+</body>
+</html>"""
 
     def append_event(self, payload: object):
         if isinstance(payload, str):
@@ -224,8 +578,7 @@ class OverlayWindow(QWidget):
         }
         if kind == "log":
             self._log_entries.append(item)
-            self._render_logs()
-            self._scroll_to_bottom(self._log_browser)
+            self._render_logs_only()
         else:
             if self._event_entries:
                 last = self._event_entries[-1]
@@ -236,8 +589,7 @@ class OverlayWindow(QWidget):
                     self._event_entries.append(item)
             else:
                 self._event_entries.append(item)
-            self._render_events()
-            self._scroll_to_bottom(self._event_scroll)
+            self._render_events_only()
 
         if not self.isVisible():
             self.show()
@@ -251,8 +603,7 @@ class OverlayWindow(QWidget):
     def clear(self):
         self._event_entries.clear()
         self._log_entries.clear()
-        self._render_events()
-        self._render_logs()
+        self._render_overlay()
 
     def toggle_collapsed(self):
         if self._collapsed:
@@ -272,110 +623,70 @@ class OverlayWindow(QWidget):
         self._pos_y = y
         self.move(x, y)
 
-    def _render_events(self):
-        if not self._event_entries:
-            self._clear_event_widgets()
-            self._event_layout.insertWidget(0, self._build_event_empty_state("等待 QA / 建议 / 规则消息…"))
-            return
-        self._clear_event_widgets()
+    def _serialize_events(self) -> list[dict[str, object]]:
+        payload: list[dict[str, object]] = []
         for entry in self._event_entries:
             kind = str(entry["kind"])
             style = _KIND_STYLES.get(kind, _KIND_STYLES["game_ai"])
-            label = _KIND_LABELS.get(kind, kind)
-            bg = self._rgba(style["bg"], 0.26 if style["small"] else 0.30)
             if kind == "qa_output":
-                bubble_radius = "16px 16px 16px 6px"
+                radius = "16px 16px 16px 6px"
             elif kind in _RIGHT_ALIGNED_KINDS:
-                bubble_radius = "16px 16px 6px 16px"
+                radius = "16px 16px 6px 16px"
             else:
-                bubble_radius = "16px 16px 16px 8px"
-            count = int(entry.get("count", 1))
-            row = QWidget(self._event_container)
-            row_layout = QHBoxLayout(row)
-            row_layout.setContentsMargins(0, 0, 0, 0)
-            row_layout.setSpacing(0)
-
-            bubble = QFrame(row)
-            bubble.setObjectName("overlayEventBubble")
-            bubble_layout = QVBoxLayout(bubble)
-            bubble_layout.setContentsMargins(10, 8, 10, 8)
-            bubble_layout.setSpacing(4)
-
-            title_row = QHBoxLayout()
-            title_row.setContentsMargins(0, 0, 0, 0)
-            title_row.setSpacing(6)
-
-            title_label = QLabel(f"{entry['at']} · {label}", bubble)
-            title_font = QFont("Microsoft YaHei", 8 if style["small"] else 9)
-            title_label.setFont(title_font)
-            title_label.setStyleSheet(f"color:{style['title']}; background:transparent;")
-            title_row.addWidget(title_label, 0)
-
-            if count > 1:
-                badge = QLabel(f"x{count}", bubble)
-                badge.setStyleSheet(
-                    "padding:1px 6px; border-radius:999px;"
-                    f"background:{self._rgba(style['bg'], 0.42)}; color:{style['title']};"
-                )
-                title_row.addWidget(badge, 0)
-
-            title_row.addStretch(1)
-            bubble_layout.addLayout(title_row)
-
-            body_label = QLabel(str(entry["text"]), bubble)
-            body_label.setWordWrap(True)
-            body_font = QFont("Microsoft YaHei", 9 if style["small"] else 12)
-            body_label.setFont(body_font)
-            body_label.setStyleSheet(f"color:{style['text']}; background:transparent;")
-            body_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-            bubble_layout.addWidget(body_label, 0)
-
-            bubble.setStyleSheet(
-                "QFrame#overlayEventBubble {"
-                f"background:{bg};"
-                f"border:1px solid {style['border']};"
-                f"border-radius:{bubble_radius};"
-                "}"
+                radius = "16px 16px 16px 8px"
+            payload.append(
+                {
+                    "kind": kind,
+                    "label": _KIND_LABELS.get(kind, kind),
+                    "text": str(entry["text"]),
+                    "at": str(entry["at"]),
+                    "count": int(entry.get("count", 1)),
+                    "align": "right" if kind in _RIGHT_ALIGNED_KINDS else "left",
+                    "small": bool(style["small"]),
+                    "bg": self._rgba(style["bg"], 0.26 if style["small"] else 0.30),
+                    "badge_bg": self._rgba(style["bg"], 0.42),
+                    "border": style["border"],
+                    "title_color": style["title"],
+                    "text_color": style["text"],
+                    "radius": radius,
+                }
             )
+        return payload
 
-            if kind in _RIGHT_ALIGNED_KINDS:
-                row_layout.addStretch(1)
-                row_layout.addWidget(bubble, 0)
-            else:
-                row_layout.addWidget(bubble, 0)
-                row_layout.addStretch(1)
+    def _serialize_logs(self) -> list[dict[str, str]]:
+        return [
+            {"at": str(entry["at"]), "text": str(entry["text"])}
+            for entry in self._log_entries
+        ]
 
-            bubble.setMaximumWidth(max(220, self.width() - 120))
-            self._event_layout.insertWidget(self._event_layout.count() - 1, row)
-
-    def _render_logs(self):
-        if not self._log_entries:
-            self._log_browser.setHtml(self._empty_html("等待关键日志…"))
+    def _render_overlay(self):
+        if not self._web_ready:
             return
-        parts = [self._html_start()]
-        for entry in self._log_entries:
-            parts.append(
-                "<div style='margin:0 0 6px 0;padding:5px 8px;border-radius:8px;"
-                f"background:{self._rgba((82, 92, 110), 0.18)};border:1px solid rgba(90,102,122,140);'>"
-                "<div style='font-size:10px;color:#8f99a8;margin-bottom:2px;'>"
-                f"{entry['at']} · 日志</div>"
-                "<div style='font-size:12px;color:#a9b2c1;white-space:pre-wrap;'>"
-                f"{_escape_html(str(entry['text']))}</div></div>"
-            )
-        parts.append("</body></html>")
-        self._log_browser.setHtml("".join(parts))
+        payload = {
+            "events": self._serialize_events(),
+            "logs": self._serialize_logs(),
+            "alpha": round(self._content_alpha, 3),
+            "hit_alpha": round(max(0.01, self._hit_test_alpha), 3),
+        }
+        js = f"window.renderOverlayState({json.dumps(payload, ensure_ascii=False)});"
+        self._view.page().runJavaScript(js)
 
-    def _html_start(self) -> str:
-        return (
-            "<html><body style='font-family:Microsoft YaHei,Segoe UI,sans-serif;"
-            "background:transparent;color:#eef2f8;margin:0;'>"
-        )
+    def _render_events_only(self):
+        if not self._web_ready:
+            return
+        js = f"window.renderOverlayEvents({json.dumps(self._serialize_events(), ensure_ascii=False)});"
+        self._view.page().runJavaScript(js)
 
-    def _empty_html(self, text: str) -> str:
-        return (
-            self._html_start()
-            + f"<div style='padding:6px;color:#8f99a8;font-size:12px;'>{_escape_html(text)}</div></body></html>"
-        )
+    def _render_logs_only(self):
+        if not self._web_ready:
+            return
+        js = f"window.renderOverlayLogs({json.dumps(self._serialize_logs(), ensure_ascii=False)});"
+        self._view.page().runJavaScript(js)
+
+    def _on_web_load_finished(self, ok: bool):
+        self._web_ready = bool(ok)
+        if ok:
+            self._render_overlay()
 
     def _rgba(self, rgb: tuple[int, int, int], alpha: float) -> str:
         value = max(0.10, min(1.0, alpha * self._content_alpha))
@@ -398,19 +709,15 @@ class OverlayWindow(QWidget):
         self._content_frame.setStyleSheet(
             f"QFrame#overlayContent {{ background:{hit_bg}; border:none; border-radius:14px; }}"
         )
-        for panel in (self._event_panel, self._log_panel):
-            panel.setStyleSheet(
-                f"QFrame#overlaySubPanel {{ background:{hit_bg}; border:1px solid rgba(72,86,108,150); border-radius:14px; }}"
-                "QLabel#overlaySectionTitle { color:#dbe4f4; }"
-                f"QTextBrowser#overlayBrowser {{ background:{hit_bg}; border:1px solid rgba(58,68,84,110); border-radius:10px; color:#eef2f8; padding:6px; selection-background-color:#355b9e; }}"
-                f"QScrollArea#overlayEventScroll {{ background:{hit_bg}; border:1px solid rgba(58,68,84,110); border-radius:10px; }}"
-                f"QWidget#overlayEventContainer {{ background:{hit_bg}; }}"
-                "QScrollBar:vertical { background: transparent; width: 10px; margin: 4px 0 4px 0; }"
-                "QScrollBar::handle:vertical { background: rgba(96,108,128,180); min-height: 30px; border-radius: 5px; }"
+        self._view.setStyleSheet("background: transparent; border: none;")
+        if self._web_ready:
+            js = (
+                "window.renderOverlayChrome("
+                f"{json.dumps(round(self._content_alpha, 3))}, "
+                f"{json.dumps(round(max(0.01, self._hit_test_alpha), 3))}"
+                ");"
             )
-
-    def _scroll_to_bottom(self, widget):
-        widget.verticalScrollBar().setValue(widget.verticalScrollBar().maximum())
+            self._view.page().runJavaScript(js)
 
     def mousePressEvent(self, event: QMouseEvent):
         if event.button() == Qt.MouseButton.LeftButton:
@@ -454,8 +761,6 @@ class OverlayWindow(QWidget):
             delta = 0.08 if event.angleDelta().y() > 0 else -0.08
             self._content_alpha = max(0.28, min(1.0, self._content_alpha + delta))
             self._apply_styles()
-            self._render_events()
-            self._render_logs()
             event.accept()
             return
         super().wheelEvent(event)
@@ -515,26 +820,3 @@ class OverlayWindow(QWidget):
         self.setGeometry(left, top, right - left + 1, bottom - top + 1)
         if not self._collapsed:
             self._expanded_size = (self.width(), self.height())
-
-    def _clear_event_widgets(self) -> None:
-        while self._event_layout.count() > 1:
-            item = self._event_layout.takeAt(0)
-            widget = item.widget()
-            if widget is not None:
-                widget.deleteLater()
-
-    def _build_event_empty_state(self, text: str) -> QWidget:
-        label = QLabel(text, self._event_container)
-        label.setWordWrap(True)
-        label.setStyleSheet("color:#8f99a8; background:transparent; padding:6px;")
-        return label
-
-
-def _escape_html(value: str) -> str:
-    return (
-        str(value or "")
-        .replace("&", "&amp;")
-        .replace("<", "&lt;")
-        .replace(">", "&gt;")
-        .replace('"', "&quot;")
-    )
