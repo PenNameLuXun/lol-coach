@@ -222,12 +222,22 @@ class Config:
         return "ai"
 
     @property
+    def qa_topic(self) -> str:
+        """'game'（默认）或 'chat'（闲聊模式，不限话题）。"""
+        return str(self.qa_settings.get("topic", "game")).strip().lower()
+
+    @property
     def qa_system_prompt(self) -> str:
-        return str(
-            self.qa_settings.get(
-                "system_prompt",
-                "你是 MOBA 与策略游戏问答助手。用户会在对局中或对局外提出英雄对线、出装、运营、阵容理解等问题。请用简洁、可靠、可执行的中文直接回答，优先给出 2 到 4 个最关键建议；如果信息不够，就明确说明你的假设。",
+        if "system_prompt" in self.qa_settings:
+            return str(self.qa_settings["system_prompt"])
+        if self.qa_topic == "chat":
+            return (
+                "你是一个全能助手，可以回答任何话题的问题，包括但不限于游戏、生活、知识、闲聊等。"
+                "请用简洁、友好的中文直接回答，避免废话。"
             )
+        return (
+            "你是 MOBA 与策略游戏问答助手。用户会在对局中或对局外提出英雄对线、出装、运营、阵容理解等问题。"
+            "请用简洁、可靠、可执行的中文直接回答，优先给出 2 到 4 个最关键建议；如果信息不够，就明确说明你的假设。"
         )
 
     @property

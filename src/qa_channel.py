@@ -241,7 +241,27 @@ def build_qa_prompt(
     web_search_docs: list[SearchDocument] | None = None,
     detail: str = "normal",
     address_by: str = "champion",
+    topic: str = "game",
+    chat_history: list[tuple[str, str]] | None = None,
 ) -> str:
+    web_search_text = format_search_documents(web_search_docs or [])
+
+    if topic == "chat":
+        # 闲聊模式：注入完整问答对历史，保持通用助手身份
+        history_lines: list[str] = []
+        for user_q, ai_a in (chat_history or []):
+            history_lines.append(f"用户：{user_q}")
+            history_lines.append(f"助手：{ai_a}")
+        history_block = "\n".join(history_lines) if history_lines else "（无）"
+        search_block = f"\n\n联网搜索资料：\n{web_search_text}" if web_search_text.strip() else ""
+        return (
+            f"{system_prompt}\n\n"
+            "回答规则：简洁直接，控制在 100 字以内，适合 TTS 播报，不要输出编号。\n\n"
+            f"对话历史（最近几轮）：\n{history_block}\n\n"
+            f"用户：{question.text}\n"
+            f"助手：{search_block}"
+        )
+
     if active_context:
         plugin = active_context.plugin
         payload = plugin.build_ai_payload(
@@ -258,7 +278,6 @@ def build_qa_prompt(
         rule_hint = "无规则提示。"
 
     history_text = _render_qa_history(snapshots)
-    web_search_text = format_search_documents(web_search_docs or [])
 
     return (
         f"{system_prompt}\n\n"
@@ -290,6 +309,8 @@ def build_qa_followup_prompt(
     web_search_docs: list[SearchDocument],
     detail: str = "normal",
     address_by: str = "champion",
+    topic: str = "game",
+    chat_history: list[tuple[str, str]] | None = None,
 ) -> str:
     base_prompt = build_qa_prompt(
         question=question,
@@ -300,6 +321,8 @@ def build_qa_followup_prompt(
         web_search_docs=web_search_docs,
         detail=detail,
         address_by=address_by,
+        topic=topic,
+        chat_history=chat_history,
     )
     return (
         f"{base_prompt}\n\n"

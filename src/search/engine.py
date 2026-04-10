@@ -15,6 +15,7 @@ from src.search.html_extract import (
     clean_html_text,
     default_headers,
     extract_excerpt_from_html,
+    infer_domain_from_url,
     infer_patch_version,
     primary_language_code,
 )
@@ -30,6 +31,9 @@ def should_web_search_question(question: str) -> bool:
         "opgg", "u.gg", "lolchess", "tactics.tools",
         "现在", "目前",
         "recent", "latest", "patch", "meta", "build", "guide", "tier", "win rate",
+        # 明确搜索指令
+        "搜索", "搜一下", "帮我搜", "帮我查", "查一下", "查查", "联网", "网上查", "网上搜",
+        "search", "look up", "find online",
     ]
     return any(keyword in text for keyword in keywords)
 
@@ -103,6 +107,41 @@ def search_web_for_qa(
                 break
         if stop_after_first_site_success and results:
             break
+
+    # 所有站点均无结果时，做一次不限站点的全网兜底搜索
+    if not docs and max_pages > 0:
+        print(f"[web search] all sites empty, trying open search")
+        open_results = _search_open(
+            session=session,
+            engine=engine,
+            question=question,
+            timeout_seconds=timeout_seconds,
+            max_results=max_pages,
+            accept_language=accept_language,
+        )
+        for result in open_results:
+            excerpt = _fetch_excerpt(
+                session=session,
+                url=result["url"],
+                timeout_seconds=timeout_seconds,
+            )
+            docs.append(
+                SearchDocument(
+                    domain=infer_domain_from_url(result["url"]),
+                    priority=50,
+                    title=result["title"],
+                    url=result["url"],
+                    snippet=result["snippet"],
+                    excerpt=excerpt or result["snippet"],
+                    patch_version=infer_patch_version(
+                        result["title"], result["snippet"], result["url"], excerpt
+                    ),
+                )
+            )
+            if len(docs) >= max_pages:
+                break
+        print(f"[web search] open search hits={len(docs)}")
+
     return sort_search_documents(docs)
 
 
@@ -127,6 +166,29 @@ def _search_site(
     url = f"https://html.duckduckgo.com/html/?q={quote(query)}"
     html = session.get(url, timeout=timeout_seconds).text
     return _parse_duckduckgo_results(html, max_results=max_results)
+
+
+def _search_open(
+    *,
+    session: requests.Session,
+    engine: str,
+    question: str,
+    timeout_seconds: int,
+    max_results: int,
+    accept_language: str,
+) -> list[dict[str, str]]:
+    """不限定站点的全网兜底搜索。"""
+    engine_name = str(engine).strip().lower()
+    try:
+        if engine_name == "google":
+            url = f"https://www.google.com/search?q={quote(question)}&hl={quote(primary_language_code(accept_language))}"
+            html = session.get(url, timeout=timeout_seconds).text
+            return _parse_google_results(html, max_results=max_results)
+        url = f"https://html.duckduckgo.com/html/?q={quote(question)}"
+        html = session.get(url, timeout=timeout_seconds).text
+        return _parse_duckduckgo_results(html, max_results=max_results)
+    except Exception:
+        return []
 
 
 def _parse_duckduckgo_results(html: str, *, max_results: int) -> list[dict[str, str]]:

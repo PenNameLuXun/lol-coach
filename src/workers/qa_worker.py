@@ -14,7 +14,7 @@ from src.qa_channel import QaChannel, build_qa_followup_prompt, build_qa_prompt,
 from src.workers.shared import SignalBridge, QaRuntimeContext, log_with_timestamp
 
 logger = logging.getLogger("lol_coach.qa_worker")
-_SENTENCE_SPLIT_RE = re.compile(r"(.+?[。！？!?；;](?:\s|$))")
+_SENTENCE_SPLIT_RE = re.compile(r"(.+?(?:[。！？!?；;](?:\s|$)|\n))")
 
 
 def _qa_hotkey_gate_open(config: Config) -> bool:
@@ -62,9 +62,16 @@ def _stream_sentences(buffer: str, pending: deque[str]) -> str:
     return buffer
 
 
-def _wait_until_tts_slot_available(stop_event: threading.Event, tts_busy_event: threading.Event, timeout_seconds: float = 8.0):
+def _wait_until_tts_slot_available(
+    stop_event: threading.Event,
+    tts_busy_event: threading.Event,
+    timeout_seconds: float = 8.0,
+    interrupt_event: threading.Event | None = None,
+):
     deadline = time.perf_counter() + timeout_seconds
     while tts_busy_event.is_set() and not stop_event.is_set():
+        if interrupt_event is not None and interrupt_event.is_set():
+            break
         if time.perf_counter() >= deadline:
             break
         stop_event.wait(timeout=0.05)
@@ -78,12 +85,16 @@ def _stream_answer_to_overlay_and_tts(
     bus: EventBus,
     stop_event: threading.Event,
     tts_busy_event: threading.Event,
+    tts_interrupt_event: threading.Event,
     message_id: str,
     overlay_kind: str,
     placeholder: str,
     tts_source: str,
     final_fallback: str,
 ) -> str:
+    def _should_abort() -> bool:
+        return stop_event.is_set() or tts_interrupt_event.is_set()
+
     text_chunks: list[str] = []
     sentence_queue: deque[str] = deque()
     sentence_buffer = ""
@@ -97,6 +108,8 @@ def _stream_answer_to_overlay_and_tts(
         }
     )
     for chunk in provider.analyze_stream(None, prompt):
+        if _should_abort():
+            break
         if not chunk:
             continue
         text_chunks.append(chunk)
@@ -115,8 +128,8 @@ def _stream_answer_to_overlay_and_tts(
             )
         while sentence_queue:
             sentence = sentence_queue.popleft()
-            _wait_until_tts_slot_available(stop_event, tts_busy_event)
-            if stop_event.is_set():
+            _wait_until_tts_slot_available(stop_event, tts_busy_event, interrupt_event=tts_interrupt_event)
+            if _should_abort():
                 break
             bus.put_advice(
                 sentence,
@@ -124,13 +137,15 @@ def _stream_answer_to_overlay_and_tts(
                 expires_after_seconds=20.0,
                 interruptible=False,
             )
+        if _should_abort():
+            break
     text = "".join(text_chunks).strip()
-    if sentence_buffer.strip():
+    if not _should_abort() and sentence_buffer.strip():
         sentence_queue.append(sentence_buffer.strip())
-    while sentence_queue and not stop_event.is_set():
+    while sentence_queue and not _should_abort():
         sentence = sentence_queue.popleft()
-        _wait_until_tts_slot_available(stop_event, tts_busy_event)
-        if stop_event.is_set():
+        _wait_until_tts_slot_available(stop_event, tts_busy_event, interrupt_event=tts_interrupt_event)
+        if _should_abort():
             break
         bus.put_advice(
             sentence,
@@ -162,8 +177,11 @@ def qa_worker(
     debug_timing: bool = False,
 ):
     mic_paused_for_tts = False
+    tts_was_busy = False
+    tts_suppress_until = 0.0
     poll_interval_seconds = 0.2
     provider_cache = _ProviderCache()
+    chat_history: deque[tuple[str, str]] = deque(maxlen=6)  # 最近 6 轮问答对
 
     while not stop_event.is_set():
         stop_event.wait(timeout=poll_interval_seconds)
@@ -185,21 +203,41 @@ def qa_worker(
             )
 
         tts_busy_now = tts_busy_event.is_set()
-        if tts_busy_now and not config.qa_wakeword_enabled:
+        now_mono = time.perf_counter()
+
+        # TTS 刚结束：flush 掉 Whisper 缓冲区里尚未写完的回声行，再等一小段冷却期
+        if tts_was_busy and not tts_busy_now:
+            qa_channel.flush_transcript()
+            suppress_secs = float(config.qa_settings.get("post_tts_suppress_seconds", 1.5))
+            tts_suppress_until = now_mono + suppress_secs
+        tts_was_busy = tts_busy_now
+
+        wakeword_mode = config.qa_wakeword_enabled
+
+        if tts_busy_now and not wakeword_mode:
+            # TTS 播放中（非唤醒词模式）：暂停麦克风并持续 flush
             if not mic_paused_for_tts:
                 qa_channel.pause_microphone()
                 mic_paused_for_tts = True
             qa_channel.flush_transcript()
             continue
 
+        if not wakeword_mode and now_mono < tts_suppress_until:
+            # TTS 结束后冷却期：Whisper 可能还在处理缓冲音频，继续 flush 不处理问题
+            qa_channel.flush_transcript()
+            continue
+
         if not _qa_hotkey_gate_open(config):
             if mic_paused_for_tts:
+                qa_channel.flush_transcript()
                 qa_channel.resume_microphone()
                 mic_paused_for_tts = False
             qa_channel.flush_transcript()
             continue
 
         if mic_paused_for_tts:
+            # 恢复麦克风前先 flush，丢弃 Whisper 对已暂停前缓冲音频的滞后转写结果
+            qa_channel.flush_transcript()
             qa_channel.resume_microphone()
             mic_paused_for_tts = False
 
@@ -250,6 +288,8 @@ def qa_worker(
                 web_search_docs=[],
                 detail=config.plugin_detail(active_plugin_id),
                 address_by=config.plugin_address_by(active_plugin_id),
+                topic=config.qa_topic,
+                chat_history=list(chat_history),
             )
             provider_started_at = time.perf_counter()
             message_id = f"qa-{time.time_ns()}"
@@ -260,6 +300,7 @@ def qa_worker(
                 bus=bus,
                 stop_event=stop_event,
                 tts_busy_event=tts_busy_event,
+                tts_interrupt_event=tts_interrupt_event,
                 message_id=message_id,
                 overlay_kind="qa_output",
                 placeholder="思考中…",
@@ -282,6 +323,8 @@ def qa_worker(
             if text:
                 bus.emit_advice(text)
                 bridge.advice_ready.emit(text)
+                if config.qa_topic == "chat":
+                    chat_history.append((question.text, text))
 
             search_started_at = time.perf_counter()
             web_search_docs = run_qa_web_search(
@@ -316,6 +359,8 @@ def qa_worker(
                 web_search_docs=web_search_docs,
                 detail=config.plugin_detail(active_plugin_id),
                 address_by=config.plugin_address_by(active_plugin_id),
+                topic=config.qa_topic,
+                chat_history=list(chat_history),
             )
             followup_started_at = time.perf_counter()
             followup_id = f"{message_id}-followup"
@@ -326,6 +371,7 @@ def qa_worker(
                 bus=bus,
                 stop_event=stop_event,
                 tts_busy_event=tts_busy_event,
+                tts_interrupt_event=tts_interrupt_event,
                 message_id=followup_id,
                 overlay_kind="qa_output",
                 placeholder="检索补充中…",
