@@ -83,6 +83,7 @@ class WhisperSubprocessListener:
         self._last_model = "base"
         self._last_backend = "whisper"
         self._pause_flag_path: Path | None = None
+        self._partial_transcript_path: Path | None = None
 
     def ensure_running(
         self,
@@ -99,6 +100,7 @@ class WhisperSubprocessListener:
         self._last_model = model
         self._last_backend = backend
         self._pause_flag_path = transcript_path.with_suffix(transcript_path.suffix + ".paused")
+        self._partial_transcript_path = transcript_path.with_suffix(transcript_path.suffix + ".partial")
         if self._process is not None and self._process.poll() is None:
             return True
         lang = culture.split("-")[0]
@@ -121,6 +123,7 @@ class WhisperSubprocessListener:
                 "--model", model,
                 "--silence-ms", str(silence_ms),
                 "--pause-flag", str(self._pause_flag_path),
+                "--partial-transcript", str(self._partial_transcript_path),
             ],
             cwd=str(ROOT),
             creationflags=creationflags,
@@ -138,6 +141,7 @@ class WhisperSubprocessListener:
 
     def stop(self) -> None:
         self._clear_pause_flag()
+        self._clear_partial_transcript()
         if self._process is None:
             return
         if self._process.poll() is None:
@@ -184,6 +188,15 @@ class WhisperSubprocessListener:
         except Exception as exc:
             if _debug_stt_enabled():
                 print(f"[LocalSTT] failed to clear pause flag: {exc}")
+
+    def _clear_partial_transcript(self) -> None:
+        if self._partial_transcript_path is None:
+            return
+        try:
+            if self._partial_transcript_path.exists():
+                self._partial_transcript_path.unlink()
+        except Exception:
+            pass
 
     def _start_log_pumps(self) -> None:
         process = self._process

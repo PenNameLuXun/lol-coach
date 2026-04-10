@@ -576,18 +576,34 @@ class OverlayWindow(QWidget):
             "at": str(event.get("at") or datetime.now().strftime("%H:%M:%S")),
             "count": 1,
         }
+        message_id = event.get("message_id")
+        replace = bool(event.get("replace", False))
+        if message_id is not None:
+            item["message_id"] = str(message_id)
+            item["final"] = bool(event.get("final", False))
         if kind == "log":
             self._log_entries.append(item)
             self._render_logs_only()
         else:
-            if self._event_entries:
+            replaced = False
+            if replace and message_id is not None:
+                for existing in self._event_entries:
+                    if str(existing.get("message_id", "")) == str(message_id):
+                        existing["kind"] = kind
+                        existing["text"] = text
+                        existing["at"] = item["at"]
+                        existing["message_id"] = str(message_id)
+                        existing["final"] = bool(event.get("final", False))
+                        replaced = True
+                        break
+            if not replaced and self._event_entries:
                 last = self._event_entries[-1]
                 if str(last.get("kind")) == kind and str(last.get("text")) == text:
                     last["count"] = int(last.get("count", 1)) + 1
                     last["at"] = item["at"]
                 else:
                     self._event_entries.append(item)
-            else:
+            elif not replaced:
                 self._event_entries.append(item)
             self._render_events_only()
 

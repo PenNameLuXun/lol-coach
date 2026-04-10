@@ -32,6 +32,7 @@ def main() -> None:
     parser.add_argument("--model", default="base")
     parser.add_argument("--silence-ms", type=int, default=1000)
     parser.add_argument("--pause-flag", default="")
+    parser.add_argument("--partial-transcript", default="")
     args = parser.parse_args()
 
     sample_rate = 16000
@@ -39,6 +40,7 @@ def main() -> None:
     silence_threshold = 0.01
     min_speech_seconds = 0.4
     silence_frames = max(1, int(args.silence_ms / 1000 * sample_rate / chunk_frames))
+    partial_interval_seconds = 0.9
 
     try:
         import numpy as np
@@ -93,6 +95,8 @@ def main() -> None:
     buffer: list[bytes] = []
     silent_chunks = 0
     speaking = False
+    last_partial_at = 0.0
+    last_partial_text = ""
 
     def callback(indata, frames, time_info, status):
         nonlocal silent_chunks, speaking
@@ -115,11 +119,33 @@ def main() -> None:
         ):
             while True:
                 time.sleep(0.1)
+                if speaking and args.partial_transcript and not (args.pause_flag and os.path.exists(args.pause_flag)):
+                    pcm_data = b"".join(buffer)
+                    duration = len(pcm_data) / (sample_rate * 2)
+                    now = time.time()
+                    if (
+                        duration >= min_speech_seconds
+                        and now - last_partial_at >= partial_interval_seconds
+                    ):
+                        partial_text = _transcribe(model, pcm_data, args.language, sample_rate, backend=args.backend)
+                        last_partial_at = now
+                        if partial_text and partial_text != last_partial_text:
+                            last_partial_text = partial_text
+                            _write_text_file(args.partial_transcript, partial_text)
+                            if _debug():
+                                print(
+                                    f"[local_stt_worker] partial={partial_text!r}",
+                                    file=sys.stderr,
+                                    flush=True,
+                                )
                 if speaking and silent_chunks >= silence_frames:
                     pcm_data = b"".join(buffer)
                     buffer.clear()
                     speaking = False
                     silent_chunks = 0
+                    last_partial_at = 0.0
+                    last_partial_text = ""
+                    _clear_text_file(args.partial_transcript)
                     if args.pause_flag and os.path.exists(args.pause_flag):
                         if _debug():
                             print(
@@ -155,6 +181,8 @@ def main() -> None:
                             handle.write(text + "\n")
     except KeyboardInterrupt:
         pass
+    finally:
+        _clear_text_file(args.partial_transcript)
 
 
 def _transcribe(model, pcm_bytes: bytes, language: str, sample_rate: int, *, backend: str) -> str:
@@ -187,6 +215,23 @@ def _transcribe(model, pcm_bytes: bytes, language: str, sample_rate: int, *, bac
             os.unlink(tmp)
         except OSError:
             pass
+
+
+def _write_text_file(path: str, text: str) -> None:
+    if not path:
+        return
+    with open(path, "w", encoding="utf-8") as handle:
+        handle.write(text)
+
+
+def _clear_text_file(path: str) -> None:
+    if not path:
+        return
+    try:
+        if os.path.exists(path):
+            os.unlink(path)
+    except OSError:
+        pass
 
 
 if __name__ == "__main__":

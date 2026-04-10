@@ -41,6 +41,7 @@ class QaChannel:
         self._duplicate_cooldown_seconds = 20.0
         self._wakeword_listen_until = 0.0
         self._wakeword_followup_window_seconds = 8.0
+        self._last_partial_text = ""
 
     def is_enabled(self, config) -> bool:
         return bool(config.qa_enabled)
@@ -79,6 +80,32 @@ class QaChannel:
         self._source._line_index_by_path[resolved] = len(lines)
         self._source._append_initialized_paths.add(resolved)
 
+    def poll_partial_question_text(self) -> str | None:
+        cfg = self._source._source_config()
+        if str(cfg.get("source", "file")) != "microphone":
+            return None
+        transcript_path = (
+            self._source._config_path.parent
+            / str(cfg.get("transcript_file", "game_qa_mic.txt"))
+        )
+        partial_path = transcript_path.with_suffix(transcript_path.suffix + ".partial")
+        text = ""
+        try:
+            if partial_path.exists():
+                text = partial_path.read_text(encoding="utf-8").strip()
+        except Exception:
+            text = ""
+        if not text:
+            self._last_partial_text = ""
+            return None
+        partial_text = self._preview_partial_text(text, cfg)
+        if not partial_text:
+            return None
+        if partial_text == self._last_partial_text:
+            return None
+        self._last_partial_text = partial_text
+        return partial_text
+
     def poll_question(self) -> QaQuestion | None:
         cfg = self._source._source_config()
         source_kind = str(cfg.get("source", "file"))
@@ -115,6 +142,7 @@ class QaChannel:
         if not wakeword_only:
             self._last_question_key = question_key
             self._last_question_at = now
+            self._last_partial_text = ""
         return QaQuestion(
             speaker=str(payload.get("speaker", "玩家")),
             text=text,
@@ -181,6 +209,26 @@ class QaChannel:
         if now < self._wakeword_listen_until:
             return stripped, False, False
         return "", False, False
+
+    def _preview_partial_text(self, text: str, cfg: dict) -> str:
+        stripped = str(text or "").strip()
+        if not stripped:
+            return ""
+        if not bool(cfg.get("wakeword_enabled", False)):
+            return stripped
+        raw_keywords = str(cfg.get("wakeword_keywords_text", "")).strip()
+        keywords = [line.strip() for line in raw_keywords.splitlines() if line.strip()]
+        if not keywords:
+            return stripped
+        normalized = _normalize_question_text(stripped)
+        for keyword in keywords:
+            keyword_norm = _normalize_question_text(keyword)
+            if keyword_norm and normalized.startswith(keyword_norm):
+                remainder = stripped[len(keyword):].lstrip(" ,，。.:：!?！？-").strip()
+                return remainder or keyword
+        if time.perf_counter() < self._wakeword_listen_until:
+            return stripped
+        return ""
 
 
 def build_qa_prompt(

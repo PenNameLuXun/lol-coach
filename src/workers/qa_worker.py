@@ -2,8 +2,10 @@
 
 import logging
 import random
+import re
 import threading
 import time
+from collections import deque
 
 from src.ai_provider import get_provider, BaseProvider
 from src.config import Config
@@ -12,6 +14,7 @@ from src.qa_channel import QaChannel, build_qa_prompt, run_qa_web_search
 from src.workers.shared import SignalBridge, QaRuntimeContext, log_with_timestamp
 
 logger = logging.getLogger("lol_coach.qa_worker")
+_SENTENCE_SPLIT_RE = re.compile(r"(.+?[。！？!?；;](?:\s|$))")
 
 
 def _qa_hotkey_gate_open(config: Config) -> bool:
@@ -47,6 +50,26 @@ class _ProviderCache:
         return self._provider
 
 
+def _stream_sentences(buffer: str, pending: deque[str]) -> str:
+    while True:
+        match = _SENTENCE_SPLIT_RE.match(buffer)
+        if not match:
+            break
+        sentence = match.group(1).strip()
+        if sentence:
+            pending.append(sentence)
+        buffer = buffer[match.end():]
+    return buffer
+
+
+def _wait_until_tts_slot_available(stop_event: threading.Event, tts_busy_event: threading.Event, timeout_seconds: float = 8.0):
+    deadline = time.perf_counter() + timeout_seconds
+    while tts_busy_event.is_set() and not stop_event.is_set():
+        if time.perf_counter() >= deadline:
+            break
+        stop_event.wait(timeout=0.05)
+
+
 def qa_worker(
     bus: EventBus,
     config: Config,
@@ -68,6 +91,18 @@ def qa_worker(
             break
         if not qa_channel.is_enabled(config):
             continue
+
+        partial_text = qa_channel.poll_partial_question_text()
+        if partial_text:
+            bridge.overlay_event.emit(
+                {
+                    "kind": "qa_input",
+                    "text": partial_text,
+                    "message_id": "qa-live-input",
+                    "replace": True,
+                    "final": False,
+                }
+            )
 
         tts_busy_now = tts_busy_event.is_set()
         if tts_busy_now and not config.qa_wakeword_enabled:
@@ -93,6 +128,15 @@ def qa_worker(
             continue
 
         bridge.overlay_event.emit({"kind": "qa_input", "text": question.text})
+        bridge.overlay_event.emit(
+            {
+                "kind": "qa_input",
+                "text": question.text,
+                "message_id": "qa-live-input",
+                "replace": True,
+                "final": True,
+            }
+        )
 
         if question.wakeword_triggered and config.qa_wakeword_enabled:
             log_with_timestamp("QA", "wakeword matched, requesting interrupt")
@@ -149,7 +193,61 @@ def qa_worker(
                 address_by=config.plugin_address_by(active_plugin_id),
             )
             provider_started_at = time.perf_counter()
-            text = provider.analyze(None, prompt)
+            message_id = f"qa-{time.time_ns()}"
+            text_chunks: list[str] = []
+            sentence_queue: deque[str] = deque()
+            sentence_buffer = ""
+            bridge.overlay_event.emit(
+                {
+                    "kind": "qa_output",
+                    "text": "思考中…",
+                    "message_id": message_id,
+                    "replace": True,
+                    "final": False,
+                }
+            )
+            for chunk in provider.analyze_stream(None, prompt):
+                if not chunk:
+                    continue
+                text_chunks.append(chunk)
+                sentence_buffer += chunk
+                sentence_buffer = _stream_sentences(sentence_buffer, sentence_queue)
+                current_text = "".join(text_chunks).strip()
+                if current_text:
+                    bridge.overlay_event.emit(
+                        {
+                            "kind": "qa_output",
+                            "text": current_text,
+                            "message_id": message_id,
+                            "replace": True,
+                            "final": False,
+                        }
+                    )
+                while sentence_queue:
+                    sentence = sentence_queue.popleft()
+                    _wait_until_tts_slot_available(stop_event, tts_busy_event)
+                    if stop_event.is_set():
+                        break
+                    bus.put_advice(
+                        sentence,
+                        source="qa",
+                        expires_after_seconds=20.0,
+                        interruptible=False,
+                    )
+            text = "".join(text_chunks).strip()
+            if sentence_buffer.strip():
+                sentence_queue.append(sentence_buffer.strip())
+            while sentence_queue and not stop_event.is_set():
+                sentence = sentence_queue.popleft()
+                _wait_until_tts_slot_available(stop_event, tts_busy_event)
+                if stop_event.is_set():
+                    break
+                bus.put_advice(
+                    sentence,
+                    source="qa",
+                    expires_after_seconds=20.0,
+                    interruptible=False,
+                )
             provider_elapsed_ms = (time.perf_counter() - provider_started_at) * 1000
             total_elapsed_ms = (time.perf_counter() - cycle_started_at) * 1000
             log_with_timestamp(
@@ -163,14 +261,17 @@ def qa_worker(
                     "[timing] reason=qa bridge_ms=0 provider_ms=%.0f total_ms=%.0f",
                     provider_elapsed_ms, total_elapsed_ms,
                 )
-            bus.put_advice(
-                text,
-                source="qa",
-                expires_after_seconds=45.0,
-                interruptible=False,
+            bridge.overlay_event.emit(
+                {
+                    "kind": "qa_output",
+                    "text": text or "未生成有效回答。",
+                    "message_id": message_id,
+                    "replace": True,
+                    "final": True,
+                }
             )
-            bus.emit_advice(text)
-            bridge.advice_ready.emit(text)
-            bridge.overlay_event.emit({"kind": "qa_output", "text": text})
+            if text:
+                bus.emit_advice(text)
+                bridge.advice_ready.emit(text)
         except Exception as exc:
             logger.error("[QA worker error] %s", exc)

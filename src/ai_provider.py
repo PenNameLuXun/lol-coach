@@ -1,5 +1,6 @@
 import base64
 from abc import ABC, abstractmethod
+from collections.abc import Iterator
 
 import anthropic
 import httpx
@@ -16,6 +17,11 @@ class BaseProvider(ABC):
         """Send image + prompt to AI; return advice string.
         Pass image_bytes=None to send text-only (no screenshot)."""
 
+    def analyze_stream(self, image_bytes: bytes | None, prompt: str) -> Iterator[str]:
+        text = self.analyze(image_bytes, prompt)
+        if text:
+            yield text
+
 
 class ClaudeProvider(BaseProvider):
     def __init__(self, api_key: str, model: str, max_tokens: int, temperature: float,
@@ -29,14 +35,7 @@ class ClaudeProvider(BaseProvider):
         self._temperature = temperature
 
     def analyze(self, image_bytes: bytes | None, prompt: str) -> str:
-        if image_bytes is None:
-            content = [{"type": "text", "text": prompt}]
-        else:
-            b64 = base64.standard_b64encode(image_bytes).decode("utf-8")
-            content = [
-                {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": b64}},
-                {"type": "text", "text": prompt},
-            ]
+        content = self._build_content(image_bytes, prompt)
         msg = self._client.messages.create(
             model=self._model,
             max_tokens=self._max_tokens,
@@ -44,6 +43,27 @@ class ClaudeProvider(BaseProvider):
             messages=[{"role": "user", "content": content}],
         )
         return msg.content[0].text
+
+    def analyze_stream(self, image_bytes: bytes | None, prompt: str) -> Iterator[str]:
+        content = self._build_content(image_bytes, prompt)
+        with self._client.messages.stream(
+            model=self._model,
+            max_tokens=self._max_tokens,
+            temperature=self._temperature,
+            messages=[{"role": "user", "content": content}],
+        ) as stream:
+            for text in stream.text_stream:
+                if text:
+                    yield text
+
+    def _build_content(self, image_bytes: bytes | None, prompt: str):
+        if image_bytes is None:
+            return [{"type": "text", "text": prompt}]
+        b64 = base64.standard_b64encode(image_bytes).decode("utf-8")
+        return [
+            {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": b64}},
+            {"type": "text", "text": prompt},
+        ]
 
 
 class OpenAIProvider(BaseProvider):
@@ -58,15 +78,7 @@ class OpenAIProvider(BaseProvider):
         self._temperature = temperature
 
     def analyze(self, image_bytes: bytes | None, prompt: str) -> str:
-        if image_bytes is None:
-            content = prompt
-        else:
-            b64 = base64.standard_b64encode(image_bytes).decode("utf-8")
-            data_url = f"data:image/jpeg;base64,{b64}"
-            content = [
-                {"type": "image_url", "image_url": {"url": data_url}},
-                {"type": "text", "text": prompt},
-            ]
+        content = self._build_content(image_bytes, prompt)
         resp = self._client.chat.completions.create(
             model=self._model,
             max_tokens=self._max_tokens,
@@ -74,6 +86,30 @@ class OpenAIProvider(BaseProvider):
             messages=[{"role": "user", "content": content}],
         )
         return resp.choices[0].message.content
+
+    def analyze_stream(self, image_bytes: bytes | None, prompt: str) -> Iterator[str]:
+        content = self._build_content(image_bytes, prompt)
+        stream = self._client.chat.completions.create(
+            model=self._model,
+            max_tokens=self._max_tokens,
+            temperature=self._temperature,
+            messages=[{"role": "user", "content": content}],
+            stream=True,
+        )
+        for chunk in stream:
+            delta = chunk.choices[0].delta.content if chunk.choices else None
+            if delta:
+                yield delta
+
+    def _build_content(self, image_bytes: bytes | None, prompt: str):
+        if image_bytes is None:
+            return prompt
+        b64 = base64.standard_b64encode(image_bytes).decode("utf-8")
+        data_url = f"data:image/jpeg;base64,{b64}"
+        return [
+            {"type": "image_url", "image_url": {"url": data_url}},
+            {"type": "text", "text": prompt},
+        ]
 
 
 class GeminiProvider(BaseProvider):
@@ -88,10 +124,7 @@ class GeminiProvider(BaseProvider):
         self._temperature = temperature
 
     def analyze(self, image_bytes: bytes | None, prompt: str) -> str:
-        contents = [prompt] if image_bytes is None else [
-            types.Part.from_bytes(data=image_bytes, mime_type="image/jpeg"),
-            prompt,
-        ]
+        contents = self._build_contents(image_bytes, prompt)
         resp = self._client.models.generate_content(
             model=self._model,
             contents=contents,
@@ -101,6 +134,28 @@ class GeminiProvider(BaseProvider):
             ),
         )
         return resp.text
+
+    def analyze_stream(self, image_bytes: bytes | None, prompt: str) -> Iterator[str]:
+        contents = self._build_contents(image_bytes, prompt)
+        stream = self._client.models.generate_content_stream(
+            model=self._model,
+            contents=contents,
+            config=types.GenerateContentConfig(
+                max_output_tokens=self._max_tokens,
+                temperature=self._temperature,
+            ),
+        )
+        for chunk in stream:
+            text = getattr(chunk, "text", None)
+            if text:
+                yield text
+
+    def _build_contents(self, image_bytes: bytes | None, prompt: str):
+        contents = [prompt] if image_bytes is None else [
+            types.Part.from_bytes(data=image_bytes, mime_type="image/jpeg"),
+            prompt,
+        ]
+        return contents
 
 
 class OpenAICompatibleProvider(BaseProvider):
@@ -120,15 +175,7 @@ class OpenAICompatibleProvider(BaseProvider):
         self._vision = vision
 
     def analyze(self, image_bytes: bytes | None, prompt: str) -> str:
-        if self._vision and image_bytes is not None:
-            b64 = base64.standard_b64encode(image_bytes).decode("utf-8")
-            data_url = f"data:image/jpeg;base64,{b64}"
-            content = [
-                {"type": "image_url", "image_url": {"url": data_url}},
-                {"type": "text", "text": prompt},
-            ]
-        else:
-            content = prompt
+        content = self._build_content(image_bytes, prompt)
         resp = self._client.chat.completions.create(
             model=self._model,
             max_tokens=self._max_tokens,
@@ -136,6 +183,30 @@ class OpenAICompatibleProvider(BaseProvider):
             messages=[{"role": "user", "content": content}],
         )
         return resp.choices[0].message.content
+
+    def analyze_stream(self, image_bytes: bytes | None, prompt: str) -> Iterator[str]:
+        content = self._build_content(image_bytes, prompt)
+        stream = self._client.chat.completions.create(
+            model=self._model,
+            max_tokens=self._max_tokens,
+            temperature=self._temperature,
+            messages=[{"role": "user", "content": content}],
+            stream=True,
+        )
+        for chunk in stream:
+            delta = chunk.choices[0].delta.content if chunk.choices else None
+            if delta:
+                yield delta
+
+    def _build_content(self, image_bytes: bytes | None, prompt: str):
+        if self._vision and image_bytes is not None:
+            b64 = base64.standard_b64encode(image_bytes).decode("utf-8")
+            data_url = f"data:image/jpeg;base64,{b64}"
+            return [
+                {"type": "image_url", "image_url": {"url": data_url}},
+                {"type": "text", "text": prompt},
+            ]
+        return prompt
 
 
 # Default base URLs for OpenAI-compatible providers

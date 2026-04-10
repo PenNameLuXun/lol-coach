@@ -3,8 +3,10 @@
 import copy
 import datetime
 import logging
+import re
 import threading
 import time
+from collections import deque
 
 from src.analysis_flow import (
     AnalysisPlan,
@@ -29,6 +31,7 @@ from src.workers.shared import (
 logger = logging.getLogger("lol_coach.ai_worker")
 
 _RULE_REPEAT_LIMIT = 3
+_SENTENCE_SPLIT_RE = re.compile(r"(.+?[。！？!?；;](?:\s|$))")
 
 # ── Debug fake data ──────────────────────────────────────────────────────────
 
@@ -168,6 +171,26 @@ class _ProviderCache:
             self._provider_name = name
             self._provider_cfg = cfg
         return self._provider
+
+
+def _stream_sentences(buffer: str, pending: deque[str]) -> str:
+    while True:
+        match = _SENTENCE_SPLIT_RE.match(buffer)
+        if not match:
+            break
+        sentence = match.group(1).strip()
+        if sentence:
+            pending.append(sentence)
+        buffer = buffer[match.end():]
+    return buffer
+
+
+def _wait_until_tts_slot_available(stop_event: threading.Event, tts_busy_event: threading.Event, timeout_seconds: float = 8.0):
+    deadline = time.perf_counter() + timeout_seconds
+    while tts_busy_event.is_set() and not stop_event.is_set():
+        if time.perf_counter() >= deadline:
+            break
+        stop_event.wait(timeout=0.05)
 
 
 def _emit_rule_advice(
@@ -469,7 +492,61 @@ def ai_worker(
                     _f.write(prompt)
 
             provider_started_at = time.perf_counter()
-            text = provider.analyze(img, prompt)
+            message_id = f"game-ai-{time.time_ns()}"
+            text_chunks: list[str] = []
+            sentence_queue: deque[str] = deque()
+            sentence_buffer = ""
+            bridge.overlay_event.emit(
+                {
+                    "kind": "game_ai",
+                    "text": "分析中…",
+                    "message_id": message_id,
+                    "replace": True,
+                    "final": False,
+                }
+            )
+            for chunk in provider.analyze_stream(img, prompt):
+                if not chunk:
+                    continue
+                text_chunks.append(chunk)
+                sentence_buffer += chunk
+                sentence_buffer = _stream_sentences(sentence_buffer, sentence_queue)
+                current_text = "".join(text_chunks).strip()
+                if current_text:
+                    bridge.overlay_event.emit(
+                        {
+                            "kind": "game_ai",
+                            "text": current_text,
+                            "message_id": message_id,
+                            "replace": True,
+                            "final": False,
+                        }
+                    )
+                while sentence_queue:
+                    sentence = sentence_queue.popleft()
+                    _wait_until_tts_slot_available(stop_event, tts_busy_event)
+                    if stop_event.is_set():
+                        break
+                    bus.put_advice(
+                        sentence,
+                        source="game_ai",
+                        expires_after_seconds=20.0,
+                        interruptible=False,
+                    )
+            text = "".join(text_chunks).strip()
+            if sentence_buffer.strip():
+                sentence_queue.append(sentence_buffer.strip())
+            while sentence_queue and not stop_event.is_set():
+                sentence = sentence_queue.popleft()
+                _wait_until_tts_slot_available(stop_event, tts_busy_event)
+                if stop_event.is_set():
+                    break
+                bus.put_advice(
+                    sentence,
+                    source="game_ai",
+                    expires_after_seconds=20.0,
+                    interruptible=False,
+                )
             provider_elapsed_ms = (time.perf_counter() - provider_started_at) * 1000
             cycle_elapsed_ms = (time.perf_counter() - cycle_started_at) * 1000
             if debug_timing:
@@ -477,15 +554,18 @@ def ai_worker(
                     "[timing] reason=%s bridge_ms=%.0f provider_ms=%.0f total_ms=%.0f",
                     plan.reason, bridge_elapsed_ms, provider_elapsed_ms, cycle_elapsed_ms,
                 )
-            bus.put_advice(
-                text,
-                source="game_ai",
-                expires_after_seconds=45.0,
-                interruptible=False,
+            if text:
+                bus.emit_advice(text)
+                bridge.advice_ready.emit(text)
+            bridge.overlay_event.emit(
+                {
+                    "kind": "game_ai",
+                    "text": text or "未生成有效建议。",
+                    "message_id": message_id,
+                    "replace": True,
+                    "final": True,
+                }
             )
-            bus.emit_advice(text)
-            bridge.advice_ready.emit(text)
-            bridge.overlay_event.emit({"kind": "game_ai", "text": text})
             context_window.add(
                 AnalysisSnapshot(
                     timestamp=datetime.datetime.now(),
