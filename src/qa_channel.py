@@ -279,6 +279,42 @@ def build_qa_prompt(
     )
 
 
+def build_qa_followup_prompt(
+    *,
+    question: QaQuestion,
+    initial_answer: str,
+    system_prompt: str,
+    active_context: ActiveGameContext | None,
+    snapshots: list[AnalysisSnapshot],
+    rule_advice: RuleAdvice | None,
+    web_search_docs: list[SearchDocument],
+    detail: str = "normal",
+    address_by: str = "champion",
+) -> str:
+    base_prompt = build_qa_prompt(
+        question=question,
+        system_prompt=system_prompt,
+        active_context=active_context,
+        snapshots=snapshots,
+        rule_advice=rule_advice,
+        web_search_docs=web_search_docs,
+        detail=detail,
+        address_by=address_by,
+    )
+    return (
+        f"{base_prompt}\n\n"
+        "你已经先给出过一版首答。\n"
+        "首答内容：\n"
+        f"{initial_answer}\n\n"
+        "现在请基于联网搜索资料，只在以下情况下输出“补充说明”：\n"
+        "1. 搜索结果提供了更具体的版本/出装/玩法信息；\n"
+        "2. 首答里有需要修正或补充的地方；\n"
+        "3. 能给出更准确的 1 到 2 句可执行建议。\n"
+        "如果搜索资料没有带来明显增量，请只输出：无补充。\n"
+        "如果需要补充，请直接输出短的补充内容，不要重复整段首答，不要编号。"
+    )
+
+
 def run_qa_web_search(
     *,
     question: QaQuestion,

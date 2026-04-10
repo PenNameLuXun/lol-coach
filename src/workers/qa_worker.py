@@ -10,7 +10,7 @@ from collections import deque
 from src.ai_provider import get_provider, BaseProvider
 from src.config import Config
 from src.event_bus import EventBus
-from src.qa_channel import QaChannel, build_qa_prompt, run_qa_web_search
+from src.qa_channel import QaChannel, build_qa_followup_prompt, build_qa_prompt, run_qa_web_search
 from src.workers.shared import SignalBridge, QaRuntimeContext, log_with_timestamp
 
 logger = logging.getLogger("lol_coach.qa_worker")
@@ -68,6 +68,86 @@ def _wait_until_tts_slot_available(stop_event: threading.Event, tts_busy_event: 
         if time.perf_counter() >= deadline:
             break
         stop_event.wait(timeout=0.05)
+
+
+def _stream_answer_to_overlay_and_tts(
+    *,
+    provider: BaseProvider,
+    prompt: str,
+    bridge: SignalBridge,
+    bus: EventBus,
+    stop_event: threading.Event,
+    tts_busy_event: threading.Event,
+    message_id: str,
+    overlay_kind: str,
+    placeholder: str,
+    tts_source: str,
+    final_fallback: str,
+) -> str:
+    text_chunks: list[str] = []
+    sentence_queue: deque[str] = deque()
+    sentence_buffer = ""
+    bridge.overlay_event.emit(
+        {
+            "kind": overlay_kind,
+            "text": placeholder,
+            "message_id": message_id,
+            "replace": True,
+            "final": False,
+        }
+    )
+    for chunk in provider.analyze_stream(None, prompt):
+        if not chunk:
+            continue
+        text_chunks.append(chunk)
+        sentence_buffer += chunk
+        sentence_buffer = _stream_sentences(sentence_buffer, sentence_queue)
+        current_text = "".join(text_chunks).strip()
+        if current_text:
+            bridge.overlay_event.emit(
+                {
+                    "kind": overlay_kind,
+                    "text": current_text,
+                    "message_id": message_id,
+                    "replace": True,
+                    "final": False,
+                }
+            )
+        while sentence_queue:
+            sentence = sentence_queue.popleft()
+            _wait_until_tts_slot_available(stop_event, tts_busy_event)
+            if stop_event.is_set():
+                break
+            bus.put_advice(
+                sentence,
+                source=tts_source,
+                expires_after_seconds=20.0,
+                interruptible=False,
+            )
+    text = "".join(text_chunks).strip()
+    if sentence_buffer.strip():
+        sentence_queue.append(sentence_buffer.strip())
+    while sentence_queue and not stop_event.is_set():
+        sentence = sentence_queue.popleft()
+        _wait_until_tts_slot_available(stop_event, tts_busy_event)
+        if stop_event.is_set():
+            break
+        bus.put_advice(
+            sentence,
+            source=tts_source,
+            expires_after_seconds=20.0,
+            interruptible=False,
+        )
+    bridge.overlay_event.emit(
+        {
+            "kind": overlay_kind,
+            "text": text or final_fallback,
+            "message_id": message_id,
+            "replace": True,
+            "final": True,
+        }
+    )
+    return text
 
 
 def qa_worker(
@@ -161,6 +241,48 @@ def qa_worker(
 
         try:
             provider = provider_cache.get(config)
+            prompt = build_qa_prompt(
+                question=question,
+                system_prompt=config.qa_system_prompt,
+                active_context=active_context,
+                snapshots=snapshots,
+                rule_advice=rule_advice,
+                web_search_docs=[],
+                detail=config.plugin_detail(active_plugin_id),
+                address_by=config.plugin_address_by(active_plugin_id),
+            )
+            provider_started_at = time.perf_counter()
+            message_id = f"qa-{time.time_ns()}"
+            text = _stream_answer_to_overlay_and_tts(
+                provider=provider,
+                prompt=prompt,
+                bridge=bridge,
+                bus=bus,
+                stop_event=stop_event,
+                tts_busy_event=tts_busy_event,
+                message_id=message_id,
+                overlay_kind="qa_output",
+                placeholder="思考中…",
+                tts_source="qa",
+                final_fallback="未生成有效回答。",
+            )
+            provider_elapsed_ms = (time.perf_counter() - provider_started_at) * 1000
+            total_elapsed_ms = (time.perf_counter() - cycle_started_at) * 1000
+            log_with_timestamp(
+                "QA timing",
+                f"provider={config.ai_provider} "
+                f"provider_ms={provider_elapsed_ms:.0f} "
+                f"total_ms={total_elapsed_ms:.0f}",
+            )
+            if debug_timing:
+                logger.info(
+                    "[timing] reason=qa:first bridge_ms=0 provider_ms=%.0f total_ms=%.0f",
+                    provider_elapsed_ms, total_elapsed_ms,
+                )
+            if text:
+                bus.emit_advice(text)
+                bridge.advice_ready.emit(text)
+
             search_started_at = time.perf_counter()
             web_search_docs = run_qa_web_search(
                 question=question,
@@ -181,9 +303,12 @@ def qa_worker(
                     "QA search result",
                     f"[{i}] site={doc.domain} title={doc.title!r} url={doc.url}",
                 )
+            if not web_search_docs:
+                continue
 
-            prompt = build_qa_prompt(
+            followup_prompt = build_qa_followup_prompt(
                 question=question,
+                initial_answer=text,
                 system_prompt=config.qa_system_prompt,
                 active_context=active_context,
                 snapshots=snapshots,
@@ -192,86 +317,44 @@ def qa_worker(
                 detail=config.plugin_detail(active_plugin_id),
                 address_by=config.plugin_address_by(active_plugin_id),
             )
-            provider_started_at = time.perf_counter()
-            message_id = f"qa-{time.time_ns()}"
-            text_chunks: list[str] = []
-            sentence_queue: deque[str] = deque()
-            sentence_buffer = ""
-            bridge.overlay_event.emit(
-                {
-                    "kind": "qa_output",
-                    "text": "思考中…",
-                    "message_id": message_id,
-                    "replace": True,
-                    "final": False,
-                }
-            )
-            for chunk in provider.analyze_stream(None, prompt):
-                if not chunk:
-                    continue
-                text_chunks.append(chunk)
-                sentence_buffer += chunk
-                sentence_buffer = _stream_sentences(sentence_buffer, sentence_queue)
-                current_text = "".join(text_chunks).strip()
-                if current_text:
-                    bridge.overlay_event.emit(
-                        {
-                            "kind": "qa_output",
-                            "text": current_text,
-                            "message_id": message_id,
-                            "replace": True,
-                            "final": False,
-                        }
-                    )
-                while sentence_queue:
-                    sentence = sentence_queue.popleft()
-                    _wait_until_tts_slot_available(stop_event, tts_busy_event)
-                    if stop_event.is_set():
-                        break
-                    bus.put_advice(
-                        sentence,
-                        source="qa",
-                        expires_after_seconds=20.0,
-                        interruptible=False,
-                    )
-            text = "".join(text_chunks).strip()
-            if sentence_buffer.strip():
-                sentence_queue.append(sentence_buffer.strip())
-            while sentence_queue and not stop_event.is_set():
-                sentence = sentence_queue.popleft()
-                _wait_until_tts_slot_available(stop_event, tts_busy_event)
-                if stop_event.is_set():
-                    break
-                bus.put_advice(
-                    sentence,
-                    source="qa",
-                    expires_after_seconds=20.0,
-                    interruptible=False,
+            followup_started_at = time.perf_counter()
+            followup_id = f"{message_id}-followup"
+            followup_text = _stream_answer_to_overlay_and_tts(
+                provider=provider,
+                prompt=followup_prompt,
+                bridge=bridge,
+                bus=bus,
+                stop_event=stop_event,
+                tts_busy_event=tts_busy_event,
+                message_id=followup_id,
+                overlay_kind="qa_output",
+                placeholder="检索补充中…",
+                tts_source="qa",
+                final_fallback="无补充。",
+            ).strip()
+            followup_elapsed_ms = (time.perf_counter() - followup_started_at) * 1000
+            if followup_text in {"", "无补充。", "无补充"}:
+                bridge.overlay_event.emit(
+                    {
+                        "kind": "qa_output",
+                        "text": "无补充。",
+                        "message_id": followup_id,
+                        "replace": True,
+                        "final": True,
+                    }
                 )
-            provider_elapsed_ms = (time.perf_counter() - provider_started_at) * 1000
+                continue
             total_elapsed_ms = (time.perf_counter() - cycle_started_at) * 1000
             log_with_timestamp(
-                "QA timing",
-                f"provider={config.ai_provider} "
-                f"provider_ms={provider_elapsed_ms:.0f} "
-                f"total_ms={total_elapsed_ms:.0f}",
+                "QA followup",
+                f"provider={config.ai_provider} followup_ms={followup_elapsed_ms:.0f} total_ms={total_elapsed_ms:.0f}",
             )
             if debug_timing:
                 logger.info(
-                    "[timing] reason=qa bridge_ms=0 provider_ms=%.0f total_ms=%.0f",
-                    provider_elapsed_ms, total_elapsed_ms,
+                    "[timing] reason=qa:followup bridge_ms=0 provider_ms=%.0f total_ms=%.0f",
+                    followup_elapsed_ms, total_elapsed_ms,
                 )
-            bridge.overlay_event.emit(
-                {
-                    "kind": "qa_output",
-                    "text": text or "未生成有效回答。",
-                    "message_id": message_id,
-                    "replace": True,
-                    "final": True,
-                }
-            )
-            if text:
-                bus.emit_advice(text)
-                bridge.advice_ready.emit(text)
+            bus.emit_advice(followup_text)
+            bridge.advice_ready.emit(followup_text)
         except Exception as exc:
             logger.error("[QA worker error] %s", exc)
