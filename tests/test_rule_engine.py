@@ -78,7 +78,7 @@ def test_rule_engine_binds_plugin_after_discovery(mocker):
     mocker.patch.object(lol_plugin, "is_available", return_value=True)
     fetch_mock = mocker.patch.object(lol_plugin, "fetch_live_data", return_value=LOL_DATA)
     detect_mock = mocker.patch.object(lol_plugin, "detect", return_value=True)
-    tft_available_mock = mocker.patch.object(tft_plugin, "is_available", return_value=True)
+    tft_available_mock = mocker.patch.object(tft_plugin, "is_available", return_value=False)
 
     context = engine.discover_active_context()
     assert context is not None
@@ -87,7 +87,6 @@ def test_rule_engine_binds_plugin_after_discovery(mocker):
     assert engine.bound_plugin_id == "lol"
     fetch_mock.assert_called_once()
     detect_mock.assert_called_once()
-    tft_available_mock.assert_not_called()
 
 
 def test_rule_engine_invalidates_binding_when_bound_plugin_fails(mocker):

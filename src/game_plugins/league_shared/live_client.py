@@ -119,6 +119,32 @@ def extract_key_metrics(data: dict) -> dict[str, int | str]:
         if e.get("EventName") in {"DragonKill", "BaronKill", "HeraldKill", "TurretKilled", "ChampionKill", "InhibKilled"}
     ]
 
+    # Items
+    items = [i.get("displayName", "") for i in my_player.get("items", []) if i.get("displayName")]
+    item_count = len(items)
+
+    # Summoner spells
+    spells = my_player.get("summonerSpells", {})
+    spell_names = sorted(
+        v.get("displayName", "") for v in spells.values() if isinstance(v, dict) and v.get("displayName")
+    )
+
+    # KDA components
+    kills = int(my_scores.get("kills", 0))
+    deaths = int(my_scores.get("deaths", 0))
+    assists = int(my_scores.get("assists", 0))
+
+    # Rune keystone
+    keystone = active.get("fullRunes", {}).get("keystone", {}).get("displayName", "")
+
+    # Dragon types
+    dragon_events = [e for e in data.get("events", {}).get("Events", []) if e.get("EventName") == "DragonKill"]
+    dragon_types = [e.get("DragonType", "") for e in dragon_events if e.get("DragonType")]
+    dragon_count = len(dragon_events)
+
+    # Ward score
+    ward_score = int(my_scores.get("wardScore", 0))
+
     return {
         "game_type": detect_game_type(data),
         "game_time_seconds": game_time_seconds,
@@ -127,13 +153,28 @@ def extract_key_metrics(data: dict) -> dict[str, int | str]:
         "level": int(active.get("level", 1)),
         "hp_pct": int(hp / max_hp * 100) if max_hp else 0,
         "mana_pct": int(resource / max_resource * 100) if max_resource else 0,
-        "kda": f"{my_scores.get('kills', 0)}/{my_scores.get('deaths', 0)}/{my_scores.get('assists', 0)}",
+        "kda": f"{kills}/{deaths}/{assists}",
+        "kills": kills,
+        "deaths": deaths,
+        "assists": assists,
         "cs": int(my_scores.get("creepScore", 0)),
         "champion": my_player.get("championName", ""),
         "position": my_player.get("position", ""),
         "mode": data.get("gameData", {}).get("gameMode", ""),
         "event_signature": "|".join(notable_events[-3:]) if notable_events else "none",
         "is_dead": "true" if my_player.get("isDead") else "false",
+        # New metrics
+        "items": "|".join(items),
+        "item_count": item_count,
+        "spell1": spell_names[0] if len(spell_names) > 0 else "",
+        "spell2": spell_names[1] if len(spell_names) > 1 else "",
+        "has_flash": "true" if any("Flash" in s or "闪现" in s for s in spell_names) else "false",
+        "has_tp": "true" if any("Teleport" in s or "传送" in s for s in spell_names) else "false",
+        "keystone": keystone,
+        "ward_score": ward_score,
+        "dragon_count": dragon_count,
+        "last_dragon_type": dragon_types[-1] if dragon_types else "",
+        "respawn_timer": int(my_player.get("respawnTimer", 0)),
     }
 
 

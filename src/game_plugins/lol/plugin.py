@@ -18,6 +18,7 @@ from src.game_plugins.lol.knowledge import (
     collect_lol_web_knowledge_documents,
     populate_lol_web_knowledge_window,
 )
+from src.game_plugins.lol.champion_rules import ChampionRuleLoader
 from src.game_plugins.lol.rules import build_lol_rule_hint, evaluate_lol_rules
 from src.game_plugins.lol.source import LolLiveDataSource
 
@@ -148,6 +149,7 @@ class LolPlugin:
 
     def __init__(self):
         self._source = LolLiveDataSource()
+        self._champion_rules = ChampionRuleLoader()
 
     def is_available(self) -> bool:
         return self._source.is_available()
@@ -178,7 +180,11 @@ class LolPlugin:
         return GameState(plugin_id=self.id, game_type="lol", raw_data=raw_data, metrics=metrics, derived=derived)
 
     def evaluate_rules(self, state: GameState) -> list[RuleResult]:
-        return evaluate_lol_rules(state)
+        rules = evaluate_lol_rules(state)
+        champion = str(state.metrics.get("champion", ""))
+        if champion:
+            rules.extend(self._champion_rules.evaluate(champion, state))
+        return rules
 
     def build_ai_payload(
         self,

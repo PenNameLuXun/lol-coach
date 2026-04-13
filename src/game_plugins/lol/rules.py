@@ -90,6 +90,32 @@ def evaluate_lol_rules(state: GameState) -> list[RuleResult]:
     if event_sig == "none" and hp_pct >= 70 and mana_pct >= 50 and enemy_dead == 0 and ally_dead == 0:
         rules.append(RuleResult("lol_stable_farm", 40, "局势平稳，优先补刀控线，等下一次资源刷新。", ("farm", "tempo")))
 
+    # ── Dragon awareness ───────────────────────────────────────
+    dragon_count = _int(metrics.get("dragon_count"))
+    if latest_event == "DragonKill" and dragon_count >= 3 and hp_pct >= 40 and not is_dead:
+        rules.append(RuleResult("lol_dragon_soul_incoming", 92, "已击杀3条龙，下条龙就是龙魂！全队务必争夺。", ("objective", "dragon")))
+
+    # ── Ward / vision awareness ────────────────────────────────
+    ward_score = _int(metrics.get("ward_score"))
+    if ward_score <= 5 and game_minutes >= 15 and not is_dead:
+        rules.append(RuleResult("lol_low_vision", 58, "视野分数太低，记得买控制守卫，关键位置插眼。", ("vision",)))
+
+    # ── KDA-based rules ────────────────────────────────────────
+    kills = _int(metrics.get("kills"))
+    deaths = _int(metrics.get("deaths"))
+    assists = _int(metrics.get("assists"))
+
+    if deaths >= 5 and game_minutes <= 20 and not is_dead:
+        rules.append(RuleResult("lol_high_deaths_warning", 86, "死亡次数过多，一定不要单独行动，跟着队友走。", ("positioning", "recovery")))
+
+    if kills + assists >= 8 and deaths <= 2 and hp_pct >= 50 and not is_dead:
+        rules.append(RuleResult("lol_carrying_protect", 74, "你在carry全队，保护好自己比多一次击杀更重要。", ("positioning", "carry")))
+
+    # ── Item count awareness ───────────────────────────────────
+    item_count = _int(metrics.get("item_count"))
+    if item_count == 0 and game_minutes >= 8 and gold >= 1000 and not is_dead:
+        rules.append(RuleResult("lol_no_items_recall", 85, "身上没有装备但有钱，赶紧回城买装。", ("economy", "recall")))
+
     return rules
 
 

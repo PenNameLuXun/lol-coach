@@ -29,6 +29,7 @@ class RuleAdvice:
     state: GameState
     rule: RuleResult
     plugin: GamePlugin
+    selected_rules: tuple[RuleResult, ...] = ()
 
 
 class RuleEngine:
@@ -84,9 +85,15 @@ class RuleEngine:
         candidates = context.plugin.evaluate_rules(context.state)
         if not candidates:
             return None
-        best = max(candidates, key=lambda item: item.priority)
+        selected = _select_by_category(candidates)
+        best = selected[0]  # highest priority overall
+        # Combine messages from different categories
+        if len(selected) > 1:
+            combined_text = "；".join(r.message for r in selected)
+        else:
+            combined_text = best.message
         return RuleAdvice(
-            text=best.message,
+            text=combined_text,
             hint=context.plugin.build_rule_hint(best, context.state),
             priority=best.priority,
             rule_id=best.rule_id,
@@ -95,6 +102,7 @@ class RuleEngine:
             state=context.state,
             rule=best,
             plugin=context.plugin,
+            selected_rules=tuple(selected),
         )
 
     def evaluate(self, live_data: dict | None, metrics: dict[str, int | str]) -> RuleAdvice | None:
@@ -116,3 +124,19 @@ class RuleEngine:
             return None
         state = plugin.extract_state(raw_data, {})
         return ActiveGameContext(plugin=plugin, state=state)
+
+
+def _select_by_category(candidates: list[RuleResult]) -> list[RuleResult]:
+    """Pick the highest-priority rule from each tag category.
+
+    The "category" of a rule is its first tag (e.g. ``powerspike``,
+    ``economy``).  Rules without tags fall into a shared ``_default``
+    category.  Returns results sorted by descending priority.
+    """
+    best_per_cat: dict[str, RuleResult] = {}
+    for rule in candidates:
+        cat = rule.tags[0] if rule.tags else "_default"
+        existing = best_per_cat.get(cat)
+        if existing is None or rule.priority > existing.priority:
+            best_per_cat[cat] = rule
+    return sorted(best_per_cat.values(), key=lambda r: r.priority, reverse=True)

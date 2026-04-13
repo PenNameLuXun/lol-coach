@@ -242,6 +242,15 @@ def _emit_rule_advice(
         rule_advice=rule_advice,
         snapshots=context_window.items(),
     )
+    # Mark fired rules for cooldown tracking
+    if rule_advice.selected_rules:
+        fired_ids = [r.rule_id for r in rule_advice.selected_rules]
+    else:
+        fired_ids = [rule_advice.rule_id]
+    plugin = rule_advice.plugin
+    champion_rules = getattr(plugin, "_champion_rules", None)
+    if champion_rules is not None:
+        champion_rules.mark_fired(fired_ids)
 
 
 def ai_worker(

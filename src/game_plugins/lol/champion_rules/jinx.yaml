@@ -1,0 +1,185 @@
+champion: Jinx
+tags: [marksman, ranged, adc]
+
+rules:
+  # ── 对线期 ────────────────────────────────────────────────
+  - id: jinx_early_poke
+    priority: 70
+    cooldown: 90
+    message: "用火箭炮（Q切换）远程消耗对面，但注意蓝量消耗。"
+    tags: [trade, laning]
+    when:
+      level: ">= 2"
+      mana_pct: ">= 40"
+      hp_pct: ">= 45"
+      game_minutes: "<= 12"
+      is_dead: false
+
+  - id: jinx_mana_warning
+    priority: 75
+    cooldown: 60
+    message: "蓝量不足，切回迷你炮省蓝补刀，别再用火箭炮了。"
+    tags: [resource, laning]
+    when:
+      mana_pct: "<= 25"
+      game_minutes: "<= 15"
+      is_dead: false
+
+  - id: jinx_powerspike_6
+    priority: 82
+    cooldown: 180
+    message: "6级大招就绪，对面残血时可以用大招收割。注意敌方走位预判。"
+    tags: [powerspike, fight]
+    when:
+      level: "== 6"
+      hp_pct: ">= 40"
+      is_dead: false
+
+  # ── 经济与回城 ────────────────────────────────────────────
+  - id: jinx_bf_recall
+    priority: 83
+    cooldown: 90
+    message: "够买大剑了，推完波快速回城，出了大剑对线优势很大。"
+    tags: [economy, recall]
+    when:
+      gold: ">= 1300"
+      game_minutes: "<= 18"
+      is_dead: false
+
+  - id: jinx_pickaxe_recall
+    priority: 73
+    cooldown: 90
+    message: "攒了一些金币，可以考虑回城出十字镐过渡。"
+    tags: [economy, recall]
+    when:
+      gold:
+        - ">= 875"
+        - "< 1300"
+      game_minutes: "<= 14"
+      hp_pct: "<= 60"
+      is_dead: false
+
+  # ── 装备节点 ──────────────────────────────────────────────
+  - id: jinx_has_kraken
+    priority: 86
+    cooldown: 300
+    message: "海妖杀手到手，攻速和伤害大幅提升，自信对拼吧。"
+    tags: [powerspike, item]
+    when:
+      items_lower: "contains kraken"
+      hp_pct: ">= 40"
+      is_dead: false
+
+  - id: jinx_has_runaan
+    priority: 84
+    cooldown: 300
+    message: "飓风成型，火箭炮团战AOE能力质变，多打团战。"
+    tags: [powerspike, item]
+    when:
+      items_lower: "contains hurricane"
+      game_minutes: ">= 15"
+      hp_pct: ">= 40"
+      is_dead: false
+
+  - id: jinx_no_boots_warning
+    priority: 74
+    cooldown: 120
+    message: "还没出鞋子，金克丝本身没位移，没鞋更容易被抓。"
+    tags: [economy, item]
+    when:
+      items_lower: "not_contains boots"
+      game_minutes: ">= 10"
+      item_count: ">= 2"
+      is_dead: false
+
+  # ── 被动利用 ──────────────────────────────────────────────
+  - id: jinx_passive_chase
+    priority: 88
+    cooldown: 45
+    message: "敌方有人被击杀！金克丝被动触发，利用加速追击或推塔。"
+    tags: [passive, convert]
+    when:
+      enemy_dead: ">= 1"
+      hp_pct: ">= 30"
+      is_dead: false
+
+  # ── 团战定位 ──────────────────────────────────────────────
+  - id: jinx_teamfight_backline
+    priority: 78
+    cooldown: 120
+    message: "团战站后排用火箭炮AOE输出，别往前冲，让前排挡。"
+    tags: [teamfight, positioning]
+    when:
+      game_minutes: ">= 15"
+      hp_pct: ">= 35"
+      ally_dead: "<= 1"
+      is_dead: false
+
+  - id: jinx_three_item_spike
+    priority: 80
+    cooldown: 180
+    message: "三件套成型，金克丝后期团战极强，跟队友一起找大团。"
+    tags: [powerspike, teamfight]
+    when:
+      level: ">= 13"
+      item_count: ">= 4"
+      hp_pct: ">= 45"
+      game_minutes: ">= 22"
+      is_dead: false
+
+  # ── 防守意识 ──────────────────────────────────────────────
+  - id: jinx_overextend_warning
+    priority: 79
+    cooldown: 90
+    message: "金克丝没有位移技能，别太前压，容易被突脸。"
+    tags: [positioning, defensive]
+    when:
+      hp_pct: "<= 55"
+      game_minutes: ">= 8"
+      enemy_dead: "== 0"
+      is_dead: false
+
+  - id: jinx_low_hp_passive_bait
+    priority: 72
+    cooldown: 90
+    message: "血量不健康但如果能拿到人头会触发被动加速逃跑，评估风险。"
+    tags: [passive, risk]
+    when:
+      hp_pct:
+        - "<= 35"
+        - ">= 15"
+      enemy_dead: "== 0"
+      game_minutes: ">= 10"
+      is_dead: false
+
+  - id: jinx_no_flash_danger
+    priority: 77
+    cooldown: 120
+    message: "没有闪现的金克丝非常脆弱，保持和队友同步走位。"
+    tags: [positioning, defensive]
+    when:
+      has_flash: false
+      game_minutes: ">= 3"
+      is_dead: false
+
+  # ── KDA 相关 ──────────────────────────────────────────────
+  - id: jinx_feeding_safe
+    priority: 87
+    cooldown: 120
+    message: "死亡较多，先稳住补刀发育，别急着打架。"
+    tags: [positioning, recovery]
+    when:
+      deaths: ">= 4"
+      game_minutes: "<= 20"
+      is_dead: false
+
+  - id: jinx_carrying_protect
+    priority: 76
+    cooldown: 120
+    message: "你在carry，保护好自己的生命比多打一下伤害更重要。"
+    tags: [positioning, carry]
+    when:
+      kills: ">= 5"
+      deaths: "<= 2"
+      game_minutes: ">= 10"
+      is_dead: false

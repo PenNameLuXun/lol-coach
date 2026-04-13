@@ -1,0 +1,169 @@
+champion: Yasuo
+tags: [assassin, melee, mid, adc]
+
+rules:
+  # ── 对线期 ────────────────────────────────────────────────
+  - id: yasuo_early_eq_trade
+    priority: 72
+    cooldown: 90
+    message: "前期EQ叠被动护盾，有护盾时再上前换血，没护盾别硬打。"
+    tags: [trade, laning]
+    when:
+      level:
+        - ">= 2"
+        - "<= 5"
+      hp_pct: ">= 40"
+      game_minutes: "<= 10"
+      is_dead: false
+
+  - id: yasuo_powerspike_6
+    priority: 85
+    cooldown: 180
+    message: "6级大招就绪，利用三代Q龙卷风或队友击飞接大，找击杀机会。"
+    tags: [powerspike, fight]
+    when:
+      level: "== 6"
+      hp_pct: ">= 45"
+      is_dead: false
+
+  - id: yasuo_powerspike_botrk
+    priority: 83
+    cooldown: 180
+    message: "出了第一件大件是强势期，主动找对方换血拉扯。"
+    tags: [powerspike, trade]
+    when:
+      level:
+        - ">= 7"
+        - "<= 11"
+      gold: "<= 300"
+      game_minutes: "<= 18"
+      hp_pct: ">= 50"
+      is_dead: false
+
+  # ── 风墙意识 ──────────────────────────────────────────────
+  - id: yasuo_windwall_reminder
+    priority: 68
+    cooldown: 120
+    message: "注意风墙CD，对面有关键弹道技能时留好风墙，别随便交。"
+    tags: [ability, defensive]
+    when:
+      game_minutes:
+        - ">= 3"
+        - "<= 20"
+      hp_pct: ">= 30"
+      is_dead: false
+
+  # ── 经济决策 ──────────────────────────────────────────────
+  - id: yasuo_crit_recall
+    priority: 82
+    cooldown: 90
+    message: "攒够暴击装的钱了，找机会推完线快速回城。"
+    tags: [economy, recall]
+    when:
+      gold: ">= 1300"
+      hp_pct: ">= 30"
+      game_minutes: "<= 22"
+      is_dead: false
+
+  - id: yasuo_zeal_spike
+    priority: 78
+    cooldown: 90
+    message: "够买攻速暴击小件了，回城出了后对线压力大增。"
+    tags: [economy, recall]
+    when:
+      gold:
+        - ">= 900"
+        - "< 1300"
+      game_minutes: "<= 15"
+      is_dead: false
+
+  # ── 装备节点 ──────────────────────────────────────────────
+  - id: yasuo_has_ie
+    priority: 86
+    cooldown: 300
+    message: "无尽之刃到手，暴击伤害大幅提升，可以更积极地找战机。"
+    tags: [powerspike, item]
+    when:
+      items_lower: "contains infinity edge"
+      hp_pct: ">= 40"
+      is_dead: false
+
+  - id: yasuo_no_boots_late
+    priority: 74
+    cooldown: 120
+    message: "还没出鞋子，移速劣势明显，优先回城补鞋。"
+    tags: [economy, item]
+    when:
+      items_lower: "not_contains boots"
+      game_minutes: ">= 10"
+      item_count: ">= 2"
+      is_dead: false
+
+  # ── 召唤师技能 ────────────────────────────────────────────
+  - id: yasuo_no_flash_caution
+    priority: 77
+    cooldown: 120
+    message: "没带闪现，逃跑手段有限，别太深入敌方领地。"
+    tags: [positioning, defensive]
+    when:
+      has_flash: false
+      game_minutes: ">= 3"
+      is_dead: false
+
+  # ── 团战 / 中后期 ────────────────────────────────────────
+  - id: yasuo_teamfight_positioning
+    priority: 75
+    cooldown: 120
+    message: "团战别第一个冲，等队友先手开团有击飞再进场接大。"
+    tags: [teamfight, positioning]
+    when:
+      game_minutes: ">= 15"
+      hp_pct: ">= 40"
+      ally_dead: "<= 1"
+      is_dead: false
+
+  - id: yasuo_two_item_spike
+    priority: 80
+    cooldown: 180
+    message: "两件暴击装100%暴击成型，这是你最强的时间段，主动找团。"
+    tags: [powerspike, fight]
+    when:
+      level:
+        - ">= 11"
+        - "<= 15"
+      hp_pct: ">= 50"
+      is_dead: false
+
+  - id: yasuo_late_split
+    priority: 70
+    cooldown: 120
+    message: "后期可以带线分推施压，但注意小地图，别被抓单。"
+    tags: [split, macro]
+    when:
+      level: ">= 16"
+      game_minutes: ">= 28"
+      hp_pct: ">= 55"
+      is_dead: false
+
+  # ── 劣势局 ──────────────────────────────────────────────
+  - id: yasuo_behind_farm
+    priority: 76
+    cooldown: 120
+    message: "亚索落后时别着急打架，先利用E兵线快速清线补发育。"
+    tags: [farm, recovery]
+    when:
+      cs: "< 60"
+      game_minutes:
+        - ">= 12"
+        - "<= 20"
+      is_dead: false
+
+  - id: yasuo_feeding_caution
+    priority: 88
+    cooldown: 120
+    message: "死亡次数较多，稳住心态，跟队友抱团别单带了。"
+    tags: [positioning, recovery]
+    when:
+      deaths: ">= 4"
+      game_minutes: "<= 20"
+      is_dead: false
