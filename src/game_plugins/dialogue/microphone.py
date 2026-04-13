@@ -93,12 +93,14 @@ class WhisperSubprocessListener:
         silence_ms: int = 1000,
         model: str = "base",
         backend: str = "whisper",
+        initial_prompt: str = "",
     ) -> bool:
         self._last_transcript_path = transcript_path
         self._last_culture = culture
         self._last_silence_ms = silence_ms
         self._last_model = model
         self._last_backend = backend
+        self._last_initial_prompt = initial_prompt
         self._pause_flag_path = transcript_path.with_suffix(transcript_path.suffix + ".paused")
         self._partial_transcript_path = transcript_path.with_suffix(transcript_path.suffix + ".partial")
         if self._process is not None and self._process.poll() is None:
@@ -113,18 +115,21 @@ class WhisperSubprocessListener:
                 f"transcript={transcript_path}"
             )
         env = os.environ.copy()
+        cmd = [
+            sys.executable,
+            str(WHISPER_WORKER),
+            "--transcript", str(transcript_path),
+            "--language", lang,
+            "--backend", backend,
+            "--model", model,
+            "--silence-ms", str(silence_ms),
+            "--pause-flag", str(self._pause_flag_path),
+            "--partial-transcript", str(self._partial_transcript_path),
+        ]
+        if initial_prompt:
+            cmd += ["--initial-prompt", initial_prompt]
         self._process = subprocess.Popen(
-            [
-                sys.executable,
-                str(WHISPER_WORKER),
-                "--transcript", str(transcript_path),
-                "--language", lang,
-                "--backend", backend,
-                "--model", model,
-                "--silence-ms", str(silence_ms),
-                "--pause-flag", str(self._pause_flag_path),
-                "--partial-transcript", str(self._partial_transcript_path),
-            ],
+            cmd,
             cwd=str(ROOT),
             creationflags=creationflags,
             stdout=subprocess.PIPE,
@@ -164,6 +169,7 @@ class WhisperSubprocessListener:
             silence_ms=self._last_silence_ms,
             model=self._last_model,
             backend=self._last_backend,
+            initial_prompt=getattr(self, "_last_initial_prompt", ""),
         )
 
     def pause(self) -> None:
@@ -295,6 +301,7 @@ class MicrophoneListener:
         stt_backend: str = "system",
         whisper_model: str = "base",
         funasr_model: str = "paraformer-zh",
+        initial_prompt: str = "",
     ) -> bool:
         backend_name = str(backend).strip().lower()
         if stt_backend in {"whisper", "funasr"}:
@@ -305,6 +312,7 @@ class MicrophoneListener:
                 silence_ms=silence_ms,
                 model=funasr_model if stt_backend == "funasr" else whisper_model,
                 backend=stt_backend,
+                initial_prompt=initial_prompt if stt_backend == "whisper" else "",
             )
         if backend_name == "qt":
             self._active_listener = "qt"

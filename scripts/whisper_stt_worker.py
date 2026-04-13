@@ -33,6 +33,7 @@ def main() -> None:
     parser.add_argument("--silence-ms", type=int, default=1000)
     parser.add_argument("--pause-flag", default="")
     parser.add_argument("--partial-transcript", default="")
+    parser.add_argument("--initial-prompt", default="")
     args = parser.parse_args()
 
     sample_rate = 16000
@@ -127,7 +128,7 @@ def main() -> None:
                         duration >= min_speech_seconds
                         and now - last_partial_at >= partial_interval_seconds
                     ):
-                        partial_text = _transcribe(model, pcm_data, args.language, sample_rate, backend=args.backend)
+                        partial_text = _transcribe(model, pcm_data, args.language, sample_rate, backend=args.backend, initial_prompt=args.initial_prompt)
                         last_partial_at = now
                         if partial_text and partial_text != last_partial_text:
                             last_partial_text = partial_text
@@ -169,7 +170,7 @@ def main() -> None:
                         flush=True,
                     )
                     started = time.time()
-                    text = _transcribe(model, pcm_data, args.language, sample_rate, backend=args.backend)
+                    text = _transcribe(model, pcm_data, args.language, sample_rate, backend=args.backend, initial_prompt=args.initial_prompt)
                     elapsed = time.time() - started
                     print(
                         f"[local_stt_worker] transcribe_ms={elapsed*1000:.0f} result={text!r}",
@@ -185,7 +186,7 @@ def main() -> None:
         _clear_text_file(args.partial_transcript)
 
 
-def _transcribe(model, pcm_bytes: bytes, language: str, sample_rate: int, *, backend: str) -> str:
+def _transcribe(model, pcm_bytes: bytes, language: str, sample_rate: int, *, backend: str, initial_prompt: str = "") -> str:
     import numpy as np
 
     if backend == "funasr":
@@ -208,7 +209,10 @@ def _transcribe(model, pcm_bytes: bytes, language: str, sample_rate: int, *, bac
         handle.write(wav_bytes)
         tmp = handle.name
     try:
-        segments, _ = model.transcribe(tmp, language=language, beam_size=5, vad_filter=True)
+        kwargs = dict(language=language, beam_size=5, vad_filter=True)
+        if initial_prompt:
+            kwargs["initial_prompt"] = initial_prompt
+        segments, _ = model.transcribe(tmp, **kwargs)
         return "".join(segment.text for segment in segments).strip()
     finally:
         try:

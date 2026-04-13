@@ -84,10 +84,11 @@ class OverlayWindow(QWidget):
         self._pos_y = 100
         self._event_entries: deque[dict[str, object]] = deque(maxlen=_MAX_EVENT_ENTRIES)
         self._log_entries: deque[dict[str, object]] = deque(maxlen=_MAX_LOG_ENTRIES)
+        self._live_client_data: dict = {}
         self._collapsed = False
         self._content_alpha = 0.9
         self._hit_test_alpha = 0.04
-        self._expanded_size = (560, 520)
+        self._expanded_size = (560, 640)
         self._web_ready = False
         self.setObjectName("overlayRoot")
 
@@ -98,7 +99,7 @@ class OverlayWindow(QWidget):
         )
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
-        self.setMinimumSize(320, 72)
+        self.setMinimumSize(320, 80)
         self.resize(*self._expanded_size)
 
         root = QVBoxLayout(self)
@@ -181,243 +182,227 @@ class OverlayWindow(QWidget):
       color-scheme: dark;
     }
     html, body {
-      margin: 0;
-      padding: 0;
-      background: transparent;
+      margin: 0; padding: 0; background: transparent;
       color: #eef2f8;
       font-family: "Microsoft YaHei", "Segoe UI", sans-serif;
-      overflow: hidden;
-      height: 100%;
+      overflow: hidden; height: 100%;
     }
     #app {
-      height: 100vh;
-      display: grid;
-      grid-template-rows: minmax(0, 1fr) minmax(150px, 0.65fr);
-      gap: 4px;
-      padding: 0;
-      box-sizing: border-box;
-      background: transparent;
+      height: 100vh; display: flex; flex-direction: column;
+      padding: 0; box-sizing: border-box; background: transparent;
     }
     .panel {
       background: var(--panel-bg);
       border: 1px solid var(--panel-border);
       border-radius: 14px;
-      min-height: 0;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
+      min-height: 52px; flex-shrink: 1; flex-basis: 0;
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+    .splitter {
+      flex: 0 0 7px; cursor: ns-resize;
+      display: flex; align-items: center; justify-content: center;
+      margin: 1px 18px; border-radius: 4px;
+      transition: background .15s; user-select: none;
+    }
+    .splitter:hover, .splitter.dragging {
+      background: rgba(90, 141, 255, 0.28);
+    }
+    .splitter::after {
+      content: ''; width: 40px; height: 2px;
+      background: rgba(180, 200, 230, 0.20); border-radius: 2px;
+      pointer-events: none;
+    }
+    .splitter:hover::after, .splitter.dragging::after {
+      background: rgba(90, 141, 255, 0.70);
     }
     .panel-title {
-      padding: 5px 9px 3px;
-      color: var(--section-title);
-      font-size: 12px;
-      font-weight: 700;
-      flex: 0 0 auto;
+      padding: 5px 9px 3px; color: var(--section-title);
+      font-size: 12px; font-weight: 700; flex: 0 0 auto;
     }
     .panel-body {
-      margin: 0 8px 8px;
-      padding: 2px;
+      margin: 0 8px 8px; padding: 2px;
       border: 1px solid var(--browser-border);
-      border-radius: 10px;
-      background: var(--panel-bg);
-      min-height: 0;
-      overflow-y: auto;
-      overflow-x: hidden;
-      box-sizing: border-box;
+      border-radius: 10px; background: var(--panel-bg);
+      min-height: 0; overflow-y: auto; overflow-x: hidden;
+      box-sizing: border-box; flex: 1 1 auto;
     }
-    .events-body {
-      padding: 4px 6px 6px;
-    }
+    .events-body { padding: 4px 6px 6px; }
     .logs-shell {
-      margin: 0 8px 8px;
-      min-height: 0;
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
+      margin: 0 8px 8px; min-height: 0;
+      display: flex; flex-direction: column; gap: 4px; flex: 1 1 auto;
     }
     .log-filters {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 4px;
-      padding: 0 2px 1px;
-      flex: 0 0 auto;
+      display: flex; flex-wrap: wrap; gap: 4px; padding: 0 2px 1px; flex: 0 0 auto;
     }
     .filter-chip {
       border: 1px solid rgba(86, 102, 126, 0.7);
-      border-radius: 999px;
-      padding: 3px 10px;
-      background: rgba(20, 28, 40, 0.30);
-      color: #b9c3d4;
-      font-size: 10px;
-      line-height: 1;
-      cursor: pointer;
-      user-select: none;
+      border-radius: 999px; padding: 3px 10px;
+      background: rgba(20, 28, 40, 0.30); color: #b9c3d4;
+      font-size: 10px; line-height: 1; cursor: pointer; user-select: none;
       transition: background .18s ease, border-color .18s ease, color .18s ease, transform .18s ease;
     }
     .filter-chip:hover {
       background: rgba(42, 57, 78, 0.48);
-      border-color: rgba(112, 131, 160, 0.9);
-      transform: translateY(-1px);
+      border-color: rgba(112, 131, 160, 0.9); transform: translateY(-1px);
     }
     .filter-chip.active {
       background: rgba(61, 121, 255, 0.24);
-      border-color: rgba(90, 141, 255, 0.95);
-      color: #e8f1ff;
+      border-color: rgba(90, 141, 255, 0.95); color: #e8f1ff;
     }
-    .logs-body {
-      margin: 0;
-      flex: 1 1 auto;
-      min-height: 0;
+    .logs-body { margin: 0; flex: 1 1 auto; min-height: 0; }
+    .live-shell {
+      margin: 0 8px 8px; min-height: 0;
+      display: flex; flex-direction: column; gap: 4px; flex: 1 1 auto;
+    }
+    .live-filters {
+      display: flex; flex-wrap: wrap; gap: 4px; padding: 0 2px 1px; flex: 0 0 auto;
+    }
+    .live-body {
+      flex: 1 1 auto; min-height: 0;
+      border: 1px solid var(--browser-border); border-radius: 10px;
+      background: var(--panel-bg); overflow-y: auto; overflow-x: auto;
+    }
+    .live-pre {
+      margin: 0; padding: 6px 8px;
+      font-family: "Consolas", "Courier New", monospace;
+      font-size: 10px; color: #a9b8cc; line-height: 1.4; white-space: pre;
     }
     .event-row {
-      display: flex;
-      margin-bottom: 4px;
-      width: 100%;
+      display: flex; margin-bottom: 4px; width: 100%;
       animation: bubbleIn .22s ease-out;
     }
-    .event-row.right {
-      justify-content: flex-end;
-    }
-    .event-row.left {
-      justify-content: flex-start;
-    }
+    .event-row.right { justify-content: flex-end; }
+    .event-row.left { justify-content: flex-start; }
     .bubble {
-      max-width: 88%;
-      display: inline-flex;
-      flex-direction: column;
-      gap: 2px;
-      padding: 4px 8px;
-      border-radius: 16px;
-      box-sizing: border-box;
-      border: 1px solid transparent;
-      text-align: left;
-      word-break: break-word;
-      white-space: pre-wrap;
-      box-shadow: 0 6px 14px rgba(0, 0, 0, 0.12);
+      max-width: 88%; display: inline-flex; flex-direction: column;
+      gap: 2px; padding: 4px 8px; border-radius: 16px; box-sizing: border-box;
+      border: 1px solid transparent; text-align: left; word-break: break-word;
+      white-space: pre-wrap; box-shadow: 0 6px 14px rgba(0,0,0,.12);
     }
     .bubble-title {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      margin-bottom: 0;
-      font-size: 9px;
-      line-height: 1.15;
+      display: flex; align-items: center; gap: 4px; margin-bottom: 0;
+      font-size: 9px; line-height: 1.15;
     }
-    .count-badge {
-      padding: 0 5px;
-      border-radius: 999px;
-      font-size: 9px;
-    }
-    .bubble-body {
-      font-size: 13px;
-      line-height: 1.24;
-    }
-    .bubble.small .bubble-title {
-      font-size: 9px;
-    }
-    .bubble.small .bubble-body {
-      font-size: 11px;
-    }
+    .count-badge { padding: 0 5px; border-radius: 999px; font-size: 9px; }
+    .bubble-body { font-size: 13px; line-height: 1.24; }
+    .bubble.small .bubble-title { font-size: 9px; }
+    .bubble.small .bubble-body { font-size: 11px; }
     .log-item {
-      margin: 0 0 3px 0;
-      padding: 3px 7px;
-      border-radius: 8px;
-      background: var(--log-bg);
-      border: 1px solid var(--log-border);
+      margin: 0 0 3px 0; padding: 3px 7px; border-radius: 8px;
+      background: var(--log-bg); border: 1px solid var(--log-border);
       animation: logIn .18s ease-out;
     }
-    .log-title {
-      font-size: 9px;
-      color: var(--log-title);
-      margin-bottom: 0;
-      line-height: 1.1;
-    }
-    .log-body {
-      font-size: 10px;
-      color: var(--log-text);
-      white-space: pre-wrap;
-      word-break: break-word;
-      line-height: 1.2;
-    }
-    .empty {
-      padding: 3px;
-      color: var(--empty);
-      font-size: 10px;
-    }
-    ::-webkit-scrollbar {
-      width: 10px;
-      height: 10px;
-    }
-    ::-webkit-scrollbar-track {
-      background: transparent;
-    }
-    ::-webkit-scrollbar-thumb {
-      background: rgba(96, 108, 128, 0.7);
-      border-radius: 5px;
-    }
-    @keyframes bubbleIn {
-      from {
-        opacity: 0;
-        transform: translateY(10px);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-    @keyframes logIn {
-      from {
-        opacity: 0;
-        transform: translateY(6px);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
+    .log-title { font-size: 9px; color: var(--log-title); margin-bottom: 0; line-height: 1.1; }
+    .log-body { font-size: 10px; color: var(--log-text); white-space: pre-wrap; word-break: break-word; line-height: 1.2; }
+    .empty { padding: 3px; color: var(--empty); font-size: 10px; }
+    ::-webkit-scrollbar { width: 10px; height: 10px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(96,108,128,.7); border-radius: 5px; }
+    @keyframes bubbleIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+    @keyframes logIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
   </style>
 </head>
 <body>
   <div id="app">
-    <section class="panel">
+    <section class="panel" id="panel-events">
       <div class="panel-title">关键信息</div>
       <div id="events" class="panel-body events-body"></div>
     </section>
-    <section class="panel">
+    <div class="splitter" id="splitter-0" data-panel-a="panel-events" data-panel-b="panel-logs" title="拖拽调整面板大小"></div>
+    <section class="panel" id="panel-logs">
       <div class="panel-title">关键日志</div>
       <div class="logs-shell">
         <div id="logFilters" class="log-filters"></div>
         <div id="logs" class="panel-body logs-body"></div>
       </div>
     </section>
+    <div class="splitter" id="splitter-1" data-panel-a="panel-logs" data-panel-b="panel-live" title="拖拽调整面板大小"></div>
+    <section class="panel" id="panel-live">
+      <div class="panel-title">客户端数据</div>
+      <div class="live-shell">
+        <div id="liveFilters" class="live-filters"></div>
+        <div class="live-body"><pre class="live-pre" id="liveContent">等待游戏数据…</pre></div>
+      </div>
+    </section>
   </div>
   <script>
     const EMPTY_EVENTS = "等待 QA / 建议 / 规则消息…";
     const EMPTY_LOGS = "等待关键日志…";
-    const LOG_FILTER_ORDER = ["all", "qa", "tts", "rules", "ai", "web", "startup", "other"];
-    const LOG_FILTER_LABELS = {
-      all: "全部",
-      qa: "QA",
-      tts: "TTS",
-      rules: "Rules",
-      ai: "AI",
-      web: "Web",
-      startup: "启动",
-      other: "其他"
-    };
-    let currentState = { events: [], logs: [], alpha: 0.9, hit_alpha: 0.04 };
-    let activeLogFilters = new Set(["all"]);
+    const LOG_FILTER_ORDER = ["all","qa","tts","rules","ai","web","startup","other"];
+    const LOG_FILTER_LABELS = { all:"全部", qa:"QA", tts:"TTS", rules:"Rules", ai:"AI", web:"Web", startup:"启动", other:"其他" };
+    const LIVE_FILTER_ORDER = ["activePlayer","allPlayers","gameData","events","raw"];
+    const LIVE_FILTER_LABELS = { activePlayer:"我的状态", allPlayers:"所有玩家", gameData:"游戏数据", events:"事件", raw:"原始JSON" };
 
+    let currentState = { events:[], logs:[], alpha:0.9, hit_alpha:0.04 };
+    let activeLogFilters = new Set(["all"]);
+    let activeLiveFilter = "activePlayer";
+    let currentLiveData = null;
+
+    // ── Panel flex sizes ─────────────────────────────────────────
+    const panelIds = ["panel-events","panel-logs","panel-live"];
+    const panelFlexes = [1.5, 1.0, 0.65];
+
+    function applyPanelFlexes() {
+      panelIds.forEach(function(id, i) {
+        var el = document.getElementById(id);
+        if (el) {
+          el.style.flexGrow = String(panelFlexes[i]);
+          el.style.flexShrink = "1";
+          el.style.flexBasis = "0";
+        }
+      });
+    }
+
+    // ── Splitter drag ────────────────────────────────────────────
+    var draggingInfo = null;
+
+    function initSplitters() {
+      document.querySelectorAll(".splitter").forEach(function(splitter) {
+        var idxA = panelIds.indexOf(splitter.dataset.panelA);
+        var idxB = panelIds.indexOf(splitter.dataset.panelB);
+        splitter.addEventListener("mousedown", function(e) {
+          if (e.button !== 0) return;
+          e.preventDefault();
+          draggingInfo = {
+            splitter: splitter, idxA: idxA, idxB: idxB,
+            startY: e.clientY,
+            startFlexA: panelFlexes[idxA], startFlexB: panelFlexes[idxB]
+          };
+          splitter.classList.add("dragging");
+        });
+      });
+      document.addEventListener("mousemove", function(e) {
+        if (!draggingInfo) return;
+        var app = document.getElementById("app");
+        var splCount = app.querySelectorAll(".splitter").length;
+        var availableH = app.clientHeight - splCount * 9;
+        var totalFlex = panelFlexes.reduce(function(a,b){ return a+b; }, 0);
+        var pxPerFlex = availableH / totalFlex;
+        var dy = e.clientY - draggingInfo.startY;
+        var dyFlex = dy / pxPerFlex;
+        var newA = Math.max(0.15, draggingInfo.startFlexA + dyFlex);
+        var newB = Math.max(0.15, draggingInfo.startFlexB - dyFlex);
+        panelFlexes[draggingInfo.idxA] = newA;
+        panelFlexes[draggingInfo.idxB] = newB;
+        applyPanelFlexes();
+      });
+      document.addEventListener("mouseup", function() {
+        if (draggingInfo) {
+          draggingInfo.splitter.classList.remove("dragging");
+          draggingInfo = null;
+        }
+      });
+    }
+
+    // ── Utilities ────────────────────────────────────────────────
     function escapeHtml(value) {
       return String(value ?? "")
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;");
+        .replaceAll("&","&amp;").replaceAll("<","&lt;")
+        .replaceAll(">","&gt;").replaceAll('"',"&quot;");
     }
 
     function inferLogCategory(text) {
-      const raw = String(text ?? "");
+      var raw = String(text ?? "");
       if (raw.startsWith("[QA") || raw.includes("[QA ")) return "qa";
       if (raw.startsWith("[TTS") || raw.includes("[TTS")) return "tts";
       if (raw.startsWith("[Rules]")) return "rules";
@@ -427,96 +412,95 @@ class OverlayWindow(QWidget):
       return "other";
     }
 
+    // ── Log filters ──────────────────────────────────────────────
     function normalizeFilters() {
-      if (!activeLogFilters.size) {
-        activeLogFilters = new Set(["all"]);
-        return;
-      }
-      if (activeLogFilters.has("all") && activeLogFilters.size > 1) {
-        activeLogFilters.delete("all");
-      }
-      if (!activeLogFilters.size) {
-        activeLogFilters = new Set(["all"]);
-      }
+      if (!activeLogFilters.size) { activeLogFilters = new Set(["all"]); return; }
+      if (activeLogFilters.has("all") && activeLogFilters.size > 1) activeLogFilters.delete("all");
+      if (!activeLogFilters.size) activeLogFilters = new Set(["all"]);
     }
 
     function toggleFilter(name) {
-      if (name === "all") {
-        activeLogFilters = new Set(["all"]);
-      } else {
+      if (name === "all") { activeLogFilters = new Set(["all"]); }
+      else {
         activeLogFilters.delete("all");
-        if (activeLogFilters.has(name)) {
-          activeLogFilters.delete(name);
-        } else {
-          activeLogFilters.add(name);
-        }
-        if (!activeLogFilters.size) {
-          activeLogFilters = new Set(["all"]);
-        }
+        if (activeLogFilters.has(name)) activeLogFilters.delete(name); else activeLogFilters.add(name);
+        if (!activeLogFilters.size) activeLogFilters = new Set(["all"]);
       }
-      renderFilters();
-      renderLogs();
+      renderFilters(); renderLogs();
     }
 
     function renderFilters() {
       normalizeFilters();
-      const filtersNode = document.getElementById("logFilters");
-      filtersNode.innerHTML = LOG_FILTER_ORDER.map((name) => {
-        const active = activeLogFilters.has(name) ? "active" : "";
-        return `<button class="filter-chip ${active}" data-filter="${name}">${LOG_FILTER_LABELS[name]}</button>`;
+      var node = document.getElementById("logFilters");
+      node.innerHTML = LOG_FILTER_ORDER.map(function(name) {
+        var active = activeLogFilters.has(name) ? "active" : "";
+        return '<button class="filter-chip ' + active + '" data-filter="' + name + '">' + LOG_FILTER_LABELS[name] + '</button>';
       }).join("");
-      filtersNode.querySelectorAll(".filter-chip").forEach((node) => {
-        node.addEventListener("click", () => toggleFilter(node.dataset.filter));
+      node.querySelectorAll(".filter-chip").forEach(function(n) {
+        n.addEventListener("click", function() { toggleFilter(n.dataset.filter); });
       });
     }
 
+    // ── Events render ────────────────────────────────────────────
     function renderEvents() {
-      const events = Array.isArray(currentState.events) ? currentState.events : [];
-      const eventsNode = document.getElementById("events");
+      var events = Array.isArray(currentState.events) ? currentState.events : [];
+      var node = document.getElementById("events");
       if (!events.length) {
-        eventsNode.innerHTML = `<div class="empty">${escapeHtml(EMPTY_EVENTS)}</div>`;
+        node.innerHTML = '<div class="empty">' + escapeHtml(EMPTY_EVENTS) + '</div>';
       } else {
-        eventsNode.innerHTML = events.map((entry) => {
-          const align = entry.align === "right" ? "right" : "left";
-          const cls = entry.small ? "bubble small" : "bubble";
-          const countBadge = entry.count > 1
-            ? `<span class="count-badge" style="background:${entry.badge_bg};color:${entry.title_color};">x${entry.count}</span>`
+        node.innerHTML = events.map(function(entry) {
+          var align = entry.align === "right" ? "right" : "left";
+          var cls = entry.small ? "bubble small" : "bubble";
+          var countBadge = entry.count > 1
+            ? '<span class="count-badge" style="background:' + entry.badge_bg + ';color:' + entry.title_color + ';">x' + entry.count + '</span>'
             : "";
-          return `
-            <div class="event-row ${align}">
-              <div class="${cls}" style="background:${entry.bg};border-color:${entry.border};border-radius:${entry.radius};">
-                <div class="bubble-title" style="color:${entry.title_color};">
-                  <span>${escapeHtml(entry.at)} · ${escapeHtml(entry.label)}</span>
-                  ${countBadge}
-                </div>
-                <div class="bubble-body" style="color:${entry.text_color};">${escapeHtml(entry.text)}</div>
-              </div>
-            </div>
-          `;
+          return '<div class="event-row ' + align + '"><div class="' + cls + '" style="background:' + entry.bg + ';border-color:' + entry.border + ';border-radius:' + entry.radius + ';"><div class="bubble-title" style="color:' + entry.title_color + ';"><span>' + escapeHtml(entry.at) + ' · ' + escapeHtml(entry.label) + '</span>' + countBadge + '</div><div class="bubble-body" style="color:' + entry.text_color + ';">' + escapeHtml(entry.text) + '</div></div></div>';
         }).join("");
       }
-      eventsNode.scrollTop = eventsNode.scrollHeight;
+      node.scrollTop = node.scrollHeight;
     }
 
+    // ── Logs render ──────────────────────────────────────────────
     function renderLogs() {
-      const logs = Array.isArray(currentState.logs) ? currentState.logs : [];
-      const logsNode = document.getElementById("logs");
-      const visibleLogs = activeLogFilters.has("all")
+      var logs = Array.isArray(currentState.logs) ? currentState.logs : [];
+      var node = document.getElementById("logs");
+      var visible = activeLogFilters.has("all")
         ? logs
-        : logs.filter((entry) => activeLogFilters.has(inferLogCategory(entry.text)));
-      if (!visibleLogs.length) {
-        logsNode.innerHTML = `<div class="empty">${escapeHtml(EMPTY_LOGS)}</div>`;
+        : logs.filter(function(e) { return activeLogFilters.has(inferLogCategory(e.text)); });
+      if (!visible.length) {
+        node.innerHTML = '<div class="empty">' + escapeHtml(EMPTY_LOGS) + '</div>';
       } else {
-        logsNode.innerHTML = visibleLogs.map((entry) => `
-          <div class="log-item">
-            <div class="log-title">${escapeHtml(entry.at)} · ${escapeHtml(LOG_FILTER_LABELS[inferLogCategory(entry.text)] || "日志")}</div>
-            <div class="log-body">${escapeHtml(entry.text)}</div>
-          </div>
-        `).join("");
+        node.innerHTML = visible.map(function(entry) {
+          return '<div class="log-item"><div class="log-title">' + escapeHtml(entry.at) + ' · ' + escapeHtml(LOG_FILTER_LABELS[inferLogCategory(entry.text)] || "日志") + '</div><div class="log-body">' + escapeHtml(entry.text) + '</div></div>';
+        }).join("");
       }
-      logsNode.scrollTop = logsNode.scrollHeight;
+      node.scrollTop = node.scrollHeight;
     }
 
+    // ── Live client data render ──────────────────────────────────
+    function renderLiveFilters() {
+      var node = document.getElementById("liveFilters");
+      node.innerHTML = LIVE_FILTER_ORDER.map(function(name) {
+        var active = activeLiveFilter === name ? "active" : "";
+        return '<button class="filter-chip ' + active + '" data-filter="' + name + '">' + LIVE_FILTER_LABELS[name] + '</button>';
+      }).join("");
+      node.querySelectorAll(".filter-chip").forEach(function(btn) {
+        btn.addEventListener("click", function() {
+          activeLiveFilter = btn.dataset.filter;
+          renderLiveFilters();
+          renderLiveContent();
+        });
+      });
+    }
+
+    function renderLiveContent() {
+      var el = document.getElementById("liveContent");
+      if (!currentLiveData) { el.textContent = "等待游戏数据…"; return; }
+      var data = activeLiveFilter === "raw" ? currentLiveData : currentLiveData[activeLiveFilter];
+      el.textContent = data !== undefined ? JSON.stringify(data, null, 2) : "（" + activeLiveFilter + " 暂无数据）";
+    }
+
+    // ── Full state render ────────────────────────────────────────
     function renderState(state) {
       currentState = {
         events: Array.isArray(state.events) ? state.events : [],
@@ -524,14 +508,13 @@ class OverlayWindow(QWidget):
         alpha: typeof state.alpha === "number" ? state.alpha : 0.9,
         hit_alpha: typeof state.hit_alpha === "number" ? state.hit_alpha : 0.04,
       };
-      const alpha = currentState.alpha;
-      const hit = currentState.hit_alpha;
-
-      document.documentElement.style.setProperty("--content-alpha", String(alpha));
-      document.documentElement.style.setProperty("--panel-bg", `rgba(8, 12, 18, ${hit})`);
-      renderFilters();
-      renderEvents();
-      renderLogs();
+      document.documentElement.style.setProperty("--content-alpha", String(currentState.alpha));
+      document.documentElement.style.setProperty("--panel-bg", "rgba(8,12,18," + currentState.hit_alpha + ")");
+      renderFilters(); renderEvents(); renderLogs();
+      if (state.live_client && Object.keys(state.live_client).length) {
+        currentLiveData = state.live_client;
+        renderLiveContent();
+      }
     }
 
     window.renderOverlayState = renderState;
@@ -550,9 +533,22 @@ class OverlayWindow(QWidget):
       }
       if (typeof hitAlpha === "number") {
         currentState.hit_alpha = hitAlpha;
-        document.documentElement.style.setProperty("--panel-bg", `rgba(8, 12, 18, ${hitAlpha})`);
+        document.documentElement.style.setProperty("--panel-bg", "rgba(8,12,18," + hitAlpha + ")");
       }
     };
+    window.renderLiveClientData = function(data) {
+      currentLiveData = data;
+      renderLiveContent();
+    };
+
+    // ── Init ─────────────────────────────────────────────────────
+    applyPanelFlexes();
+    initSplitters();
+    renderFilters();
+    renderLiveFilters();
+    renderEvents();
+    renderLogs();
+    renderLiveContent();
   </script>
 </body>
 </html>"""
@@ -566,6 +562,14 @@ class OverlayWindow(QWidget):
             event = {"kind": "log", "text": str(payload)}
 
         kind = str(event.get("kind", "log"))
+
+        if kind == "live_client_data":
+            data = event.get("data", {})
+            if isinstance(data, dict):
+                self._live_client_data = data
+                self._render_live_client_only()
+            return
+
         text = str(event.get("text", "")).strip()
         if not text:
             return
@@ -683,8 +687,15 @@ class OverlayWindow(QWidget):
             "logs": self._serialize_logs(),
             "alpha": round(self._content_alpha, 3),
             "hit_alpha": round(max(0.01, self._hit_test_alpha), 3),
+            "live_client": self._live_client_data,
         }
         js = f"window.renderOverlayState({json.dumps(payload, ensure_ascii=False)});"
+        self._view.page().runJavaScript(js)
+
+    def _render_live_client_only(self):
+        if not self._web_ready:
+            return
+        js = f"window.renderLiveClientData({json.dumps(self._live_client_data, ensure_ascii=False)});"
         self._view.page().runJavaScript(js)
 
     def _render_events_only(self):

@@ -18,6 +18,107 @@ from src.game_plugins.base import GameState
 # Matches patterns like ">= 50", "< 14", "== 6", "!= 0"
 _CMP_PATTERN = re.compile(r"^(>=|<=|==|!=|>|<)\s*(-?\d+(?:\.\d+)?)$")
 
+# ── Item ID → English keyword mapping ────────────────────────────────────────
+# Keys: LoL item IDs (language-independent).
+# Values: lowercase English strings used in YAML `contains`/`not_contains` checks.
+# A single item can produce multiple keywords (space-separated) so existing rule
+# patterns like `contains boots` and `contains greaves` both work.
+_ITEM_ID_KEYWORDS: dict[int, str] = {
+    # ── Marksman Mythics ──────────────────────────────────────────
+    3031: "infinity edge",
+    6671: "galeforce",
+    6672: "kraken slayer",
+    6673: "immortal shieldbow shieldbow",
+    6675: "navori flickerblade",
+    # ── Marksman Legendaries ─────────────────────────────────────
+    3046: "phantom dancer",
+    3085: "runaan's hurricane hurricane",
+    3036: "lord dominik's regards lord dominik",
+    3033: "mortal reminder",
+    3072: "bloodthirster",
+    3094: "rapid firecannon",
+    3095: "stormrazor",
+    3139: "mercurial scimitar",
+    3508: "essence reaver",
+    # ── Assassin / Fighter ───────────────────────────────────────
+    3153: "blade of the ruined king ruined king botrk",
+    6697: "hubris",
+    6676: "the collector collector",
+    6694: "serrated dirk",
+    3142: "youmuu's ghostblade ghostblade",
+    3179: "umbral glaive",
+    6695: "serpent's fang",
+    3814: "edge of night",
+    # ── Fighter Mythics ──────────────────────────────────────────
+    6631: "stridebreaker",
+    6632: "divine sunderer",
+    6633: "trinity force",
+    6630: "goredrinker",
+    # ── Tank / Support ────────────────────────────────────────────
+    3068: "sunfire aegis",
+    6664: "turbo chemtank",
+    3083: "warmog's armor",
+    3107: "redemption",
+    4005: "imperial mandate",
+    # ── Mage ─────────────────────────────────────────────────────
+    3089: "rabadon's deathcap",
+    3135: "void staff",
+    3165: "morellonomicon",
+    4646: "night harvester",
+    4637: "riftmaker",
+    6653: "liandry's anguish",
+    6655: "luden's tempest",
+    6656: "everfrost",
+    # ── Boots — each includes "boots" so `not_contains boots` works ──
+    1001: "basic boots boots",
+    3006: "berserker's greaves greaves boots",
+    3047: "plated steelcaps steelcaps boots",
+    3111: "mercury's treads treads boots",
+    3020: "sorcerer's shoes boots",
+    3158: "ionian boots of lucidity boots",
+    3009: "boots of swiftness boots",
+    # ── Components ───────────────────────────────────────────────
+    1038: "b.f. sword",
+    1043: "recurve bow",
+    3086: "zeal",
+    1018: "cloak of agility",
+    3134: "long sword",       # actually 3134 is Serrated Dirk... 1036 is Long Sword
+    1036: "long sword",
+    1037: "pickaxe",
+    3035: "last whisper",
+    # ── Jungle / Support consumables (commonly seen in item slot) ─
+    3340: "stealth ward totem",
+    3364: "oracle lens",
+    3363: "farsight alteration",
+    2055: "control ward",
+}
+
+
+def _build_items_lower(items_str: str, item_ids_str: str) -> str:
+    """Translate item IDs to English keywords; fall back to original display names."""
+    parts: list[str] = []
+    # Translate via item IDs first (most reliable, language-agnostic)
+    if item_ids_str:
+        for id_tok in item_ids_str.split("|"):
+            try:
+                iid = int(id_tok)
+            except ValueError:
+                continue
+            kw = _ITEM_ID_KEYWORDS.get(iid)
+            if kw:
+                parts.append(kw)
+            else:
+                # Unknown ID: keep numeric so rules can still match by ID if needed
+                parts.append(str(iid))
+    # Also append lowercased display names for any items whose IDs were missing
+    # or for future rules that prefer display name matching
+    if items_str:
+        for name in items_str.split("|"):
+            n = name.strip().lower()
+            if n:
+                parts.append(n)
+    return " | ".join(parts)
+
 
 def build_context(state: GameState) -> dict[str, int | str | bool]:
     """Flatten GameState into a single dict for condition evaluation."""
@@ -32,9 +133,11 @@ def build_context(state: GameState) -> dict[str, int | str | bool]:
         val = ctx.get(key)
         if isinstance(val, str):
             ctx[key] = val.lower() == "true"
-    # items string → set-like helpers for "contains" checks
-    items_str = str(ctx.get("items", ""))
-    ctx["items_lower"] = items_str.lower()
+    # items string → English keywords for "contains" checks (language-agnostic via item IDs)
+    ctx["items_lower"] = _build_items_lower(
+        str(ctx.get("items", "")),
+        str(ctx.get("item_ids", "")),
+    )
     return ctx
 
 

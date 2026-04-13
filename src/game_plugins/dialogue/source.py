@@ -104,6 +104,7 @@ class DialogueSource:
         silence_ms = int(cfg.get("silence_ms", 1000) or 1000)
         whisper_model = str(cfg.get("whisper_model", "base"))
         funasr_model = str(cfg.get("funasr_model", "paraformer-zh"))
+        initial_prompt = str(cfg.get("initial_prompt", ""))
         return self._microphone_listener.ensure_running(
             transcript_file,
             culture=culture,
@@ -112,6 +113,7 @@ class DialogueSource:
             stt_backend=stt_backend,
             whisper_model=whisper_model,
             funasr_model=funasr_model,
+            initial_prompt=initial_prompt,
         )
 
     def _prepare_append_only_path(self, path: Path) -> None:

@@ -98,6 +98,20 @@ def get_player_address_from_data(data: dict, address_by: str = "champion") -> st
     return my_name or None
 
 
+def _parse_raw_champion_name(raw: str) -> str:
+    """Extract English champion name from rawChampionName field.
+
+    e.g. "game_character_displayname_Graves" → "Graves"
+         "game_character_displayname_JarvanIV" → "JarvanIV"
+    Returns empty string if pattern not recognised.
+    """
+    marker = "displayname_"
+    idx = raw.find(marker)
+    if idx == -1:
+        return ""
+    return raw[idx + len(marker):]
+
+
 def extract_key_metrics(data: dict) -> dict[str, int | str]:
     active = data.get("activePlayer", {})
     stats = active.get("championStats", {})
@@ -121,6 +135,7 @@ def extract_key_metrics(data: dict) -> dict[str, int | str]:
 
     # Items
     items = [i.get("displayName", "") for i in my_player.get("items", []) if i.get("displayName")]
+    item_ids = [int(i["itemID"]) for i in my_player.get("items", []) if i.get("itemID")]
     item_count = len(items)
 
     # Summoner spells
@@ -159,12 +174,14 @@ def extract_key_metrics(data: dict) -> dict[str, int | str]:
         "assists": assists,
         "cs": int(my_scores.get("creepScore", 0)),
         "champion": my_player.get("championName", ""),
+        "champion_en": _parse_raw_champion_name(my_player.get("rawChampionName", "")),
         "position": my_player.get("position", ""),
         "mode": data.get("gameData", {}).get("gameMode", ""),
         "event_signature": "|".join(notable_events[-3:]) if notable_events else "none",
         "is_dead": "true" if my_player.get("isDead") else "false",
         # New metrics
         "items": "|".join(items),
+        "item_ids": "|".join(str(i) for i in item_ids),
         "item_count": item_count,
         "spell1": spell_names[0] if len(spell_names) > 0 else "",
         "spell2": spell_names[1] if len(spell_names) > 1 else "",

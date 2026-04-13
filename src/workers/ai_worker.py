@@ -374,6 +374,16 @@ def ai_worker(
             game_data = payload.game_summary
             metrics = payload.metrics
             address = payload.address
+            print(f"[AI worker] champion={metrics.get('champion', '?')} mode={metrics.get('mode', '?')} game_type={metrics.get('game_type', '?')}")
+            if isinstance(live_data, dict):
+                bridge.overlay_event.emit({"kind": "live_client_data", "data": live_data})
+                try:
+                    import json as _json, os as _os
+                    _os.makedirs("debug_captures", exist_ok=True)
+                    with open("debug_captures/live_client_latest.json", "w", encoding="utf-8") as _f:
+                        _json.dump(live_data, _f, ensure_ascii=False, indent=2)
+                except Exception as _e:
+                    logger.debug("[AI worker] failed to write live client data: %s", _e)
 
             if config.tts_playback_mode in {"wait", "fit_wait"} and tts_busy_event.is_set():
                 tray.set_state(TrayIcon.STATE_RUNNING)

@@ -1,0 +1,2621 @@
+{
+  "activePlayer": {
+    "abilities": {
+      "E": {
+        "abilityLevel": 5,
+        "displayName": "快速拔枪",
+        "id": "GravesMove",
+        "rawDescription": "GeneratedTip_Spell_GravesMove_Description",
+        "rawDisplayName": "GeneratedTip_Spell_GravesMove_DisplayName"
+      },
+      "Passive": {
+        "displayName": "新命运",
+        "id": "GravesPassive",
+        "rawDescription": "GeneratedTip_Passive_GravesPassive_Description",
+        "rawDisplayName": "GeneratedTip_Passive_GravesPassive_DisplayName"
+      },
+      "Q": {
+        "abilityLevel": 5,
+        "displayName": "穷途末路",
+        "id": "GravesQLineSpell",
+        "rawDescription": "GeneratedTip_Spell_GravesQLineSpell_Description",
+        "rawDisplayName": "GeneratedTip_Spell_GravesQLineSpell_DisplayName"
+      },
+      "R": {
+        "abilityLevel": 2,
+        "displayName": "终极爆弹",
+        "id": "GravesChargeShot",
+        "rawDescription": "GeneratedTip_Spell_GravesChargeShot_Description",
+        "rawDisplayName": "GeneratedTip_Spell_GravesChargeShot_DisplayName"
+      },
+      "W": {
+        "abilityLevel": 3,
+        "displayName": "烟幕弹",
+        "id": "GravesSmokeGrenade",
+        "rawDescription": "GeneratedTip_Spell_GravesSmokeGrenade_Description",
+        "rawDisplayName": "GeneratedTip_Spell_GravesSmokeGrenade_DisplayName"
+      }
+    },
+    "championStats": {
+      "abilityHaste": 10.0,
+      "abilityPower": 0.0,
+      "armor": 94.01900482177734,
+      "armorPenetrationFlat": 0.0,
+      "armorPenetrationPercent": 0.8199999928474426,
+      "attackDamage": 354.7937927246094,
+      "attackRange": 425.0,
+      "attackSpeed": 0.7434147596359253,
+      "bonusArmorPenetrationPercent": 1.0,
+      "bonusMagicPenetrationPercent": 1.0,
+      "critChance": 0.5,
+      "critDamage": 230.0,
+      "currentHealth": 0.0,
+      "healShieldPower": 0.0,
+      "healthRegenRate": 3.4571003913879395,
+      "lifeSteal": 0.0,
+      "magicLethality": 0.0,
+      "magicPenetrationFlat": 0.0,
+      "magicPenetrationPercent": 1.0,
+      "magicResist": 47.24449920654297,
+      "maxHealth": 2181.090087890625,
+      "moveSpeed": 365.0,
+      "omnivamp": 0.0,
+      "physicalLethality": 28.0,
+      "physicalVamp": 0.0,
+      "resourceMax": 855.6000366210938,
+      "resourceRegenRate": 3.4571003913879395,
+      "resourceType": "MANA",
+      "resourceValue": 573.0503540039062,
+      "spellVamp": 0.0,
+      "tenacity": 5.0
+    },
+    "currentGold": 253.84507751464844,
+    "fullRunes": {
+      "generalRunes": [
+        {
+          "displayName": "黑暗收割",
+          "id": 8128,
+          "rawDescription": "perk_tooltip_DarkHarvest",
+          "rawDisplayName": "perk_displayname_DarkHarvest"
+        },
+        {
+          "displayName": "猛然冲击",
+          "id": 8143,
+          "rawDescription": "perk_tooltip_SuddenImpact",
+          "rawDisplayName": "perk_displayname_SuddenImpact"
+        },
+        {
+          "displayName": "可怖纪念品",
+          "id": 8140,
+          "rawDescription": "perk_tooltip_GrislyMementos",
+          "rawDisplayName": "perk_displayname_GrislyMementos"
+        },
+        {
+          "displayName": "寻宝猎人",
+          "id": 8135,
+          "rawDescription": "perk_tooltip_TreasureHunter",
+          "rawDisplayName": "perk_displayname_TreasureHunter"
+        },
+        {
+          "displayName": "传说：欢欣",
+          "id": 9104,
+          "rawDescription": "perk_tooltip_9104",
+          "rawDisplayName": "perk_displayname_9104"
+        },
+        {
+          "displayName": "凯旋",
+          "id": 9111,
+          "rawDescription": "perk_tooltip_9111",
+          "rawDisplayName": "perk_displayname_9111"
+        }
+      ],
+      "keystone": {
+        "displayName": "黑暗收割",
+        "id": 8128,
+        "rawDescription": "perk_tooltip_DarkHarvest",
+        "rawDisplayName": "perk_displayname_DarkHarvest"
+      },
+      "primaryRuneTree": {
+        "displayName": "主宰",
+        "id": 8100,
+        "rawDescription": "perkstyle_tooltip_7200",
+        "rawDisplayName": "perkstyle_displayname_7200"
+      },
+      "secondaryRuneTree": {
+        "displayName": "精密",
+        "id": 8000,
+        "rawDescription": "perkstyle_tooltip_7201",
+        "rawDisplayName": "perkstyle_displayname_7201"
+      },
+      "statRunes": [
+        {
+          "id": 5005,
+          "rawDescription": "perk_tooltip_StatModAttackSpeed"
+        },
+        {
+          "id": 5008,
+          "rawDescription": "perk_tooltip_StatModAdaptive"
+        },
+        {
+          "id": 5001,
+          "rawDescription": "perk_tooltip_StatModHealthScaling"
+        }
+      ]
+    },
+    "level": 15,
+    "riotId": "你微笑时很靓#29438",
+    "riotIdGameName": "你微笑时很靓",
+    "riotIdTagLine": "29438",
+    "summonerName": "你微笑时很靓#29438",
+    "teamRelativeColors": true
+  },
+  "allPlayers": [
+    {
+      "championName": "法外狂徒",
+      "isBot": false,
+      "isDead": true,
+      "items": [
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "收集者",
+          "itemID": 6676,
+          "price": 525,
+          "rawDescription": "GeneratedTip_Item_6676_Description",
+          "rawDisplayName": "Item_6676_Name",
+          "slot": 0
+        },
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "鞋子",
+          "itemID": 1001,
+          "price": 300,
+          "rawDescription": "GeneratedTip_Item_1001_Description",
+          "rawDisplayName": "Item_1001_Name",
+          "slot": 1
+        },
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "狂妄",
+          "itemID": 6697,
+          "price": 750,
+          "rawDescription": "GeneratedTip_Item_6697_Description",
+          "rawDisplayName": "Item_6697_Name",
+          "slot": 2
+        },
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "死刑宣告",
+          "itemID": 3123,
+          "price": 450,
+          "rawDescription": "GeneratedTip_Item_3123_Description",
+          "rawDisplayName": "Item_3123_Name",
+          "slot": 3
+        },
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "无尽之刃",
+          "itemID": 3031,
+          "price": 725,
+          "rawDescription": "GeneratedTip_Item_3031_Description",
+          "rawDisplayName": "Item_3031_Name",
+          "slot": 4
+        },
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "最后的轻语",
+          "itemID": 3035,
+          "price": 750,
+          "rawDescription": "GeneratedTip_Item_3035_Description",
+          "rawDisplayName": "Item_3035_Name",
+          "slot": 5
+        },
+        {
+          "canUse": true,
+          "consumable": false,
+          "count": 1,
+          "displayName": "侦察守卫",
+          "itemID": 3340,
+          "price": 0,
+          "rawDescription": "GeneratedTip_Item_3340_Description",
+          "rawDisplayName": "Item_3340_Name",
+          "slot": 6
+        }
+      ],
+      "level": 15,
+      "position": "TOP",
+      "rawChampionName": "game_character_displayname_Graves",
+      "rawSkinName": "game_character_skin_displayname_Graves_3",
+      "respawnTimer": 28.749755859375,
+      "riotId": "你微笑时很靓#29438",
+      "riotIdGameName": "你微笑时很靓",
+      "riotIdTagLine": "29438",
+      "runes": {
+        "keystone": {
+          "displayName": "黑暗收割",
+          "id": 8128,
+          "rawDescription": "perk_tooltip_DarkHarvest",
+          "rawDisplayName": "perk_displayname_DarkHarvest"
+        },
+        "primaryRuneTree": {
+          "displayName": "主宰",
+          "id": 8100,
+          "rawDescription": "perkstyle_tooltip_7200",
+          "rawDisplayName": "perkstyle_displayname_7200"
+        },
+        "secondaryRuneTree": {
+          "displayName": "精密",
+          "id": 8000,
+          "rawDescription": "perkstyle_tooltip_7201",
+          "rawDisplayName": "perkstyle_displayname_7201"
+        }
+      },
+      "scores": {
+        "assists": 1,
+        "creepScore": 150,
+        "deaths": 9,
+        "kills": 10,
+        "wardScore": 14.85364055633545
+      },
+      "skinID": 3,
+      "skinName": "黑帮教父 格雷福斯",
+      "summonerName": "你微笑时很靓#29438",
+      "summonerSpells": {
+        "summonerSpellOne": {
+          "displayName": "幽灵疾步",
+          "rawDescription": "GeneratedTip_SummonerSpell_SummonerHaste_Description",
+          "rawDisplayName": "GeneratedTip_SummonerSpell_SummonerHaste_DisplayName"
+        },
+        "summonerSpellTwo": {
+          "displayName": "闪现",
+          "rawDescription": "GeneratedTip_SummonerSpell_SummonerFlash_Description",
+          "rawDisplayName": "GeneratedTip_SummonerSpell_SummonerFlash_DisplayName"
+        }
+      },
+      "team": "ORDER"
+    },
+    {
+      "championName": "暗夜猎手",
+      "isBot": true,
+      "isDead": true,
+      "items": [
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "多兰之刃",
+          "itemID": 1055,
+          "price": 450,
+          "rawDescription": "GeneratedTip_Item_1055_Description",
+          "rawDisplayName": "Item_1055_Name",
+          "slot": 0
+        },
+        {
+          "canUse": true,
+          "consumable": true,
+          "count": 1,
+          "displayName": "控制守卫",
+          "itemID": 2055,
+          "price": 75,
+          "rawDescription": "GeneratedTip_Item_2055_Description",
+          "rawDisplayName": "Item_2055_Name",
+          "slot": 1
+        },
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "鬼索的狂暴之刃",
+          "itemID": 3124,
+          "price": 1025,
+          "rawDescription": "GeneratedTip_Item_3124_Description",
+          "rawDisplayName": "Item_3124_Name",
+          "slot": 2
+        },
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "破败王者之刃",
+          "itemID": 3153,
+          "price": 725,
+          "rawDescription": "GeneratedTip_Item_3153_Description",
+          "rawDisplayName": "Item_3153_Name",
+          "slot": 3
+        },
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "剑翎",
+          "itemID": 6690,
+          "price": 425,
+          "rawDescription": "GeneratedTip_Item_6690_Description",
+          "rawDisplayName": "Item_6690_Name",
+          "slot": 4
+        },
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "缚炉之斧",
+          "itemID": 3051,
+          "price": 250,
+          "rawDescription": "GeneratedTip_Item_3051_Description",
+          "rawDisplayName": "Item_3051_Name",
+          "slot": 5
+        },
+        {
+          "canUse": true,
+          "consumable": false,
+          "count": 1,
+          "displayName": "远见改造",
+          "itemID": 3363,
+          "price": 0,
+          "rawDescription": "GeneratedTip_Item_3363_Description",
+          "rawDisplayName": "Item_3363_Name",
+          "slot": 6
+        }
+      ],
+      "level": 13,
+      "position": "BOTTOM",
+      "rawChampionName": "game_character_displayname_Vayne",
+      "rawSkinName": "game_character_displayname_Vayne",
+      "respawnTimer": 17.220722198486328,
+      "riotId": "Vayne#BOT",
+      "riotIdGameName": "Vayne",
+      "riotIdTagLine": "BOT",
+      "runes": {
+        "keystone": {
+          "displayName": "强攻",
+          "id": 8005,
+          "rawDescription": "perk_tooltip_PressTheAttack",
+          "rawDisplayName": "perk_displayname_PressTheAttack"
+        },
+        "primaryRuneTree": {
+          "displayName": "精密",
+          "id": 8000,
+          "rawDescription": "perkstyle_tooltip_7201",
+          "rawDisplayName": "perkstyle_displayname_7201"
+        },
+        "secondaryRuneTree": {
+          "displayName": "巫术",
+          "id": 8200,
+          "rawDescription": "perkstyle_tooltip_7202",
+          "rawDisplayName": "perkstyle_displayname_7202"
+        }
+      },
+      "scores": {
+        "assists": 12,
+        "creepScore": 70,
+        "deaths": 10,
+        "kills": 5,
+        "wardScore": 1.0
+      },
+      "skinID": 0,
+      "skinName": "暗夜猎手",
+      "summonerName": "暗夜猎手（电脑）",
+      "summonerSpells": {
+        "summonerSpellOne": {
+          "displayName": "屏障",
+          "rawDescription": "GeneratedTip_SummonerSpell_SummonerBarrier_Description",
+          "rawDisplayName": "GeneratedTip_SummonerSpell_SummonerBarrier_DisplayName"
+        },
+        "summonerSpellTwo": {
+          "displayName": "闪现",
+          "rawDescription": "GeneratedTip_SummonerSpell_SummonerFlash_Description",
+          "rawDisplayName": "GeneratedTip_SummonerSpell_SummonerFlash_DisplayName"
+        }
+      },
+      "team": "ORDER"
+    },
+    {
+      "championName": "荆棘之兴",
+      "isBot": true,
+      "isDead": false,
+      "items": [
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "影焰",
+          "itemID": 4645,
+          "price": 900,
+          "rawDescription": "GeneratedTip_Item_4645_Description",
+          "rawDisplayName": "Item_4645_Name",
+          "slot": 0
+        },
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "法师之靴",
+          "itemID": 3020,
+          "price": 800,
+          "rawDescription": "GeneratedTip_Item_3020_Description",
+          "rawDisplayName": "Item_3020_Name",
+          "slot": 1
+        },
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "兰德里的折磨",
+          "itemID": 6653,
+          "price": 800,
+          "rawDescription": "GeneratedTip_Item_6653_Description",
+          "rawDisplayName": "Item_6653_Name",
+          "slot": 2
+        },
+        {
+          "canUse": true,
+          "consumable": true,
+          "count": 1,
+          "displayName": "控制守卫",
+          "itemID": 2055,
+          "price": 75,
+          "rawDescription": "GeneratedTip_Item_2055_Description",
+          "rawDisplayName": "Item_2055_Name",
+          "slot": 3
+        },
+        {
+          "canUse": true,
+          "consumable": false,
+          "count": 1,
+          "displayName": "探索者的护臂",
+          "itemID": 2420,
+          "price": 500,
+          "rawDescription": "GeneratedTip_Item_2420_Description",
+          "rawDisplayName": "Item_2420_Name",
+          "slot": 4
+        },
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "无用大棒",
+          "itemID": 1058,
+          "price": 1200,
+          "rawDescription": "GeneratedTip_Item_1058_Description",
+          "rawDisplayName": "Item_1058_Name",
+          "slot": 5
+        },
+        {
+          "canUse": true,
+          "consumable": false,
+          "count": 1,
+          "displayName": "侦察守卫",
+          "itemID": 3340,
+          "price": 0,
+          "rawDescription": "GeneratedTip_Item_3340_Description",
+          "rawDisplayName": "Item_3340_Name",
+          "slot": 6
+        }
+      ],
+      "level": 14,
+      "position": "JUNGLE",
+      "rawChampionName": "game_character_displayname_Zyra",
+      "rawSkinName": "game_character_displayname_Zyra",
+      "respawnTimer": 0.0,
+      "riotId": "Zyra#BOT",
+      "riotIdGameName": "Zyra",
+      "riotIdTagLine": "BOT",
+      "runes": {
+        "keystone": {
+          "displayName": "奥术彗星",
+          "id": 8229,
+          "rawDescription": "perk_tooltip_ArcaneComet",
+          "rawDisplayName": "perk_displayname_ArcaneComet"
+        },
+        "primaryRuneTree": {
+          "displayName": "巫术",
+          "id": 8200,
+          "rawDescription": "perkstyle_tooltip_7202",
+          "rawDisplayName": "perkstyle_displayname_7202"
+        },
+        "secondaryRuneTree": {
+          "displayName": "主宰",
+          "id": 8100,
+          "rawDescription": "perkstyle_tooltip_7200",
+          "rawDisplayName": "perkstyle_displayname_7200"
+        }
+      },
+      "scores": {
+        "assists": 13,
+        "creepScore": 90,
+        "deaths": 9,
+        "kills": 5,
+        "wardScore": 7.844216346740723
+      },
+      "skinID": 0,
+      "skinName": "荆棘之兴",
+      "summonerName": "荆棘之兴（电脑）",
+      "summonerSpells": {
+        "summonerSpellOne": {
+          "displayName": "闪现",
+          "rawDescription": "GeneratedTip_SummonerSpell_SummonerFlash_Description",
+          "rawDisplayName": "GeneratedTip_SummonerSpell_SummonerFlash_DisplayName"
+        },
+        "summonerSpellTwo": {
+          "displayName": "原初惩戒",
+          "rawDescription": "GeneratedTip_SummonerSpell_SummonerSmiteAvatarOffensive_Description",
+          "rawDisplayName": "GeneratedTip_SummonerSpell_SummonerSmiteAvatarOffensive_DisplayName"
+        }
+      },
+      "team": "ORDER"
+    },
+    {
+      "championName": "沙漠死神",
+      "isBot": true,
+      "isDead": true,
+      "items": [
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "多兰之刃",
+          "itemID": 1055,
+          "price": 450,
+          "rawDescription": "GeneratedTip_Item_1055_Description",
+          "rawDisplayName": "Item_1055_Name",
+          "slot": 0
+        },
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "明朗之靴",
+          "itemID": 3158,
+          "price": 350,
+          "rawDescription": "GeneratedTip_Item_3158_Description",
+          "rawDisplayName": "Item_3158_Name",
+          "slot": 1
+        },
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "三相之力",
+          "itemID": 3078,
+          "price": 133,
+          "rawDescription": "GeneratedTip_Item_3078_Description",
+          "rawDisplayName": "Item_3078_Name",
+          "slot": 2
+        },
+        {
+          "canUse": true,
+          "consumable": true,
+          "count": 1,
+          "displayName": "控制守卫",
+          "itemID": 2055,
+          "price": 75,
+          "rawDescription": "GeneratedTip_Item_2055_Description",
+          "rawDisplayName": "Item_2055_Name",
+          "slot": 3
+        },
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "守望者铠甲",
+          "itemID": 3082,
+          "price": 400,
+          "rawDescription": "GeneratedTip_Item_3082_Description",
+          "rawDisplayName": "Item_3082_Name",
+          "slot": 4
+        },
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "冰川圆盾",
+          "itemID": 3024,
+          "price": 50,
+          "rawDescription": "GeneratedTip_Item_3024_Description",
+          "rawDisplayName": "Item_3024_Name",
+          "slot": 5
+        },
+        {
+          "canUse": true,
+          "consumable": false,
+          "count": 1,
+          "displayName": "侦察守卫",
+          "itemID": 3340,
+          "price": 0,
+          "rawDescription": "GeneratedTip_Item_3340_Description",
+          "rawDisplayName": "Item_3340_Name",
+          "slot": 6
+        }
+      ],
+      "level": 14,
+      "position": "TOP",
+      "rawChampionName": "game_character_displayname_Nasus",
+      "rawSkinName": "game_character_displayname_Nasus",
+      "respawnTimer": 33.41025161743164,
+      "riotId": "Nasus#BOT",
+      "riotIdGameName": "Nasus",
+      "riotIdTagLine": "BOT",
+      "runes": {
+        "keystone": {
+          "displayName": "不灭之握",
+          "id": 8437,
+          "rawDescription": "perk_tooltip_GraspOfTheUndying",
+          "rawDisplayName": "perk_displayname_GraspOfTheUndying"
+        },
+        "primaryRuneTree": {
+          "displayName": "坚决",
+          "id": 8400,
+          "rawDescription": "perkstyle_tooltip_7204",
+          "rawDisplayName": "perkstyle_displayname_7204"
+        },
+        "secondaryRuneTree": {
+          "displayName": "巫术",
+          "id": 8200,
+          "rawDescription": "perkstyle_tooltip_7202",
+          "rawDisplayName": "perkstyle_displayname_7202"
+        }
+      },
+      "scores": {
+        "assists": 9,
+        "creepScore": 60,
+        "deaths": 13,
+        "kills": 6,
+        "wardScore": 7.982012748718262
+      },
+      "skinID": 0,
+      "skinName": "沙漠死神",
+      "summonerName": "沙漠死神（电脑）",
+      "summonerSpells": {
+        "summonerSpellOne": {
+          "displayName": "幽灵疾步",
+          "rawDescription": "GeneratedTip_SummonerSpell_SummonerHaste_Description",
+          "rawDisplayName": "GeneratedTip_SummonerSpell_SummonerHaste_DisplayName"
+        },
+        "summonerSpellTwo": {
+          "displayName": "解封的传送",
+          "rawDescription": "GeneratedTip_SummonerSpell_S12_SummonerTeleportUpgrade_Description",
+          "rawDisplayName": "GeneratedTip_SummonerSpell_S12_SummonerTeleportUpgrade_DisplayName"
+        }
+      },
+      "team": "ORDER"
+    },
+    {
+      "championName": "星籁歌姬",
+      "isBot": true,
+      "isDead": true,
+      "items": [
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "遗失的章节",
+          "itemID": 3802,
+          "price": 250,
+          "rawDescription": "GeneratedTip_Item_3802_Description",
+          "rawDisplayName": "Item_3802_Name",
+          "slot": 0
+        },
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "明朗之靴",
+          "itemID": 3158,
+          "price": 350,
+          "rawDescription": "GeneratedTip_Item_3158_Description",
+          "rawDisplayName": "Item_3158_Name",
+          "slot": 1
+        },
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "海力亚的回响",
+          "itemID": 6620,
+          "price": 500,
+          "rawDescription": "GeneratedTip_Item_6620_Description",
+          "rawDisplayName": "Item_6620_Name",
+          "slot": 2
+        },
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "瑞莱的冰晶节杖",
+          "itemID": 3116,
+          "price": 450,
+          "rawDescription": "GeneratedTip_Item_3116_Description",
+          "rawDisplayName": "Item_3116_Name",
+          "slot": 3
+        },
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "月石再生器",
+          "itemID": 6617,
+          "price": 500,
+          "rawDescription": "GeneratedTip_Item_6617_Description",
+          "rawDisplayName": "Item_6617_Name",
+          "slot": 4
+        },
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "耳语头环",
+          "itemID": 2526,
+          "price": 850,
+          "rawDescription": "GeneratedTip_Item_2526_Description",
+          "rawDisplayName": "Item_2526_Name",
+          "slot": 5
+        },
+        {
+          "canUse": true,
+          "consumable": false,
+          "count": 1,
+          "displayName": "神谕透镜",
+          "itemID": 3364,
+          "price": 0,
+          "rawDescription": "GeneratedTip_Item_3364_Description",
+          "rawDisplayName": "Item_3364_Name",
+          "slot": 6
+        }
+      ],
+      "level": 14,
+      "position": "UTILITY",
+      "rawChampionName": "Character_Seraphine_Name",
+      "rawSkinName": "game_character_displayname_Seraphine",
+      "respawnTimer": 3.418781280517578,
+      "riotId": "Seraphine#BOT",
+      "riotIdGameName": "Seraphine",
+      "riotIdTagLine": "BOT",
+      "runes": {
+        "keystone": {
+          "displayName": "奥术彗星",
+          "id": 8229,
+          "rawDescription": "perk_tooltip_ArcaneComet",
+          "rawDisplayName": "perk_displayname_ArcaneComet"
+        },
+        "primaryRuneTree": {
+          "displayName": "巫术",
+          "id": 8200,
+          "rawDescription": "perkstyle_tooltip_7202",
+          "rawDisplayName": "perkstyle_displayname_7202"
+        },
+        "secondaryRuneTree": {
+          "displayName": "主宰",
+          "id": 8100,
+          "rawDescription": "perkstyle_tooltip_7200",
+          "rawDisplayName": "perkstyle_displayname_7200"
+        }
+      },
+      "scores": {
+        "assists": 9,
+        "creepScore": 50,
+        "deaths": 11,
+        "kills": 10,
+        "wardScore": 0.8333333730697632
+      },
+      "skinID": 0,
+      "skinName": "星籁歌姬",
+      "summonerName": "星籁歌姬（电脑）",
+      "summonerSpells": {
+        "summonerSpellOne": {
+          "displayName": "闪现",
+          "rawDescription": "GeneratedTip_SummonerSpell_SummonerFlash_Description",
+          "rawDisplayName": "GeneratedTip_SummonerSpell_SummonerFlash_DisplayName"
+        },
+        "summonerSpellTwo": {
+          "displayName": "治疗术",
+          "rawDescription": "GeneratedTip_SummonerSpell_SummonerHeal_Description",
+          "rawDisplayName": "GeneratedTip_SummonerSpell_SummonerHeal_DisplayName"
+        }
+      },
+      "team": "ORDER"
+    },
+    {
+      "championName": "麦林炮手",
+      "isBot": true,
+      "isDead": false,
+      "items": [
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "多兰之刃",
+          "itemID": 1055,
+          "price": 450,
+          "rawDescription": "GeneratedTip_Item_1055_Description",
+          "rawDisplayName": "Item_1055_Name",
+          "slot": 0
+        },
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "暴风之剑",
+          "itemID": 1038,
+          "price": 1300,
+          "rawDescription": "GeneratedTip_Item_1038_Description",
+          "rawDisplayName": "Item_1038_Name",
+          "slot": 1
+        },
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "育恩塔尔荒野箭",
+          "itemID": 3032,
+          "price": 850,
+          "rawDescription": "GeneratedTip_Item_3032_Description",
+          "rawDisplayName": "Item_3032_Name",
+          "slot": 2
+        },
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "纳沃利烁刃",
+          "itemID": 6675,
+          "price": 950,
+          "rawDescription": "GeneratedTip_Item_6675_Description",
+          "rawDisplayName": "Item_6675_Name",
+          "slot": 3
+        },
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "无尽之刃",
+          "itemID": 3031,
+          "price": 725,
+          "rawDescription": "GeneratedTip_Item_3031_Description",
+          "rawDisplayName": "Item_3031_Name",
+          "slot": 4
+        },
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "多米尼克领主的致意",
+          "itemID": 3036,
+          "price": 550,
+          "rawDescription": "GeneratedTip_Item_3036_Description",
+          "rawDisplayName": "Item_3036_Name",
+          "slot": 5
+        },
+        {
+          "canUse": true,
+          "consumable": false,
+          "count": 1,
+          "displayName": "远见改造",
+          "itemID": 3363,
+          "price": 0,
+          "rawDescription": "GeneratedTip_Item_3363_Description",
+          "rawDisplayName": "Item_3363_Name",
+          "slot": 6
+        }
+      ],
+      "level": 16,
+      "position": "BOTTOM",
+      "rawChampionName": "game_character_displayname_Tristana",
+      "rawSkinName": "game_character_displayname_Tristana",
+      "respawnTimer": 0.0,
+      "riotId": "Tristana#BOT",
+      "riotIdGameName": "Tristana",
+      "riotIdTagLine": "BOT",
+      "runes": {
+        "keystone": {
+          "displayName": "强攻",
+          "id": 8005,
+          "rawDescription": "perk_tooltip_PressTheAttack",
+          "rawDisplayName": "perk_displayname_PressTheAttack"
+        },
+        "primaryRuneTree": {
+          "displayName": "精密",
+          "id": 8000,
+          "rawDescription": "perkstyle_tooltip_7201",
+          "rawDisplayName": "perkstyle_displayname_7201"
+        },
+        "secondaryRuneTree": {
+          "displayName": "巫术",
+          "id": 8200,
+          "rawDescription": "perkstyle_tooltip_7202",
+          "rawDisplayName": "perkstyle_displayname_7202"
+        }
+      },
+      "scores": {
+        "assists": 1,
+        "creepScore": 120,
+        "deaths": 7,
+        "kills": 23,
+        "wardScore": 4.066666126251221
+      },
+      "skinID": 0,
+      "skinName": "麦林炮手",
+      "summonerName": "麦林炮手（电脑）",
+      "summonerSpells": {
+        "summonerSpellOne": {
+          "displayName": "屏障",
+          "rawDescription": "GeneratedTip_SummonerSpell_SummonerBarrier_Description",
+          "rawDisplayName": "GeneratedTip_SummonerSpell_SummonerBarrier_DisplayName"
+        },
+        "summonerSpellTwo": {
+          "displayName": "闪现",
+          "rawDescription": "GeneratedTip_SummonerSpell_SummonerFlash_Description",
+          "rawDisplayName": "GeneratedTip_SummonerSpell_SummonerFlash_DisplayName"
+        }
+      },
+      "team": "CHAOS"
+    },
+    {
+      "championName": "卡牌大师",
+      "isBot": true,
+      "isDead": false,
+      "items": [
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "多兰之刃",
+          "itemID": 1055,
+          "price": 450,
+          "rawDescription": "GeneratedTip_Item_1055_Description",
+          "rawDisplayName": "Item_1055_Name",
+          "slot": 0
+        },
+        {
+          "canUse": true,
+          "consumable": true,
+          "count": 1,
+          "displayName": "控制守卫",
+          "itemID": 2055,
+          "price": 75,
+          "rawDescription": "GeneratedTip_Item_2055_Description",
+          "rawDisplayName": "Item_2055_Name",
+          "slot": 1
+        },
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "卢登的回声",
+          "itemID": 6655,
+          "price": 450,
+          "rawDescription": "GeneratedTip_Item_6655_Description",
+          "rawDisplayName": "Item_6655_Name",
+          "slot": 2
+        },
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "迅速进军",
+          "itemID": 3170,
+          "price": 0,
+          "rawDescription": "GeneratedTip_Item_3170_Description",
+          "rawDisplayName": "Item_3170_Name",
+          "slot": 3
+        },
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "疾射火炮",
+          "itemID": 3094,
+          "price": 850,
+          "rawDescription": "GeneratedTip_Item_3094_Description",
+          "rawDisplayName": "Item_3094_Name",
+          "slot": 4
+        },
+        {
+          "canUse": true,
+          "consumable": false,
+          "count": 1,
+          "displayName": "探索者的护臂",
+          "itemID": 2420,
+          "price": 500,
+          "rawDescription": "GeneratedTip_Item_2420_Description",
+          "rawDisplayName": "Item_2420_Name",
+          "slot": 5
+        },
+        {
+          "canUse": true,
+          "consumable": false,
+          "count": 1,
+          "displayName": "远见改造",
+          "itemID": 3363,
+          "price": 0,
+          "rawDescription": "GeneratedTip_Item_3363_Description",
+          "rawDisplayName": "Item_3363_Name",
+          "slot": 6
+        }
+      ],
+      "level": 13,
+      "position": "MIDDLE",
+      "rawChampionName": "game_character_displayname_TwistedFate",
+      "rawSkinName": "game_character_displayname_TwistedFate",
+      "respawnTimer": 0.0,
+      "riotId": "TwistedFate#BOT",
+      "riotIdGameName": "TwistedFate",
+      "riotIdTagLine": "BOT",
+      "runes": {
+        "keystone": {
+          "displayName": "奥术彗星",
+          "id": 8229,
+          "rawDescription": "perk_tooltip_ArcaneComet",
+          "rawDisplayName": "perk_displayname_ArcaneComet"
+        },
+        "primaryRuneTree": {
+          "displayName": "巫术",
+          "id": 8200,
+          "rawDescription": "perkstyle_tooltip_7202",
+          "rawDisplayName": "perkstyle_displayname_7202"
+        },
+        "secondaryRuneTree": {
+          "displayName": "主宰",
+          "id": 8100,
+          "rawDescription": "perkstyle_tooltip_7200",
+          "rawDisplayName": "perkstyle_displayname_7200"
+        }
+      },
+      "scores": {
+        "assists": 9,
+        "creepScore": 100,
+        "deaths": 10,
+        "kills": 4,
+        "wardScore": 2.6666665077209473
+      },
+      "skinID": 0,
+      "skinName": "卡牌大师",
+      "summonerName": "卡牌大师（电脑）",
+      "summonerSpells": {
+        "summonerSpellOne": {
+          "displayName": "闪现",
+          "rawDescription": "GeneratedTip_SummonerSpell_SummonerFlash_Description",
+          "rawDisplayName": "GeneratedTip_SummonerSpell_SummonerFlash_DisplayName"
+        },
+        "summonerSpellTwo": {
+          "displayName": "解封的传送",
+          "rawDescription": "GeneratedTip_SummonerSpell_S12_SummonerTeleportUpgrade_Description",
+          "rawDisplayName": "GeneratedTip_SummonerSpell_S12_SummonerTeleportUpgrade_DisplayName"
+        }
+      },
+      "team": "CHAOS"
+    },
+    {
+      "championName": "无极剑圣",
+      "isBot": true,
+      "isDead": true,
+      "items": [
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "吸血鬼节杖",
+          "itemID": 1053,
+          "price": 550,
+          "rawDescription": "GeneratedTip_Item_1053_Description",
+          "rawDisplayName": "Item_1053_Name",
+          "slot": 1
+        },
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "海妖杀手",
+          "itemID": 6672,
+          "price": 325,
+          "rawDescription": "GeneratedTip_Item_6672_Description",
+          "rawDisplayName": "Item_6672_Name",
+          "slot": 2
+        },
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "鞋子",
+          "itemID": 1001,
+          "price": 300,
+          "rawDescription": "GeneratedTip_Item_1001_Description",
+          "rawDisplayName": "Item_1001_Name",
+          "slot": 3
+        },
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "反曲之弓",
+          "itemID": 1043,
+          "price": 450,
+          "rawDescription": "GeneratedTip_Item_1043_Description",
+          "rawDisplayName": "Item_1043_Name",
+          "slot": 4
+        },
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "增幅典籍",
+          "itemID": 1052,
+          "price": 400,
+          "rawDescription": "GeneratedTip_Item_1052_Description",
+          "rawDisplayName": "Item_1052_Name",
+          "slot": 5
+        },
+        {
+          "canUse": true,
+          "consumable": false,
+          "count": 1,
+          "displayName": "侦察守卫",
+          "itemID": 3340,
+          "price": 0,
+          "rawDescription": "GeneratedTip_Item_3340_Description",
+          "rawDisplayName": "Item_3340_Name",
+          "slot": 6
+        }
+      ],
+      "level": 13,
+      "position": "JUNGLE",
+      "rawChampionName": "game_character_displayname_MasterYi",
+      "rawSkinName": "game_character_displayname_MasterYi",
+      "respawnTimer": 22.487674713134766,
+      "riotId": "MasterYi#BOT",
+      "riotIdGameName": "MasterYi",
+      "riotIdTagLine": "BOT",
+      "runes": {
+        "keystone": {
+          "displayName": "强攻",
+          "id": 8005,
+          "rawDescription": "perk_tooltip_PressTheAttack",
+          "rawDisplayName": "perk_displayname_PressTheAttack"
+        },
+        "primaryRuneTree": {
+          "displayName": "精密",
+          "id": 8000,
+          "rawDescription": "perkstyle_tooltip_7201",
+          "rawDisplayName": "perkstyle_displayname_7201"
+        },
+        "secondaryRuneTree": {
+          "displayName": "巫术",
+          "id": 8200,
+          "rawDescription": "perkstyle_tooltip_7202",
+          "rawDisplayName": "perkstyle_displayname_7202"
+        }
+      },
+      "scores": {
+        "assists": 5,
+        "creepScore": 50,
+        "deaths": 9,
+        "kills": 7,
+        "wardScore": 4.0416669845581055
+      },
+      "skinID": 0,
+      "skinName": "无极剑圣",
+      "summonerName": "无极剑圣（电脑）",
+      "summonerSpells": {
+        "summonerSpellOne": {
+          "displayName": "闪现",
+          "rawDescription": "GeneratedTip_SummonerSpell_SummonerFlash_Description",
+          "rawDisplayName": "GeneratedTip_SummonerSpell_SummonerFlash_DisplayName"
+        },
+        "summonerSpellTwo": {
+          "displayName": "原初惩戒",
+          "rawDescription": "GeneratedTip_SummonerSpell_SummonerSmiteAvatarDefensive_Description",
+          "rawDisplayName": "GeneratedTip_SummonerSpell_SummonerSmiteAvatarDefensive_DisplayName"
+        }
+      },
+      "team": "CHAOS"
+    },
+    {
+      "championName": "诺克萨斯之手",
+      "isBot": true,
+      "isDead": false,
+      "items": [
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "多兰之刃",
+          "itemID": 1055,
+          "price": 450,
+          "rawDescription": "GeneratedTip_Item_1055_Description",
+          "rawDisplayName": "Item_1055_Name",
+          "slot": 0
+        },
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "负极斗篷",
+          "itemID": 1057,
+          "price": 450,
+          "rawDescription": "GeneratedTip_Item_1057_Description",
+          "rawDisplayName": "Item_1057_Name",
+          "slot": 1
+        },
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "铁板靴",
+          "itemID": 3047,
+          "price": 600,
+          "rawDescription": "GeneratedTip_Item_3047_Description",
+          "rawDisplayName": "Item_3047_Name",
+          "slot": 2
+        },
+        {
+          "canUse": true,
+          "consumable": false,
+          "count": 1,
+          "displayName": "挺进破坏者",
+          "itemID": 6631,
+          "price": 750,
+          "rawDescription": "GeneratedTip_Item_6631_Description",
+          "rawDisplayName": "Item_6631_Name",
+          "slot": 3
+        },
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "亡者的板甲",
+          "itemID": 3742,
+          "price": 900,
+          "rawDescription": "GeneratedTip_Item_3742_Description",
+          "rawDisplayName": "Item_3742_Name",
+          "slot": 4
+        },
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "斯特拉克的挑战护手",
+          "itemID": 3053,
+          "price": 775,
+          "rawDescription": "GeneratedTip_Item_3053_Description",
+          "rawDisplayName": "Item_3053_Name",
+          "slot": 5
+        },
+        {
+          "canUse": true,
+          "consumable": false,
+          "count": 1,
+          "displayName": "侦察守卫",
+          "itemID": 3340,
+          "price": 0,
+          "rawDescription": "GeneratedTip_Item_3340_Description",
+          "rawDisplayName": "Item_3340_Name",
+          "slot": 6
+        }
+      ],
+      "level": 18,
+      "position": "TOP",
+      "rawChampionName": "game_character_displayname_Darius",
+      "rawSkinName": "game_character_displayname_Darius",
+      "respawnTimer": 0.0,
+      "riotId": "Darius#BOT",
+      "riotIdGameName": "Darius",
+      "riotIdTagLine": "BOT",
+      "runes": {
+        "keystone": {
+          "displayName": "不灭之握",
+          "id": 8437,
+          "rawDescription": "perk_tooltip_GraspOfTheUndying",
+          "rawDisplayName": "perk_displayname_GraspOfTheUndying"
+        },
+        "primaryRuneTree": {
+          "displayName": "坚决",
+          "id": 8400,
+          "rawDescription": "perkstyle_tooltip_7204",
+          "rawDisplayName": "perkstyle_displayname_7204"
+        },
+        "secondaryRuneTree": {
+          "displayName": "巫术",
+          "id": 8200,
+          "rawDescription": "perkstyle_tooltip_7202",
+          "rawDisplayName": "perkstyle_displayname_7202"
+        }
+      },
+      "scores": {
+        "assists": 2,
+        "creepScore": 170,
+        "deaths": 3,
+        "kills": 17,
+        "wardScore": 9.905933380126953
+      },
+      "skinID": 0,
+      "skinName": "诺克萨斯之手",
+      "summonerName": "诺克萨斯之手（电脑）",
+      "summonerSpells": {
+        "summonerSpellOne": {
+          "displayName": "闪现",
+          "rawDescription": "GeneratedTip_SummonerSpell_SummonerFlash_Description",
+          "rawDisplayName": "GeneratedTip_SummonerSpell_SummonerFlash_DisplayName"
+        },
+        "summonerSpellTwo": {
+          "displayName": "幽灵疾步",
+          "rawDescription": "GeneratedTip_SummonerSpell_SummonerHaste_Description",
+          "rawDisplayName": "GeneratedTip_SummonerSpell_SummonerHaste_DisplayName"
+        }
+      },
+      "team": "CHAOS"
+    },
+    {
+      "championName": "众星之子",
+      "isBot": true,
+      "isDead": false,
+      "items": [
+        {
+          "canUse": true,
+          "consumable": false,
+          "count": 1,
+          "displayName": "圆梦使者",
+          "itemID": 3870,
+          "price": 0,
+          "rawDescription": "GeneratedTip_Item_3870_Description",
+          "rawDisplayName": "Item_3870_Name",
+          "slot": 0
+        },
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "月石再生器",
+          "itemID": 6617,
+          "price": 500,
+          "rawDescription": "GeneratedTip_Item_6617_Description",
+          "rawDisplayName": "Item_6617_Name",
+          "slot": 1
+        },
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "明朗之靴",
+          "itemID": 3158,
+          "price": 350,
+          "rawDescription": "GeneratedTip_Item_3158_Description",
+          "rawDisplayName": "Item_3158_Name",
+          "slot": 2
+        },
+        {
+          "canUse": true,
+          "consumable": false,
+          "count": 1,
+          "displayName": "救赎",
+          "itemID": 3107,
+          "price": 850,
+          "rawDescription": "GeneratedTip_Item_3107_Description",
+          "rawDisplayName": "Item_3107_Name",
+          "slot": 3
+        },
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "炽热香炉",
+          "itemID": 3504,
+          "price": 700,
+          "rawDescription": "GeneratedTip_Item_3504_Description",
+          "rawDisplayName": "Item_3504_Name",
+          "slot": 4
+        },
+        {
+          "canUse": false,
+          "consumable": false,
+          "count": 1,
+          "displayName": "禁忌雕像",
+          "itemID": 3114,
+          "price": 400,
+          "rawDescription": "GeneratedTip_Item_3114_Description",
+          "rawDisplayName": "Item_3114_Name",
+          "slot": 5
+        },
+        {
+          "canUse": true,
+          "consumable": false,
+          "count": 1,
+          "displayName": "神谕透镜",
+          "itemID": 3364,
+          "price": 0,
+          "rawDescription": "GeneratedTip_Item_3364_Description",
+          "rawDisplayName": "Item_3364_Name",
+          "slot": 6
+        }
+      ],
+      "level": 13,
+      "position": "UTILITY",
+      "rawChampionName": "game_character_displayname_Soraka",
+      "rawSkinName": "game_character_displayname_Soraka",
+      "respawnTimer": 0.0,
+      "riotId": "Soraka#BOT",
+      "riotIdGameName": "Soraka",
+      "riotIdTagLine": "BOT",
+      "runes": {
+        "keystone": {
+          "displayName": "奥术彗星",
+          "id": 8229,
+          "rawDescription": "perk_tooltip_ArcaneComet",
+          "rawDisplayName": "perk_displayname_ArcaneComet"
+        },
+        "primaryRuneTree": {
+          "displayName": "巫术",
+          "id": 8200,
+          "rawDescription": "perkstyle_tooltip_7202",
+          "rawDisplayName": "perkstyle_displayname_7202"
+        },
+        "secondaryRuneTree": {
+          "displayName": "主宰",
+          "id": 8100,
+          "rawDescription": "perkstyle_tooltip_7200",
+          "rawDisplayName": "perkstyle_displayname_7200"
+        }
+      },
+      "scores": {
+        "assists": 20,
+        "creepScore": 10,
+        "deaths": 7,
+        "kills": 0,
+        "wardScore": 6.885728359222412
+      },
+      "skinID": 0,
+      "skinName": "众星之子",
+      "summonerName": "众星之子（电脑）",
+      "summonerSpells": {
+        "summonerSpellOne": {
+          "displayName": "闪现",
+          "rawDescription": "GeneratedTip_SummonerSpell_SummonerFlash_Description",
+          "rawDisplayName": "GeneratedTip_SummonerSpell_SummonerFlash_DisplayName"
+        },
+        "summonerSpellTwo": {
+          "displayName": "治疗术",
+          "rawDescription": "GeneratedTip_SummonerSpell_SummonerHeal_Description",
+          "rawDisplayName": "GeneratedTip_SummonerSpell_SummonerHeal_DisplayName"
+        }
+      },
+      "team": "CHAOS"
+    }
+  ],
+  "events": {
+    "Events": [
+      {
+        "EventID": 0,
+        "EventName": "GameStart",
+        "EventTime": 0.01193930022418499
+      },
+      {
+        "EventID": 1,
+        "EventName": "MinionsSpawning",
+        "EventTime": 30.031572341918945
+      },
+      {
+        "Assisters": [],
+        "EventID": 2,
+        "EventName": "ChampionKill",
+        "EventTime": 83.92935180664062,
+        "KillerName": "麦林炮手（电脑）",
+        "VictimName": "暗夜猎手（电脑）"
+      },
+      {
+        "EventID": 3,
+        "EventName": "FirstBlood",
+        "EventTime": 83.92935180664062,
+        "Recipient": "麦林炮手（电脑）"
+      },
+      {
+        "Assisters": [],
+        "EventID": 4,
+        "EventName": "ChampionKill",
+        "EventTime": 172.72872924804688,
+        "KillerName": "Turret_TChaos_L0_P3_511845594_0",
+        "VictimName": "星籁歌姬（电脑）"
+      },
+      {
+        "Assisters": [
+          "众星之子（电脑）"
+        ],
+        "EventID": 5,
+        "EventName": "ChampionKill",
+        "EventTime": 213.70240783691406,
+        "KillerName": "麦林炮手（电脑）",
+        "VictimName": "暗夜猎手（电脑）"
+      },
+      {
+        "Assisters": [],
+        "EventID": 6,
+        "EventName": "ChampionKill",
+        "EventTime": 227.31735229492188,
+        "KillerName": "你微笑时很靓",
+        "VictimName": "无极剑圣（电脑）"
+      },
+      {
+        "Assisters": [],
+        "EventID": 7,
+        "EventName": "ChampionKill",
+        "EventTime": 242.46035766601562,
+        "KillerName": "诺克萨斯之手（电脑）",
+        "VictimName": "你微笑时很靓"
+      },
+      {
+        "Assisters": [
+          "众星之子（电脑）"
+        ],
+        "EventID": 8,
+        "EventName": "ChampionKill",
+        "EventTime": 279.9368896484375,
+        "KillerName": "麦林炮手（电脑）",
+        "VictimName": "星籁歌姬（电脑）"
+      },
+      {
+        "Assisters": [
+          "众星之子（电脑）"
+        ],
+        "EventID": 9,
+        "EventName": "ChampionKill",
+        "EventTime": 291.0598449707031,
+        "KillerName": "麦林炮手（电脑）",
+        "VictimName": "荆棘之兴（电脑）"
+      },
+      {
+        "Assisters": [
+          "麦林炮手（电脑）"
+        ],
+        "EventID": 10,
+        "EventName": "ChampionKill",
+        "EventTime": 355.3367004394531,
+        "KillerName": "卡牌大师（电脑）",
+        "VictimName": "星籁歌姬（电脑）"
+      },
+      {
+        "Assisters": [],
+        "EventID": 11,
+        "EventName": "ChampionKill",
+        "EventTime": 358.98248291015625,
+        "KillerName": "麦林炮手（电脑）",
+        "VictimName": "暗夜猎手（电脑）"
+      },
+      {
+        "Assisters": [
+          "卡牌大师（电脑）",
+          "无极剑圣（电脑）"
+        ],
+        "EventID": 12,
+        "EventName": "ChampionKill",
+        "EventTime": 362.31396484375,
+        "KillerName": "麦林炮手（电脑）",
+        "VictimName": "沙漠死神（电脑）"
+      },
+      {
+        "EventID": 13,
+        "EventName": "Multikill",
+        "EventTime": 362.31396484375,
+        "KillStreak": 2,
+        "KillerName": "麦林炮手（电脑）"
+      },
+      {
+        "Assisters": [],
+        "EventID": 14,
+        "EventName": "ChampionKill",
+        "EventTime": 455.9978332519531,
+        "KillerName": "星籁歌姬（电脑）",
+        "VictimName": "麦林炮手（电脑）"
+      },
+      {
+        "Assisters": [
+          "卡牌大师（电脑）"
+        ],
+        "DragonType": "Earth",
+        "EventID": 15,
+        "EventName": "DragonKill",
+        "EventTime": 470.2598876953125,
+        "KillerName": "无极剑圣（电脑）",
+        "Stolen": "False"
+      },
+      {
+        "Assisters": [],
+        "EventID": 16,
+        "EventName": "ChampionKill",
+        "EventTime": 491.7886962890625,
+        "KillerName": "诺克萨斯之手（电脑）",
+        "VictimName": "沙漠死神（电脑）"
+      },
+      {
+        "Assisters": [
+          "卡牌大师（电脑）"
+        ],
+        "EventID": 17,
+        "EventName": "ChampionKill",
+        "EventTime": 528.114501953125,
+        "KillerName": "无极剑圣（电脑）",
+        "VictimName": "荆棘之兴（电脑）"
+      },
+      {
+        "Assisters": [
+          "荆棘之兴（电脑）"
+        ],
+        "EventID": 18,
+        "EventName": "ChampionKill",
+        "EventTime": 540.8016967773438,
+        "KillerName": "沙漠死神（电脑）",
+        "VictimName": "卡牌大师（电脑）"
+      },
+      {
+        "Assisters": [
+          "无极剑圣（电脑）"
+        ],
+        "EventID": 19,
+        "EventName": "ChampionKill",
+        "EventTime": 549.9293823242188,
+        "KillerName": "诺克萨斯之手（电脑）",
+        "VictimName": "沙漠死神（电脑）"
+      },
+      {
+        "Assisters": [],
+        "EventID": 20,
+        "EventName": "ChampionKill",
+        "EventTime": 567.2083740234375,
+        "KillerName": "诺克萨斯之手（电脑）",
+        "VictimName": "你微笑时很靓"
+      },
+      {
+        "Assisters": [
+          "卡牌大师（电脑）",
+          "众星之子（电脑）"
+        ],
+        "EventID": 21,
+        "EventName": "ChampionKill",
+        "EventTime": 589.2455444335938,
+        "KillerName": "无极剑圣（电脑）",
+        "VictimName": "荆棘之兴（电脑）"
+      },
+      {
+        "Assisters": [
+          "暗夜猎手（电脑）"
+        ],
+        "EventID": 22,
+        "EventName": "ChampionKill",
+        "EventTime": 638.6911010742188,
+        "KillerName": "你微笑时很靓",
+        "VictimName": "麦林炮手（电脑）"
+      },
+      {
+        "Assisters": [],
+        "EventID": 23,
+        "EventName": "ChampionKill",
+        "EventTime": 670.4074096679688,
+        "KillerName": "诺克萨斯之手（电脑）",
+        "VictimName": "荆棘之兴（电脑）"
+      },
+      {
+        "Assisters": [
+          "众星之子（电脑）"
+        ],
+        "EventID": 24,
+        "EventName": "ChampionKill",
+        "EventTime": 690.2928466796875,
+        "KillerName": "麦林炮手（电脑）",
+        "VictimName": "星籁歌姬（电脑）"
+      },
+      {
+        "Assisters": [
+          "卡牌大师（电脑）"
+        ],
+        "EventID": 25,
+        "EventName": "HordeKill",
+        "EventTime": 694.9854736328125,
+        "KillerName": "无极剑圣（电脑）",
+        "Stolen": "False"
+      },
+      {
+        "Assisters": [
+          "卡牌大师（电脑）"
+        ],
+        "EventID": 26,
+        "EventName": "HordeKill",
+        "EventTime": 707.7568359375,
+        "KillerName": "无极剑圣（电脑）",
+        "Stolen": "False"
+      },
+      {
+        "Assisters": [
+          "卡牌大师（电脑）",
+          "无极剑圣（电脑）",
+          "众星之子（电脑）"
+        ],
+        "EventID": 27,
+        "EventName": "HordeKill",
+        "EventTime": 713.082275390625,
+        "KillerName": "荆棘之兴（电脑）",
+        "Stolen": "False"
+      },
+      {
+        "Assisters": [
+          "众星之子（电脑）"
+        ],
+        "EventID": 28,
+        "EventName": "ChampionKill",
+        "EventTime": 720.281005859375,
+        "KillerName": "无极剑圣（电脑）",
+        "VictimName": "沙漠死神（电脑）"
+      },
+      {
+        "Assisters": [],
+        "EventID": 29,
+        "EventName": "ChampionKill",
+        "EventTime": 741.2804565429688,
+        "KillerName": "荆棘之兴（电脑）",
+        "VictimName": "无极剑圣（电脑）"
+      },
+      {
+        "Assisters": [
+          "星籁歌姬（电脑）"
+        ],
+        "EventID": 30,
+        "EventName": "ChampionKill",
+        "EventTime": 741.5538940429688,
+        "KillerName": "暗夜猎手（电脑）",
+        "VictimName": "众星之子（电脑）"
+      },
+      {
+        "Assisters": [
+          "荆棘之兴（电脑）"
+        ],
+        "EventID": 31,
+        "EventName": "ChampionKill",
+        "EventTime": 765.1943359375,
+        "KillerName": "沙漠死神（电脑）",
+        "VictimName": "卡牌大师（电脑）"
+      },
+      {
+        "Assisters": [
+          "暗夜猎手（电脑）"
+        ],
+        "EventID": 32,
+        "EventName": "ChampionKill",
+        "EventTime": 791.53369140625,
+        "KillerName": "星籁歌姬（电脑）",
+        "VictimName": "麦林炮手（电脑）"
+      },
+      {
+        "Assisters": [],
+        "EventID": 33,
+        "EventName": "ChampionKill",
+        "EventTime": 802.5200805664062,
+        "KillerName": "诺克萨斯之手（电脑）",
+        "VictimName": "沙漠死神（电脑）"
+      },
+      {
+        "Assisters": [
+          "暗夜猎手（电脑）"
+        ],
+        "EventID": 34,
+        "EventName": "ChampionKill",
+        "EventTime": 880.7233276367188,
+        "KillerName": "荆棘之兴（电脑）",
+        "VictimName": "无极剑圣（电脑）"
+      },
+      {
+        "Assisters": [],
+        "EventID": 35,
+        "EventName": "TurretKilled",
+        "EventTime": 890.0635375976562,
+        "KillerName": "诺克萨斯之手（电脑）",
+        "TurretKilled": "Turret_TOrder_L2_P3_1509986696_0"
+      },
+      {
+        "EventID": 36,
+        "EventName": "FirstBrick",
+        "EventTime": 890.0635375976562,
+        "KillerName": "诺克萨斯之手（电脑）"
+      },
+      {
+        "Assisters": [
+          "暗夜猎手（电脑）"
+        ],
+        "DragonType": "Fire",
+        "EventID": 37,
+        "EventName": "DragonKill",
+        "EventTime": 894.0476684570312,
+        "KillerName": "荆棘之兴（电脑）",
+        "Stolen": "False"
+      },
+      {
+        "Assisters": [
+          "无极剑圣（电脑）"
+        ],
+        "EventID": 38,
+        "EventName": "ChampionKill",
+        "EventTime": 931.1458740234375,
+        "KillerName": "麦林炮手（电脑）",
+        "VictimName": "你微笑时很靓"
+      },
+      {
+        "Assisters": [
+          "暗夜猎手（电脑）",
+          "荆棘之兴（电脑）"
+        ],
+        "EventID": 39,
+        "EventName": "ChampionKill",
+        "EventTime": 946.849853515625,
+        "KillerName": "星籁歌姬（电脑）",
+        "VictimName": "无极剑圣（电脑）"
+      },
+      {
+        "Assisters": [
+          "无极剑圣（电脑）"
+        ],
+        "EventID": 40,
+        "EventName": "ChampionKill",
+        "EventTime": 1003.0838623046875,
+        "KillerName": "卡牌大师（电脑）",
+        "VictimName": "沙漠死神（电脑）"
+      },
+      {
+        "Assisters": [
+          "荆棘之兴（电脑）",
+          "沙漠死神（电脑）"
+        ],
+        "EventID": 41,
+        "EventName": "ChampionKill",
+        "EventTime": 1003.7638549804688,
+        "KillerName": "星籁歌姬（电脑）",
+        "VictimName": "卡牌大师（电脑）"
+      },
+      {
+        "Assisters": [],
+        "EventID": 42,
+        "EventName": "ChampionKill",
+        "EventTime": 1004.7901000976562,
+        "KillerName": "卡牌大师（电脑）",
+        "VictimName": "星籁歌姬（电脑）"
+      },
+      {
+        "EventID": 43,
+        "EventName": "Multikill",
+        "EventTime": 1004.7901000976562,
+        "KillStreak": 2,
+        "KillerName": "卡牌大师（电脑）"
+      },
+      {
+        "Assisters": [
+          "麦林炮手（电脑）"
+        ],
+        "EventID": 44,
+        "EventName": "TurretKilled",
+        "EventTime": 1011.1112060546875,
+        "KillerName": "众星之子（电脑）",
+        "TurretKilled": "Turret_TOrder_L0_P3_3795288474_0"
+      },
+      {
+        "Assisters": [
+          "卡牌大师（电脑）"
+        ],
+        "EventID": 45,
+        "EventName": "ChampionKill",
+        "EventTime": 1054.2152099609375,
+        "KillerName": "诺克萨斯之手（电脑）",
+        "VictimName": "暗夜猎手（电脑）"
+      },
+      {
+        "Assisters": [
+          "暗夜猎手（电脑）",
+          "荆棘之兴（电脑）",
+          "沙漠死神（电脑）"
+        ],
+        "EventID": 46,
+        "EventName": "ChampionKill",
+        "EventTime": 1060.95166015625,
+        "KillerName": "星籁歌姬（电脑）",
+        "VictimName": "卡牌大师（电脑）"
+      },
+      {
+        "Assisters": [],
+        "EventID": 47,
+        "EventName": "ChampionKill",
+        "EventTime": 1071.89013671875,
+        "KillerName": "你微笑时很靓",
+        "VictimName": "众星之子（电脑）"
+      },
+      {
+        "Assisters": [
+          "卡牌大师（电脑）",
+          "无极剑圣（电脑）"
+        ],
+        "EventID": 48,
+        "EventName": "ChampionKill",
+        "EventTime": 1073.494140625,
+        "KillerName": "诺克萨斯之手（电脑）",
+        "VictimName": "星籁歌姬（电脑）"
+      },
+      {
+        "Assisters": [
+          "荆棘之兴（电脑）",
+          "星籁歌姬（电脑）"
+        ],
+        "EventID": 49,
+        "EventName": "ChampionKill",
+        "EventTime": 1073.5555419921875,
+        "KillerName": "沙漠死神（电脑）",
+        "VictimName": "无极剑圣（电脑）"
+      },
+      {
+        "Assisters": [],
+        "EventID": 50,
+        "EventName": "ChampionKill",
+        "EventTime": 1075.6953125,
+        "KillerName": "诺克萨斯之手（电脑）",
+        "VictimName": "沙漠死神（电脑）"
+      },
+      {
+        "EventID": 51,
+        "EventName": "Multikill",
+        "EventTime": 1075.6953125,
+        "KillStreak": 2,
+        "KillerName": "诺克萨斯之手（电脑）"
+      },
+      {
+        "Assisters": [
+          "星籁歌姬（电脑）"
+        ],
+        "EventID": 52,
+        "EventName": "ChampionKill",
+        "EventTime": 1085.5550537109375,
+        "KillerName": "荆棘之兴（电脑）",
+        "VictimName": "诺克萨斯之手（电脑）"
+      },
+      {
+        "Assisters": [],
+        "EventID": 53,
+        "EventName": "ChampionKill",
+        "EventTime": 1126.303466796875,
+        "KillerName": "麦林炮手（电脑）",
+        "VictimName": "暗夜猎手（电脑）"
+      },
+      {
+        "Assisters": [
+          "众星之子（电脑）"
+        ],
+        "EventID": 54,
+        "EventName": "ChampionKill",
+        "EventTime": 1151.8138427734375,
+        "KillerName": "诺克萨斯之手（电脑）",
+        "VictimName": "沙漠死神（电脑）"
+      },
+      {
+        "Assisters": [],
+        "EventID": 55,
+        "EventName": "ChampionKill",
+        "EventTime": 1183.646240234375,
+        "KillerName": "你微笑时很靓",
+        "VictimName": "无极剑圣（电脑）"
+      },
+      {
+        "Assisters": [],
+        "EventID": 56,
+        "EventName": "ChampionKill",
+        "EventTime": 1192.6448974609375,
+        "KillerName": "麦林炮手（电脑）",
+        "VictimName": "暗夜猎手（电脑）"
+      },
+      {
+        "Assisters": [],
+        "EventID": 57,
+        "EventName": "ChampionKill",
+        "EventTime": 1230.235107421875,
+        "KillerName": "麦林炮手（电脑）",
+        "VictimName": "星籁歌姬（电脑）"
+      },
+      {
+        "Assisters": [
+          "众星之子（电脑）"
+        ],
+        "EventID": 58,
+        "EventName": "ChampionKill",
+        "EventTime": 1237.01220703125,
+        "KillerName": "麦林炮手（电脑）",
+        "VictimName": "沙漠死神（电脑）"
+      },
+      {
+        "EventID": 59,
+        "EventName": "Multikill",
+        "EventTime": 1237.01220703125,
+        "KillStreak": 2,
+        "KillerName": "麦林炮手（电脑）"
+      },
+      {
+        "Assisters": [],
+        "EventID": 60,
+        "EventName": "TurretKilled",
+        "EventTime": 1250.6802978515625,
+        "KillerName": "诺克萨斯之手（电脑）",
+        "TurretKilled": "Turret_TOrder_L2_P2_1526764315_0"
+      },
+      {
+        "Assisters": [
+          "卡牌大师（电脑）"
+        ],
+        "EventID": 61,
+        "EventName": "ChampionKill",
+        "EventTime": 1257.71826171875,
+        "KillerName": "麦林炮手（电脑）",
+        "VictimName": "荆棘之兴（电脑）"
+      },
+      {
+        "Assisters": [
+          "众星之子（电脑）"
+        ],
+        "EventID": 62,
+        "EventName": "ChampionKill",
+        "EventTime": 1262.7589111328125,
+        "KillerName": "麦林炮手（电脑）",
+        "VictimName": "暗夜猎手（电脑）"
+      },
+      {
+        "EventID": 63,
+        "EventName": "Multikill",
+        "EventTime": 1262.7589111328125,
+        "KillStreak": 2,
+        "KillerName": "麦林炮手（电脑）"
+      },
+      {
+        "Assisters": [],
+        "EventID": 64,
+        "EventName": "ChampionKill",
+        "EventTime": 1291.6600341796875,
+        "KillerName": "诺克萨斯之手（电脑）",
+        "VictimName": "你微笑时很靓"
+      },
+      {
+        "Assisters": [
+          "麦林炮手（电脑）"
+        ],
+        "DragonType": "Hextech",
+        "EventID": 65,
+        "EventName": "DragonKill",
+        "EventTime": 1297.5677490234375,
+        "KillerName": "无极剑圣（电脑）",
+        "Stolen": "False"
+      },
+      {
+        "Assisters": [],
+        "EventID": 66,
+        "EventName": "ChampionKill",
+        "EventTime": 1313.84326171875,
+        "KillerName": "星籁歌姬（电脑）",
+        "VictimName": "麦林炮手（电脑）"
+      },
+      {
+        "Assisters": [],
+        "EventID": 67,
+        "EventName": "ChampionKill",
+        "EventTime": 1345.6309814453125,
+        "KillerName": "诺克萨斯之手（电脑）",
+        "VictimName": "星籁歌姬（电脑）"
+      },
+      {
+        "Assisters": [
+          "荆棘之兴（电脑）"
+        ],
+        "EventID": 68,
+        "EventName": "ChampionKill",
+        "EventTime": 1360.883056640625,
+        "KillerName": "你微笑时很靓",
+        "VictimName": "众星之子（电脑）"
+      },
+      {
+        "Assisters": [
+          "沙漠死神（电脑）"
+        ],
+        "EventID": 69,
+        "EventName": "ChampionKill",
+        "EventTime": 1383.0579833984375,
+        "KillerName": "暗夜猎手（电脑）",
+        "VictimName": "卡牌大师（电脑）"
+      },
+      {
+        "Assisters": [
+          "众星之子（电脑）"
+        ],
+        "EventID": 70,
+        "EventName": "ChampionKill",
+        "EventTime": 1401.446044921875,
+        "KillerName": "诺克萨斯之手（电脑）",
+        "VictimName": "沙漠死神（电脑）"
+      },
+      {
+        "Assisters": [
+          "众星之子（电脑）"
+        ],
+        "EventID": 71,
+        "EventName": "ChampionKill",
+        "EventTime": 1404.3251953125,
+        "KillerName": "麦林炮手（电脑）",
+        "VictimName": "星籁歌姬（电脑）"
+      },
+      {
+        "Assisters": [
+          "诺克萨斯之手（电脑）",
+          "众星之子（电脑）"
+        ],
+        "EventID": 72,
+        "EventName": "ChampionKill",
+        "EventTime": 1405.9527587890625,
+        "KillerName": "无极剑圣（电脑）",
+        "VictimName": "暗夜猎手（电脑）"
+      },
+      {
+        "Assisters": [],
+        "EventID": 73,
+        "EventName": "TurretKilled",
+        "EventTime": 1417.7674560546875,
+        "KillerName": "麦林炮手（电脑）",
+        "TurretKilled": "Turret_TOrder_L0_P2_3812066093_0"
+      },
+      {
+        "Assisters": [],
+        "EventID": 74,
+        "EventName": "TurretKilled",
+        "EventTime": 1428.625244140625,
+        "KillerName": "无极剑圣（电脑）",
+        "TurretKilled": "Turret_TOrder_L1_P3_1242677625_0"
+      },
+      {
+        "Assisters": [],
+        "EventID": 75,
+        "EventName": "ChampionKill",
+        "EventTime": 1438.2591552734375,
+        "KillerName": "你微笑时很靓",
+        "VictimName": "卡牌大师（电脑）"
+      },
+      {
+        "Assisters": [],
+        "EventID": 76,
+        "EventName": "ChampionKill",
+        "EventTime": 1447.3460693359375,
+        "KillerName": "荆棘之兴（电脑）",
+        "VictimName": "无极剑圣（电脑）"
+      },
+      {
+        "Assisters": [
+          "星籁歌姬（电脑）"
+        ],
+        "EventID": 77,
+        "EventName": "ChampionKill",
+        "EventTime": 1456.08251953125,
+        "KillerName": "暗夜猎手（电脑）",
+        "VictimName": "众星之子（电脑）"
+      },
+      {
+        "Assisters": [],
+        "EventID": 78,
+        "EventName": "ChampionKill",
+        "EventTime": 1490.7989501953125,
+        "KillerName": "诺克萨斯之手（电脑）",
+        "VictimName": "你微笑时很靓"
+      },
+      {
+        "Assisters": [
+          "卡牌大师（电脑）",
+          "诺克萨斯之手（电脑）",
+          "众星之子（电脑）"
+        ],
+        "EventID": 79,
+        "EventName": "ChampionKill",
+        "EventTime": 1516.5400390625,
+        "KillerName": "无极剑圣（电脑）",
+        "VictimName": "荆棘之兴（电脑）"
+      },
+      {
+        "Assisters": [
+          "暗夜猎手（电脑）",
+          "荆棘之兴（电脑）",
+          "沙漠死神（电脑）"
+        ],
+        "EventID": 80,
+        "EventName": "ChampionKill",
+        "EventTime": 1519.174072265625,
+        "KillerName": "星籁歌姬（电脑）",
+        "VictimName": "无极剑圣（电脑）"
+      },
+      {
+        "Assisters": [
+          "暗夜猎手（电脑）",
+          "沙漠死神（电脑）"
+        ],
+        "EventID": 81,
+        "EventName": "ChampionKill",
+        "EventTime": 1520.4112548828125,
+        "KillerName": "星籁歌姬（电脑）",
+        "VictimName": "卡牌大师（电脑）"
+      },
+      {
+        "EventID": 82,
+        "EventName": "Multikill",
+        "EventTime": 1520.4112548828125,
+        "KillStreak": 2,
+        "KillerName": "星籁歌姬（电脑）"
+      },
+      {
+        "Assisters": [],
+        "EventID": 83,
+        "EventName": "TurretKilled",
+        "EventTime": 1528.374267578125,
+        "KillerName": "麦林炮手（电脑）",
+        "TurretKilled": "Turret_TOrder_L0_P1_3761733236_0"
+      },
+      {
+        "Assisters": [
+          "众星之子（电脑）"
+        ],
+        "EventID": 84,
+        "EventName": "ChampionKill",
+        "EventTime": 1548.5843505859375,
+        "KillerName": "麦林炮手（电脑）",
+        "VictimName": "沙漠死神（电脑）"
+      },
+      {
+        "Assisters": [
+          "麦林炮手（电脑）"
+        ],
+        "EventID": 85,
+        "EventName": "InhibKilled",
+        "EventTime": 1552.273193359375,
+        "InhibKilled": "Inhib_TOrder_L0_P1_2971077479_0",
+        "KillerName": "众星之子（电脑）"
+      },
+      {
+        "Assisters": [],
+        "EventID": 86,
+        "EventName": "ChampionKill",
+        "EventTime": 1570.8958740234375,
+        "KillerName": "麦林炮手（电脑）",
+        "VictimName": "荆棘之兴（电脑）"
+      },
+      {
+        "Assisters": [
+          "卡牌大师（电脑）",
+          "众星之子（电脑）"
+        ],
+        "EventID": 87,
+        "EventName": "ChampionKill",
+        "EventTime": 1623.8853759765625,
+        "KillerName": "无极剑圣（电脑）",
+        "VictimName": "沙漠死神（电脑）"
+      },
+      {
+        "Assisters": [
+          "暗夜猎手（电脑）",
+          "沙漠死神（电脑）",
+          "星籁歌姬（电脑）"
+        ],
+        "EventID": 88,
+        "EventName": "ChampionKill",
+        "EventTime": 1628.0283203125,
+        "KillerName": "你微笑时很靓",
+        "VictimName": "众星之子（电脑）"
+      },
+      {
+        "Assisters": [
+          "你微笑时很靓",
+          "暗夜猎手（电脑）",
+          "沙漠死神（电脑）"
+        ],
+        "EventID": 89,
+        "EventName": "ChampionKill",
+        "EventTime": 1638.129638671875,
+        "KillerName": "星籁歌姬（电脑）",
+        "VictimName": "卡牌大师（电脑）"
+      },
+      {
+        "Assisters": [
+          "星籁歌姬（电脑）"
+        ],
+        "EventID": 90,
+        "EventName": "TurretKilled",
+        "EventTime": 1646.401611328125,
+        "KillerName": "你微笑时很靓",
+        "TurretKilled": "Turret_TChaos_L1_P3_2254202041_0"
+      },
+      {
+        "Assisters": [],
+        "EventID": 91,
+        "EventName": "ChampionKill",
+        "EventTime": 1659.722412109375,
+        "KillerName": "麦林炮手（电脑）",
+        "VictimName": "荆棘之兴（电脑）"
+      },
+      {
+        "Assisters": [
+          "暗夜猎手（电脑）",
+          "荆棘之兴（电脑）"
+        ],
+        "EventID": 92,
+        "EventName": "ChampionKill",
+        "EventTime": 1661.9306640625,
+        "KillerName": "星籁歌姬（电脑）",
+        "VictimName": "麦林炮手（电脑）"
+      },
+      {
+        "Assisters": [],
+        "EventID": 93,
+        "EventName": "ChampionKill",
+        "EventTime": 1664.9461669921875,
+        "KillerName": "麦林炮手（电脑）",
+        "VictimName": "星籁歌姬（电脑）"
+      },
+      {
+        "EventID": 94,
+        "EventName": "Multikill",
+        "EventTime": 1664.9461669921875,
+        "KillStreak": 2,
+        "KillerName": "麦林炮手（电脑）"
+      },
+      {
+        "Assisters": [
+          "暗夜猎手（电脑）",
+          "沙漠死神（电脑）"
+        ],
+        "EventID": 95,
+        "EventName": "ChampionKill",
+        "EventTime": 1682.97119140625,
+        "KillerName": "你微笑时很靓",
+        "VictimName": "诺克萨斯之手（电脑）"
+      },
+      {
+        "Assisters": [
+          "卡牌大师（电脑）",
+          "众星之子（电脑）"
+        ],
+        "DragonType": "Hextech",
+        "EventID": 96,
+        "EventName": "DragonKill",
+        "EventTime": 1732.87890625,
+        "KillerName": "无极剑圣（电脑）",
+        "Stolen": "False"
+      },
+      {
+        "Assisters": [
+          "众星之子（电脑）"
+        ],
+        "EventID": 97,
+        "EventName": "ChampionKill",
+        "EventTime": 1749.70849609375,
+        "KillerName": "麦林炮手（电脑）",
+        "VictimName": "你微笑时很靓"
+      },
+      {
+        "Assisters": [],
+        "EventID": 98,
+        "EventName": "TurretKilled",
+        "EventTime": 1775.485107421875,
+        "KillerName": "卡牌大师（电脑）",
+        "TurretKilled": "Turret_TOrder_L1_P2_1225900006_0"
+      },
+      {
+        "Assisters": [
+          "暗夜猎手（电脑）",
+          "沙漠死神（电脑）",
+          "星籁歌姬（电脑）"
+        ],
+        "EventID": 99,
+        "EventName": "ChampionKill",
+        "EventTime": 1777.0057373046875,
+        "KillerName": "荆棘之兴（电脑）",
+        "VictimName": "麦林炮手（电脑）"
+      },
+      {
+        "Assisters": [],
+        "EventID": 100,
+        "EventName": "ChampionKill",
+        "EventTime": 1817.4022216796875,
+        "KillerName": "你微笑时很靓",
+        "VictimName": "众星之子（电脑）"
+      },
+      {
+        "Assisters": [
+          "众星之子（电脑）"
+        ],
+        "EventID": 101,
+        "EventName": "ChampionKill",
+        "EventTime": 1821.482421875,
+        "KillerName": "卡牌大师（电脑）",
+        "VictimName": "你微笑时很靓"
+      },
+      {
+        "Assisters": [],
+        "EventID": 102,
+        "EventName": "ChampionKill",
+        "EventTime": 1821.482421875,
+        "KillerName": "你微笑时很靓",
+        "VictimName": "卡牌大师（电脑）"
+      },
+      {
+        "EventID": 103,
+        "EventName": "Multikill",
+        "EventTime": 1821.482421875,
+        "KillStreak": 2,
+        "KillerName": "你微笑时很靓"
+      },
+      {
+        "EventID": 104,
+        "EventName": "InhibRespawned",
+        "EventTime": 1852.2347412109375,
+        "InhibRespawned": "Inhib_TOrder_L0_P1_2971077479_0"
+      },
+      {
+        "Assisters": [
+          "荆棘之兴（电脑）",
+          "星籁歌姬（电脑）"
+        ],
+        "EventID": 105,
+        "EventName": "ChampionKill",
+        "EventTime": 1880.064208984375,
+        "KillerName": "暗夜猎手（电脑）",
+        "VictimName": "诺克萨斯之手（电脑）"
+      },
+      {
+        "Assisters": [],
+        "EventID": 106,
+        "EventName": "InhibKilled",
+        "EventTime": 1892.57861328125,
+        "InhibKilled": "Inhib_TOrder_L0_P1_2971077479_0",
+        "KillerName": "麦林炮手（电脑）"
+      },
+      {
+        "Assisters": [
+          "众星之子（电脑）"
+        ],
+        "EventID": 107,
+        "EventName": "ChampionKill",
+        "EventTime": 1904.3529052734375,
+        "KillerName": "麦林炮手（电脑）",
+        "VictimName": "你微笑时很靓"
+      },
+      {
+        "Assisters": [
+          "荆棘之兴（电脑）",
+          "星籁歌姬（电脑）"
+        ],
+        "EventID": 108,
+        "EventName": "ChampionKill",
+        "EventTime": 1916.3232421875,
+        "KillerName": "暗夜猎手（电脑）",
+        "VictimName": "众星之子（电脑）"
+      },
+      {
+        "Assisters": [
+          "众星之子（电脑）"
+        ],
+        "EventID": 109,
+        "EventName": "ChampionKill",
+        "EventTime": 1916.580810546875,
+        "KillerName": "麦林炮手（电脑）",
+        "VictimName": "暗夜猎手（电脑）"
+      },
+      {
+        "Assisters": [
+          "荆棘之兴（电脑）",
+          "星籁歌姬（电脑）"
+        ],
+        "EventID": 110,
+        "EventName": "ChampionKill",
+        "EventTime": 1920.4586181640625,
+        "KillerName": "沙漠死神（电脑）",
+        "VictimName": "麦林炮手（电脑）"
+      },
+      {
+        "Assisters": [],
+        "EventID": 111,
+        "EventName": "TurretKilled",
+        "EventTime": 1937.878173828125,
+        "KillerName": "卡牌大师（电脑）",
+        "TurretKilled": "Turret_TOrder_L1_P1_1209122387_0"
+      },
+      {
+        "Assisters": [
+          "荆棘之兴（电脑）"
+        ],
+        "EventID": 112,
+        "EventName": "ChampionKill",
+        "EventTime": 1946.96923828125,
+        "KillerName": "沙漠死神（电脑）",
+        "VictimName": "卡牌大师（电脑）"
+      },
+      {
+        "Assisters": [
+          "卡牌大师（电脑）"
+        ],
+        "EventID": 113,
+        "EventName": "ChampionKill",
+        "EventTime": 1950.9815673828125,
+        "KillerName": "无极剑圣（电脑）",
+        "VictimName": "荆棘之兴（电脑）"
+      },
+      {
+        "Assisters": [],
+        "EventID": 114,
+        "EventName": "ChampionKill",
+        "EventTime": 1955.3797607421875,
+        "KillerName": "诺克萨斯之手（电脑）",
+        "VictimName": "星籁歌姬（电脑）"
+      },
+      {
+        "Assisters": [],
+        "EventID": 115,
+        "EventName": "ChampionKill",
+        "EventTime": 1971.972900390625,
+        "KillerName": "诺克萨斯之手（电脑）",
+        "VictimName": "暗夜猎手（电脑）"
+      },
+      {
+        "Assisters": [],
+        "EventID": 116,
+        "EventName": "ChampionKill",
+        "EventTime": 1977.2188720703125,
+        "KillerName": "沙漠死神（电脑）",
+        "VictimName": "无极剑圣（电脑）"
+      },
+      {
+        "Assisters": [],
+        "EventID": 117,
+        "EventName": "ChampionKill",
+        "EventTime": 1977.75244140625,
+        "KillerName": "诺克萨斯之手（电脑）",
+        "VictimName": "你微笑时很靓"
+      },
+      {
+        "EventID": 118,
+        "EventName": "Multikill",
+        "EventTime": 1977.75244140625,
+        "KillStreak": 2,
+        "KillerName": "诺克萨斯之手（电脑）"
+      },
+      {
+        "Assisters": [
+          "众星之子（电脑）"
+        ],
+        "EventID": 119,
+        "EventName": "ChampionKill",
+        "EventTime": 1985.244384765625,
+        "KillerName": "麦林炮手（电脑）",
+        "VictimName": "沙漠死神（电脑）"
+      },
+      {
+        "Acer": "麦林炮手（电脑）",
+        "AcingTeam": "CHAOS",
+        "EventID": 120,
+        "EventName": "Ace",
+        "EventTime": 1985.244384765625
+      },
+      {
+        "Assisters": [],
+        "EventID": 121,
+        "EventName": "TurretKilled",
+        "EventTime": 1997.827880859375,
+        "KillerName": "Minion_T200L0S72N0435",
+        "TurretKilled": "Turret_TOrder_L1_P4_3675873665_0"
+      }
+    ]
+  },
+  "gameData": {
+    "gameMode": "CLASSIC",
+    "gameTime": 2000.5400390625,
+    "mapName": "Map11",
+    "mapNumber": 11,
+    "mapTerrain": "Default"
+  }
+}

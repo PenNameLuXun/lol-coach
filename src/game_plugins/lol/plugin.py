@@ -181,7 +181,9 @@ class LolPlugin:
 
     def evaluate_rules(self, state: GameState) -> list[RuleResult]:
         rules = evaluate_lol_rules(state)
-        champion = str(state.metrics.get("champion", ""))
+        # Prefer the language-agnostic English name (from rawChampionName) so that
+        # champion YAML files are matched by filename regardless of client language.
+        champion = str(state.metrics.get("champion_en") or state.metrics.get("champion", ""))
         if champion:
             rules.extend(self._champion_rules.evaluate(champion, state))
         return rules

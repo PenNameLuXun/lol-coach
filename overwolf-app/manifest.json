@@ -1,0 +1,39 @@
+{
+  "manifest_version": 1,
+  "type": "WebApp",
+  "meta": {
+    "name": "lol-coach TFT Bridge",
+    "version": "1.0.0",
+    "minimum-overwolf-version": "0.220.0",
+    "author": "lol-coach",
+    "description": "Bridges Overwolf TFT Game Events to lol-coach Python app via WebSocket"
+  },
+  "permissions": [
+    "Extensions",
+    "Hotkeys",
+    "GameInfo",
+    "GameControl"
+  ],
+  "game_events": [
+    5425
+  ],
+  "data": {
+    "game_events": [
+      {
+        "game_ids": [5425],
+        "features": ["me", "match_info", "board", "store", "bench", "roster"]
+      }
+    ],
+    "windows": {
+      "background": {
+        "file": "background.html",
+        "show_in_taskbar": false,
+        "transparent": true,
+        "resizable": false,
+        "size": { "width": 0, "height": 0 },
+        "min_size": { "width": 0, "height": 0 }
+      }
+    },
+    "start_window": "background"
+  }
+}
