@@ -49,7 +49,7 @@ rules:
   - id: jinx_pickaxe_recall
     priority: 73
     cooldown: 90
-    message: "攒了一些金币，可以考虑回城出十字镐过渡。"
+    message: "攒了一些金币，可以考虑回城出小件过渡。"
     tags: [economy, recall]
     when:
       gold:
@@ -59,19 +59,29 @@ rules:
       hp_pct: "<= 60"
       is_dead: false
 
-  # ── 装备节点 ──────────────────────────────────────────────
-  - id: jinx_has_kraken
-    priority: 86
+  # ── 装备节点 (Patch 26.7: Phantom Dancer → IE) ──────────
+  - id: jinx_has_phantom_dancer
+    priority: 84
     cooldown: 300
-    message: "海妖杀手到手，攻速和伤害大幅提升，自信对拼吧。"
+    message: "幻影之舞到手，攻速暴击和移速都有了，对拼能力大幅增强。"
     tags: [powerspike, item]
     when:
-      items_lower: "contains kraken"
+      items_lower: "contains phantom dancer"
+      hp_pct: ">= 40"
+      is_dead: false
+
+  - id: jinx_has_ie
+    priority: 88
+    cooldown: 300
+    message: "无尽之刃成型，金克丝团战伤害爆炸，跟队友找大团。"
+    tags: [powerspike, item]
+    when:
+      items_lower: "contains infinity edge"
       hp_pct: ">= 40"
       is_dead: false
 
   - id: jinx_has_runaan
-    priority: 84
+    priority: 83
     cooldown: 300
     message: "飓风成型，火箭炮团战AOE能力质变，多打团战。"
     tags: [powerspike, item]
@@ -81,13 +91,25 @@ rules:
       hp_pct: ">= 40"
       is_dead: false
 
+  - id: jinx_has_ldr
+    priority: 80
+    cooldown: 300
+    message: "穿甲弓到手，对面坦克不再难打了。"
+    tags: [powerspike, item]
+    when:
+      items_lower: "contains lord dominik"
+      hp_pct: ">= 40"
+      is_dead: false
+
   - id: jinx_no_boots_warning
     priority: 74
     cooldown: 120
     message: "还没出鞋子，金克丝本身没位移，没鞋更容易被抓。"
     tags: [economy, item]
     when:
-      items_lower: "not_contains boots"
+      items_lower:
+        - "not_contains greaves"
+        - "not_contains boots"
       game_minutes: ">= 10"
       item_count: ">= 2"
       is_dead: false
@@ -101,6 +123,18 @@ rules:
     when:
       enemy_dead: ">= 1"
       hp_pct: ">= 30"
+      is_dead: false
+
+  # ── 符文相关 (Lethal Tempo) ──────────────────────────────
+  - id: jinx_lethal_tempo_tip
+    priority: 66
+    cooldown: 120
+    message: "致命节奏叠满后攻速极高，团战保持安全距离持续输出。"
+    tags: [teamfight, rune]
+    when:
+      keystone: "Lethal Tempo"
+      game_minutes: ">= 12"
+      hp_pct: ">= 40"
       is_dead: false
 
   # ── 团战定位 ──────────────────────────────────────────────
@@ -125,6 +159,17 @@ rules:
       item_count: ">= 4"
       hp_pct: ">= 45"
       game_minutes: ">= 22"
+      is_dead: false
+
+  # ── 龙魂争夺 ──────────────────────────────────────────────
+  - id: jinx_dragon_soul_fight
+    priority: 89
+    cooldown: 180
+    message: "龙魂节点，金克丝大招可以远程抢龙，提前站好位置。"
+    tags: [objective, dragon]
+    when:
+      dragon_count: ">= 3"
+      hp_pct: ">= 35"
       is_dead: false
 
   # ── 防守意识 ──────────────────────────────────────────────
@@ -181,5 +226,16 @@ rules:
     when:
       kills: ">= 5"
       deaths: "<= 2"
+      game_minutes: ">= 10"
+      is_dead: false
+
+  # ── 视野 ──────────────────────────────────────────────────
+  - id: jinx_low_vision
+    priority: 60
+    cooldown: 120
+    message: "视野不够，ADC被gank风险高，提醒辅助插眼或自己买控制守卫。"
+    tags: [vision, defensive]
+    when:
+      ward_score: "<= 3"
       game_minutes: ">= 10"
       is_dead: false

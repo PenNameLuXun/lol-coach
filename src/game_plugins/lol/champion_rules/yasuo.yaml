@@ -26,20 +26,6 @@ rules:
       hp_pct: ">= 45"
       is_dead: false
 
-  - id: yasuo_powerspike_botrk
-    priority: 83
-    cooldown: 180
-    message: "出了第一件大件是强势期，主动找对方换血拉扯。"
-    tags: [powerspike, trade]
-    when:
-      level:
-        - ">= 7"
-        - "<= 11"
-      gold: "<= 300"
-      game_minutes: "<= 18"
-      hp_pct: ">= 50"
-      is_dead: false
-
   # ── 风墙意识 ──────────────────────────────────────────────
   - id: yasuo_windwall_reminder
     priority: 68
@@ -54,10 +40,10 @@ rules:
       is_dead: false
 
   # ── 经济决策 ──────────────────────────────────────────────
-  - id: yasuo_crit_recall
+  - id: yasuo_botrk_recall
     priority: 82
     cooldown: 90
-    message: "攒够暴击装的钱了，找机会推完线快速回城。"
+    message: "攒够钱出破败了，找机会推完线快速回城。"
     tags: [economy, recall]
     when:
       gold: ">= 1300"
@@ -65,10 +51,10 @@ rules:
       game_minutes: "<= 22"
       is_dead: false
 
-  - id: yasuo_zeal_spike
+  - id: yasuo_recurve_recall
     priority: 78
     cooldown: 90
-    message: "够买攻速暴击小件了，回城出了后对线压力大增。"
+    message: "够买攻速小件了，回城出了后对线压力大增。"
     tags: [economy, recall]
     when:
       gold:
@@ -77,11 +63,31 @@ rules:
       game_minutes: "<= 15"
       is_dead: false
 
-  # ── 装备节点 ──────────────────────────────────────────────
-  - id: yasuo_has_ie
+  # ── 装备节点 (Patch 26.7: BotRK → Shieldbow → IE) ───────
+  - id: yasuo_has_botrk
     priority: 86
     cooldown: 300
-    message: "无尽之刃到手，暴击伤害大幅提升，可以更积极地找战机。"
+    message: "破败到手，百分比伤害加减速，主动找对方换血拉扯。"
+    tags: [powerspike, item]
+    when:
+      items_lower: "contains ruined king"
+      hp_pct: ">= 40"
+      is_dead: false
+
+  - id: yasuo_has_shieldbow
+    priority: 85
+    cooldown: 300
+    message: "不灭盾弓成型，低血量时有护盾保命，可以更大胆对拼。"
+    tags: [powerspike, item]
+    when:
+      items_lower: "contains shieldbow"
+      hp_pct: ">= 35"
+      is_dead: false
+
+  - id: yasuo_has_ie
+    priority: 88
+    cooldown: 300
+    message: "无尽之刃到手，100%暴击成型，这是亚索最强的时间段！"
     tags: [powerspike, item]
     when:
       items_lower: "contains infinity edge"
@@ -94,7 +100,9 @@ rules:
     message: "还没出鞋子，移速劣势明显，优先回城补鞋。"
     tags: [economy, item]
     when:
-      items_lower: "not_contains boots"
+      items_lower:
+        - "not_contains greaves"
+        - "not_contains boots"
       game_minutes: ">= 10"
       item_count: ">= 2"
       is_dead: false
@@ -108,6 +116,20 @@ rules:
     when:
       has_flash: false
       game_minutes: ">= 3"
+      is_dead: false
+
+  # ── 符文相关 (Lethal Tempo) ──────────────────────────────
+  - id: yasuo_lethal_tempo_stack
+    priority: 66
+    cooldown: 120
+    message: "致命节奏需要持续普攻叠满，短打不如长打，拉扯别怂。"
+    tags: [trade, rune]
+    when:
+      keystone: "Lethal Tempo"
+      level:
+        - ">= 3"
+        - "<= 12"
+      hp_pct: ">= 45"
       is_dead: false
 
   # ── 团战 / 中后期 ────────────────────────────────────────
@@ -125,9 +147,10 @@ rules:
   - id: yasuo_two_item_spike
     priority: 80
     cooldown: 180
-    message: "两件暴击装100%暴击成型，这是你最强的时间段，主动找团。"
+    message: "两件套成型，亚索战斗力巅峰期，主动找团。"
     tags: [powerspike, fight]
     when:
+      item_count: ">= 3"
       level:
         - ">= 11"
         - "<= 15"
@@ -143,6 +166,17 @@ rules:
       level: ">= 16"
       game_minutes: ">= 28"
       hp_pct: ">= 55"
+      is_dead: false
+
+  # ── 龙魂争夺 ──────────────────────────────────────────────
+  - id: yasuo_dragon_soul_teamfight
+    priority: 89
+    cooldown: 180
+    message: "龙魂节点，亚索大招在龙坑团战中非常关键，跟队伍一起争夺。"
+    tags: [objective, dragon]
+    when:
+      dragon_count: ">= 3"
+      hp_pct: ">= 40"
       is_dead: false
 
   # ── 劣势局 ──────────────────────────────────────────────
@@ -166,4 +200,15 @@ rules:
     when:
       deaths: ">= 4"
       game_minutes: "<= 20"
+      is_dead: false
+
+  - id: yasuo_carrying
+    priority: 74
+    cooldown: 120
+    message: "你在carry，注意保命，有破败和盾弓的亚索团战输出极高。"
+    tags: [positioning, carry]
+    when:
+      kills: ">= 5"
+      deaths: "<= 2"
+      game_minutes: ">= 10"
       is_dead: false

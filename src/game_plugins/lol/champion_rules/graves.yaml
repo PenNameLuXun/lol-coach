@@ -1,0 +1,252 @@
+champion: Graves
+tags: [marksman, jungler, bruiser]
+
+rules:
+  # ── 前期打野 ──────────────────────────────────────────────
+  - id: graves_early_clear
+    priority: 70
+    cooldown: 120
+    message: "格雷福斯前期清野极快，优先刷满一轮野再考虑gank。"
+    tags: [farm, jungle]
+    when:
+      level:
+        - ">= 1"
+        - "<= 3"
+      game_minutes: "<= 4"
+      position: "JUNGLE"
+      is_dead: false
+
+  - id: graves_wall_q_reminder
+    priority: 68
+    cooldown: 90
+    message: "Q技能碰到墙壁会立即爆炸双段伤害，打架尽量靠墙施放。"
+    tags: [ability, trade]
+    when:
+      level: ">= 2"
+      game_minutes: "<= 15"
+      hp_pct: ">= 30"
+      is_dead: false
+
+  - id: graves_powerspike_6
+    priority: 85
+    cooldown: 180
+    message: "6级大招就绪，R的爆发伤害很高，可以主动入侵敌方野区或gank。"
+    tags: [powerspike, fight]
+    when:
+      level: "== 6"
+      hp_pct: ">= 45"
+      is_dead: false
+
+  # ── E被动层数意识 ────────────────────────────────────────
+  - id: graves_e_stack_trade
+    priority: 72
+    cooldown: 90
+    message: "E叠满层数后护甲很高，有层数时可以更自信地正面对拼。"
+    tags: [trade, ability]
+    when:
+      level:
+        - ">= 3"
+        - "<= 10"
+      hp_pct: ">= 45"
+      game_minutes: "<= 15"
+      is_dead: false
+
+  # ── 经济与回城 ────────────────────────────────────────────
+  - id: graves_dirk_recall
+    priority: 82
+    cooldown: 90
+    message: "够买锯齿短匕了，回城出了后穿透伤害质变，gank成功率大增。"
+    tags: [economy, recall]
+    when:
+      gold: ">= 1100"
+      game_minutes: "<= 12"
+      is_dead: false
+
+  - id: graves_big_item_recall
+    priority: 83
+    cooldown: 90
+    message: "金币足够出大件了，赶紧回城更新装备再打。"
+    tags: [economy, recall]
+    when:
+      gold: ">= 1300"
+      game_minutes: "<= 20"
+      is_dead: false
+
+  # ── 装备节点 (Patch 26.7: Hubris → Collector → LDR) ─────
+  - id: graves_has_hubris
+    priority: 86
+    cooldown: 300
+    message: "Hubris到手，击杀后AD加成滚雪球，积极找机会拿人头。"
+    tags: [powerspike, item]
+    when:
+      items_lower: "contains hubris"
+      hp_pct: ">= 40"
+      is_dead: false
+
+  - id: graves_has_collector
+    priority: 84
+    cooldown: 300
+    message: "收集者成型，低血量敌人会被斩杀，大招收割更稳。"
+    tags: [powerspike, item]
+    when:
+      items_lower: "contains collector"
+      hp_pct: ">= 40"
+      is_dead: false
+
+  - id: graves_has_ldr
+    priority: 82
+    cooldown: 300
+    message: "穿甲弓到手，对坦克伤害大幅提升，别怕打前排了。"
+    tags: [powerspike, item]
+    when:
+      items_lower: "contains lord dominik"
+      hp_pct: ">= 40"
+      is_dead: false
+
+  - id: graves_no_boots_warning
+    priority: 74
+    cooldown: 120
+    message: "还没出鞋子，格雷福斯靠走位吃伤害，没鞋影响很大。"
+    tags: [economy, item]
+    when:
+      items_lower:
+        - "not_contains boots"
+        - "not_contains steelcaps"
+        - "not_contains treads"
+      game_minutes: ">= 10"
+      item_count: ">= 2"
+      is_dead: false
+
+  # ── 野区控制 ──────────────────────────────────────────────
+  - id: graves_invade_advantage
+    priority: 78
+    cooldown: 90
+    message: "格雷福斯1v1很强，敌方打野出现在地图另一侧时可以反野。"
+    tags: [jungle, macro]
+    when:
+      level: ">= 4"
+      hp_pct: ">= 55"
+      enemy_dead: "== 0"
+      game_minutes: "<= 20"
+      is_dead: false
+
+  - id: graves_dragon_solo
+    priority: 80
+    cooldown: 120
+    message: "格雷福斯可以单刷龙，确认敌方打野位置后偷龙。"
+    tags: [objective, jungle]
+    when:
+      level: ">= 5"
+      hp_pct: ">= 60"
+      item_count: ">= 1"
+      game_minutes:
+        - ">= 5"
+        - "<= 25"
+      is_dead: false
+
+  # ── 龙魂争夺 ──────────────────────────────────────────────
+  - id: graves_dragon_soul_fight
+    priority: 90
+    cooldown: 180
+    message: "龙魂节点，格雷福斯要提前控制龙坑视野，利用地形Q打伤害。"
+    tags: [objective, dragon]
+    when:
+      dragon_count: ">= 3"
+      hp_pct: ">= 40"
+      is_dead: false
+
+  # ── 团战定位 ──────────────────────────────────────────────
+  - id: graves_teamfight_flank
+    priority: 76
+    cooldown: 120
+    message: "团战可以绕侧翼突脸后排，E进场叠护甲硬吃伤害。"
+    tags: [teamfight, positioning]
+    when:
+      game_minutes: ">= 15"
+      hp_pct: ">= 45"
+      ally_dead: "<= 1"
+      is_dead: false
+
+  - id: graves_two_item_spike
+    priority: 80
+    cooldown: 180
+    message: "两件套成型，格雷福斯中期战斗力巅峰，主动找团战。"
+    tags: [powerspike, fight]
+    when:
+      item_count: ">= 3"
+      level:
+        - ">= 10"
+        - "<= 15"
+      hp_pct: ">= 50"
+      is_dead: false
+
+  - id: graves_smoke_screen_tip
+    priority: 65
+    cooldown: 150
+    message: "团战记得用W烟雾弹限制敌方ADC视野，效果极好。"
+    tags: [teamfight, ability]
+    when:
+      game_minutes: ">= 18"
+      hp_pct: ">= 35"
+      is_dead: false
+
+  # ── 召唤师技能 ────────────────────────────────────────────
+  - id: graves_no_flash_caution
+    priority: 77
+    cooldown: 120
+    message: "没有闪现，虽然有E位移但被控住就跑不掉，别太莽。"
+    tags: [positioning, defensive]
+    when:
+      has_flash: false
+      game_minutes: ">= 3"
+      is_dead: false
+
+  # ── KDA 相关 ──────────────────────────────────────────────
+  - id: graves_feeding_farm
+    priority: 87
+    cooldown: 120
+    message: "死亡较多，先回野区刷野发育，别强行gank送人头。"
+    tags: [farm, recovery]
+    when:
+      deaths: ">= 4"
+      game_minutes: "<= 20"
+      is_dead: false
+
+  - id: graves_snowballing
+    priority: 76
+    cooldown: 120
+    message: "你已经滚起雪球了，继续压制对面打野，扩大野区控制。"
+    tags: [jungle, carry]
+    when:
+      kills: ">= 4"
+      deaths: "<= 1"
+      game_minutes: "<= 18"
+      hp_pct: ">= 50"
+      is_dead: false
+
+  # ── 后期 ──────────────────────────────────────────────────
+  - id: graves_late_game_burst
+    priority: 72
+    cooldown: 120
+    message: "后期格雷福斯一套秒脆皮，找机会先手R+Q爆发带走一个。"
+    tags: [fight, positioning]
+    when:
+      level: ">= 16"
+      game_minutes: ">= 28"
+      hp_pct: ">= 50"
+      item_count: ">= 5"
+      is_dead: false
+
+  # ── 符文相关 (Dark Harvest) ──────────────────────────────
+  - id: graves_dark_harvest_execute
+    priority: 73
+    cooldown: 90
+    message: "黑暗收割层数越多后期越强，多参与击杀叠层。"
+    tags: [trade, rune]
+    when:
+      keystone: "Dark Harvest"
+      game_minutes:
+        - ">= 5"
+        - "<= 20"
+      hp_pct: ">= 40"
+      is_dead: false
